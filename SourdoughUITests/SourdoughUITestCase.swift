@@ -63,6 +63,17 @@ class SourdoughUITestCase: XCTestCase {
 
     func next() { tapButton("wizard-next") }
 
+    /// Waits for the title to change: a pushed page slides in while the old
+    /// title is still on screen.
+    func assertTitle(_ expected: String, line: UInt = #line) {
+        let title = element(app.staticTexts, "tips-title")
+        let done = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "label == %@", expected), object: title)
+        XCTAssertEqual(XCTWaiter().wait(for: [done], timeout: 5), .completed,
+                       "Titel ist nicht \(expected).", line: line)
+    }
+
+
     func assertStep(_ title: String, line: UInt = #line) {
         XCTAssertTrue(app.navigationBars[title].firstMatch.waitForExistence(timeout: 5),
                       "Schritt \(title) fehlt.", line: line)

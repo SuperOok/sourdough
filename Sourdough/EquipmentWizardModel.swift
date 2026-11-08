@@ -8,6 +8,16 @@ final class EquipmentWizardModel {
     enum Step: Int, CaseIterable {
         case kneader, pot, loafPan, basket
 
+        /// The tips page that belongs to this step.
+        var tip: TipsTopic.ID {
+            switch self {
+            case .kneader: .kneader
+            case .pot: .pot
+            case .loafPan: .pan
+            case .basket: .basket
+            }
+        }
+
         var title: String {
             switch self {
             case .kneader: "Küchenmaschine"

@@ -12,6 +12,8 @@ final class EquipmentWizardTests: SourdoughUITestCase {
     func testNothingIsSetUpAtFirst() {
         start()
         XCTAssertEqual(text("equipment-empty").label, "Noch nichts eingerichtet.")
+        // Nothing is known to be missing before the first setup.
+        XCTAssertFalse(app.staticTexts["missing-pot"].exists)
     }
 
     func testTheWizardWalksThroughFourStepsAndBack() {
@@ -63,6 +65,11 @@ final class EquipmentWizardTests: SourdoughUITestCase {
                        "Kastenform aus Blech, ohne Deckel, ohne Silikoneinlage")
         XCTAssertFalse(app.staticTexts["equipment-kneader"].exists)
         XCTAssertFalse(app.staticTexts["equipment-basket"].exists)
+        // What is not owned moves to the other list.
+        XCTAssertEqual(text("missing-kneader").label, "Küchenmaschine mit Knetfunktion")
+        XCTAssertEqual(text("missing-basket").label, "Gärkörbchen")
+        XCTAssertFalse(app.staticTexts["missing-pot"].exists)
+        XCTAssertFalse(app.staticTexts["missing-pan"].exists)
     }
 
     func testSavingWithNothingOwnedIsRememberedAsSetUp() {

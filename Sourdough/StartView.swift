@@ -3,9 +3,10 @@ import SwiftUI
 /// The start screen: a hero picture and the ways into the app.
 struct StartView: View {
     let store: EquipmentStore
+    @State private var showTips = false
 
     enum Destination: Hashable {
-        case calculator, equipment
+        case equipment
     }
 
     var body: some View {
@@ -13,17 +14,21 @@ struct StartView: View {
             ScrollView {
                 VStack(spacing: 16) {
                     hero
-                    option("Teig berechnen", subtitle: "Hydration und Mengen",
-                           symbol: "scalemass", destination: .calculator, id: "start-calculator")
                     option("Meine Backutensilien", subtitle: store.startSubtitle,
                            symbol: "frying.pan", destination: .equipment, id: "start-equipment")
+                    Button { showTips = true } label: {
+                        card("Tipps und Tricks", subtitle: "Hilfe zu Utensilien und mehr",
+                             symbol: "lightbulb")
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("start-tips")
                 }
                 .padding(.horizontal, 16)
             }
             .navigationTitle("Sourdough")
+            .sheet(isPresented: $showTips) { TipsView(initial: nil) }
             .navigationDestination(for: Destination.self) { destination in
                 switch destination {
-                case .calculator: CalculatorView()
                 case .equipment: EquipmentOverviewView(store: store)
                 }
             }
@@ -55,30 +60,34 @@ struct StartView: View {
     private func option(_ title: String, subtitle: String, symbol: String,
                         destination: Destination, id: String) -> some View {
         NavigationLink(value: destination) {
-            HStack(spacing: 16) {
-                Image(systemName: symbol)
-                    .font(.title2)
-                    .frame(width: 32)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title).font(.headline)
-                    Text(subtitle).font(.subheadline).foregroundStyle(.secondary)
-                }
-                Spacer()
-                Image(systemName: "chevron.right").foregroundStyle(.tertiary)
-            }
-            .padding()
-            .frame(maxWidth: .infinity)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+            card(title, subtitle: subtitle, symbol: symbol)
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier(id)
+    }
+
+    private func card(_ title: String, subtitle: String, symbol: String) -> some View {
+        HStack(spacing: 16) {
+            Image(systemName: symbol)
+                .font(.title2)
+                .frame(width: 32)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(.headline)
+                Text(subtitle).font(.subheadline).foregroundStyle(.secondary)
+            }
+            Spacer()
+            Image(systemName: "chevron.right").foregroundStyle(.tertiary)
+        }
+        .padding()
+        .frame(maxWidth: .infinity)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
     }
 }
 
 extension EquipmentStore {
     /// The line under "Meine Backutensilien" on the start screen.
     var startSubtitle: String {
-        isConfigured ? "Eingerichtet – ansehen oder ändern" : "Noch nicht eingerichtet"
+        isConfigured ? "Eingerichtet" : "Noch nicht eingerichtet"
     }
 }
 

@@ -9,7 +9,7 @@ struct EquipmentTextTests {
 
     @Test func kneadingMachine() {
         #expect(Equipment(hasKneadingMachine: true).lines ==
-                [EquipmentLine(id: "kneader", text: "Küchenmaschine mit Knetfunktion")])
+                [EquipmentLine(topic: .kneader, text: "Küchenmaschine mit Knetfunktion")])
     }
 
     @Test func potWithAndWithoutLiner() {
@@ -28,13 +28,40 @@ struct EquipmentTextTests {
 
     @Test func provingBasket() {
         #expect(Equipment(hasProvingBasket: true).lines ==
-                [EquipmentLine(id: "basket", text: "Gärkörbchen")])
+                [EquipmentLine(topic: .basket, text: "Gärkörbchen")])
     }
 
     @Test func linesFollowTheOrderOfTheWizard() {
         let all = Equipment(hasKneadingMachine: true, pot: .init(), loafPan: .init(),
                             hasProvingBasket: true)
         #expect(all.lines.map(\.id) == ["kneader", "pot", "pan", "basket"])
+    }
+
+    @Test func everythingMissingWhenNothingIsOwned() {
+        #expect(Equipment().missingLines.map(\.text) ==
+                ["Küchenmaschine mit Knetfunktion", "Bräter/Römertopf", "Kastenform", "Gärkörbchen"])
+        #expect(Equipment().missingLines.map(\.id) == ["kneader", "pot", "pan", "basket"])
+    }
+
+    @Test func nothingMissingWhenEverythingIsOwned() {
+        let all = Equipment(hasKneadingMachine: true, pot: .init(), loafPan: .init(),
+                            hasProvingBasket: true)
+        #expect(all.missingLines.isEmpty)
+    }
+
+    @Test func eachItemIsEitherOwnedOrMissing() {
+        let some = Equipment(hasKneadingMachine: true, loafPan: .init())
+        #expect(some.lines.map(\.id) == ["kneader", "pan"])
+        #expect(some.missingLines.map(\.id) == ["pot", "basket"])
+        let others = Equipment(pot: .init(), hasProvingBasket: true)
+        #expect(others.lines.map(\.id) == ["pot", "basket"])
+        #expect(others.missingLines.map(\.id) == ["kneader", "pan"])
+    }
+
+    @Test func lineIdsAreTheTipsTopicIds() {
+        let all = Equipment(hasKneadingMachine: true, pot: .init(), loafPan: .init(),
+                            hasProvingBasket: true)
+        #expect(all.lines.map(\.topic) == TipsTopic.ID.allCases)
     }
 
     @Test func materialNames() {

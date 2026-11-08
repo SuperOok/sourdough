@@ -1,9 +1,12 @@
 import SourdoughKit
 
-/// One owned item as shown to the user. `id` is stable for tests.
+/// One item as shown to the user. The id is the one of its tips topic and
+/// stable for tests.
 struct EquipmentLine: Equatable, Identifiable {
-    let id: String
+    let topic: TipsTopic.ID
     let text: String
+
+    var id: String { topic.rawValue }
 }
 
 extension Equipment {
@@ -11,11 +14,11 @@ extension Equipment {
     var lines: [EquipmentLine] {
         var result: [EquipmentLine] = []
         if hasKneadingMachine {
-            result.append(EquipmentLine(id: "kneader", text: "Küchenmaschine mit Knetfunktion"))
+            result.append(EquipmentLine(topic: .kneader, text: "Küchenmaschine mit Knetfunktion"))
         }
         if let pot {
             result.append(EquipmentLine(
-                id: "pot",
+                topic: .pot,
                 text: "Bräter/Römertopf \(Self.withOrWithout(pot.hasSiliconeLiner)) Silikoneinlage"))
         }
         if let loafPan {
@@ -23,12 +26,24 @@ extension Equipment {
             let lid = Self.withOrWithout(loafPan.hasLid)
             let liner = Self.withOrWithout(loafPan.hasSiliconeLiner)
             result.append(EquipmentLine(
-                id: "pan",
+                topic: .pan,
                 text: "Kastenform aus \(material), \(lid) Deckel, \(liner) Silikoneinlage"))
         }
         if hasProvingBasket {
-            result.append(EquipmentLine(id: "basket", text: "Gärkörbchen"))
+            result.append(EquipmentLine(topic: .basket, text: "Gärkörbchen"))
         }
+        return result
+    }
+
+    /// What is not owned yet, in the order of the wizard, without variants.
+    var missingLines: [EquipmentLine] {
+        var result: [EquipmentLine] = []
+        if !hasKneadingMachine {
+            result.append(EquipmentLine(topic: .kneader, text: "Küchenmaschine mit Knetfunktion"))
+        }
+        if pot == nil { result.append(EquipmentLine(topic: .pot, text: "Bräter/Römertopf")) }
+        if loafPan == nil { result.append(EquipmentLine(topic: .pan, text: "Kastenform")) }
+        if !hasProvingBasket { result.append(EquipmentLine(topic: .basket, text: "Gärkörbchen")) }
         return result
     }
 

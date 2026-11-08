@@ -27,6 +27,9 @@ struct EquipmentWizardView: View {
                     Button("Abbrechen") { dismiss() }
                         .accessibilityIdentifier("wizard-cancel")
                 }
+                ToolbarItem(placement: .primaryAction) {
+                    TipsButton(topic: model.step.tip, identifier: "wizard-tips")
+                }
             }
             .safeAreaInset(edge: .bottom) { navigation }
         }

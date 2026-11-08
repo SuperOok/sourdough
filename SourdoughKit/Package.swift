@@ -12,7 +12,8 @@ let package = Package(
         .library(name: "SourdoughKit", targets: ["SourdoughKit"]),
     ],
     targets: [
-        .target(name: "SourdoughKit"),
+        // The tips and tricks texts are Markdown files in `Sources/SourdoughKit/Tips`.
+        .target(name: "SourdoughKit", resources: [.copy("Tips")]),
         .testTarget(name: "SourdoughKitTests", dependencies: ["SourdoughKit"]),
     ]
 )

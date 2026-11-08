@@ -34,10 +34,48 @@ final class EquipmentSavedTests: SourdoughUITestCase {
         XCTAssertFalse(app.staticTexts["equipment-empty"].exists)
 
         relaunch()
-        XCTAssertTrue(app.staticTexts["Eingerichtet – ansehen oder ändern"]
+        XCTAssertTrue(app.staticTexts["Eingerichtet"]
             .waitForExistence(timeout: 10))
         openEquipment()
         assertEverythingShown()
+    }
+
+    func testOwnedItemsHaveASymbolThatLeadsToTheirTips() {
+        launch(seed: "all")
+        openEquipment()
+        tapButton("equipment-tip-pan")
+        assertTitle("Kastenform")
+        tapButton("tips-topic-close")
+        // Back on the overview, which is unchanged.
+        assertEverythingShown()
+        tapButton("equipment-tip-kneader")
+        assertTitle("Küchenmaschine")
+        tapButton("tips-topic-close")
+    }
+
+    func testNothingIsMissingWhenEverythingIsOwned() {
+        launch(seed: "all")
+        openEquipment()
+        XCTAssertFalse(app.staticTexts["missing-kneader"].exists)
+        XCTAssertFalse(app.staticTexts["missing-pot"].exists)
+        XCTAssertFalse(app.staticTexts["missing-pan"].exists)
+        XCTAssertFalse(app.staticTexts["missing-basket"].exists)
+    }
+
+    func testMissingItemsAreListedWithTheirTips() {
+        launch(seed: "none")
+        openEquipment()
+        XCTAssertEqual(text("missing-kneader").label, "Küchenmaschine mit Knetfunktion")
+        XCTAssertEqual(text("missing-pot").label, "Bräter/Römertopf")
+        XCTAssertEqual(text("missing-pan").label, "Kastenform")
+        XCTAssertEqual(text("missing-basket").label, "Gärkörbchen")
+        tapButton("missing-tip-pot")
+        assertTitle("Bräter und Römertopf")
+        tapButton("tips-topic-close")
+        _ = element(app.buttons, "equipment-edit")
+        tapButton("missing-tip-basket")
+        assertTitle("Gärkörbchen")
+        tapButton("tips-topic-close")
     }
 
     func testSeededEquipmentIsShownAtOnce() {

@@ -7,6 +7,7 @@ struct EquipmentOverviewView: View {
 
     var body: some View {
         let lines = store.equipment.lines
+        let missing = store.equipment.missingLines
         Form {
             Section("Deine Backutensilien") {
                 if lines.isEmpty {
@@ -15,10 +16,13 @@ struct EquipmentOverviewView: View {
                         .foregroundStyle(.secondary)
                         .accessibilityIdentifier("equipment-empty")
                 } else {
-                    ForEach(lines) { line in
-                        Text(line.text)
-                            .accessibilityIdentifier("equipment-\(line.id)")
-                    }
+                    ForEach(lines) { row($0, prefix: "equipment") }
+                }
+            }
+            // Before the first setup nothing is known to be missing.
+            if store.isConfigured && !missing.isEmpty {
+                Section("Nicht vorhanden, aber sinnvoll") {
+                    ForEach(missing) { row($0, prefix: "missing") }
                 }
             }
             Section {
@@ -28,8 +32,21 @@ struct EquipmentOverviewView: View {
         }
         .navigationTitle("Backutensilien")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar { ToolbarItem(placement: .primaryAction) { TipsButton() } }
         .sheet(isPresented: $showWizard) {
             EquipmentWizardView(starting: store.equipment) { store.save($0) }
+        }
+    }
+}
+
+extension EquipmentOverviewView {
+    /// An item with the symbol that leads to its tips page.
+    fileprivate func row(_ line: EquipmentLine, prefix: String) -> some View {
+        HStack {
+            Text(line.text)
+                .accessibilityIdentifier("\(prefix)-\(line.id)")
+            Spacer()
+            TipsIconButton(topic: line.topic, identifier: "\(prefix)-tip-\(line.id)")
         }
     }
 }

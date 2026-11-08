@@ -61,6 +61,6 @@ struct EquipmentStoreTests {
         let store = EquipmentStore(defaults: makeDefaults())
         #expect(store.startSubtitle == "Noch nicht eingerichtet")
         store.save(sample)
-        #expect(store.startSubtitle == "Eingerichtet – ansehen oder ändern")
+        #expect(store.startSubtitle == "Eingerichtet")
     }
 }

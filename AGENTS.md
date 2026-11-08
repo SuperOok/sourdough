@@ -2,20 +2,27 @@
 
 SwiftUI-App fürs iPhone, gebaut mit Xcode 27.
 
-Sourdough ist ein **Rezeptrechner für Brot mit Sauerteig**: Bäckerprozente,
-Hydration, Anteil des Anstellguts und das Skalieren eines Rezepts auf eine
-gewünschte Teigmenge. Die App rechnet; gebacken wird in der eigenen Küche.
-Zeitpläne, Starter-Pflege und Backtagebuch gehören nicht zum Umfang.
+Sourdough ist eine **Hilfe-App für Brot mit Sauerteig**. Geplant ist ein
+Rezeptrechner (Bäckerprozente, Hydration, Anteil des Anstellguts, Skalieren
+auf eine Teigmenge); gebacken wird in der eigenen Küche. Zeitpläne,
+Starter-Pflege und Backtagebuch gehören nicht zum Umfang.
+
+**Der Teigrechner ist vorerst abgeschaltet** (2026-11-08): Er soll später
+anders aussehen und kostete viel Testzeit. Die Rechenlogik `Dough` bleibt im
+Package, getestet und ohne Oberfläche; Ansicht und Eingabe-Modell
+(`CalculatorView`, `DoughViewModel`) sind aus der App entfernt und stehen in
+der Git-Historie (Commit „Add project scaffold“).
 
 Der Code ist zweierlei. `Sourdough/` ist die App: Oberfläche und
 Speicherung. `SourdoughKit/` ist ein Swift Package mit der **Rechenlogik**,
 ohne Xcode-Projekt und ohne Simulator prüfbar.
 
 Stand 2026-11-08: Startanimation (Platzhalter), Startbildschirm mit
-Platzhalter-Foto und zwei Optionen (Teig berechnen, Backutensilien),
-Utensilien-Wizard mit Speicherung, Hydrationsrechner. Alle drei
-Teststockwerke laufen, Abdeckung 100 % (`tools/coverage.sh`). Weitere
-Startoptionen sind noch zu planen.
+Platzhalter-Foto und zwei Optionen (Backutensilien, Tipps und Tricks),
+Utensilien-Wizard mit Speicherung, Tipps und Tricks. Weitere Startoptionen
+sind noch zu planen. Der letzte volle Lauf mit Abdeckung 100 % stammt aus der
+Zeit vor den Tipps; seither sind nur gezielte Läufe gemacht (siehe „Wann
+welcher Lauf“).
 
 ## Aufbau
 
@@ -25,14 +32,17 @@ Sourdough.xcodeproj    drei Targets, „Sourdough“, „SourdoughTests“ und
                        „Sourdough“
 SourdoughKit/          Swift Package: die Rechenlogik samt Tests
   Sources/SourdoughKit   `Dough` (Hydration mit Anstellgut), `Equipment`
-                         (Backutensilien) — Werttypen und reine Funktionen
+                         (Backutensilien), Tipps (`TipsTopic`, `TipsCatalog`,
+                         `TipsParser`) — Werttypen und reine Funktionen
+    Tips/*.md            die Texte der Tipps-Seiten, eine Datei je Thema
   Tests/SourdoughKitTests
 Sourdough/             Quellcode der App
   SourdoughApp.swift   @main, WindowGroup
   ContentView.swift    Wurzel: Splash über dem Startbildschirm
   SplashView.swift     Startanimation (Platzhalter)
   StartView.swift      Startbildschirm: Foto-Platzhalter und Optionen
-  CalculatorView.swift, DoughViewModel.swift   Hydrationsrechner
+  TipsView.swift       Tipps und Tricks: Inhaltsverzeichnis, Seite, Button
+  TipsText.swift       Inline-Markdown und `tip:`-Links
   EquipmentOverviewView.swift   gespeicherte Utensilien, „Einrichten/Ändern“
   EquipmentWizardView.swift, EquipmentWizardModel.swift   Wizard mit Entwurf
   EquipmentStore.swift Speicherung (UserDefaults, JSON, Schlüssel `equipment.v1`)
@@ -205,6 +215,44 @@ und legt ihn an, falls er fehlt: Das vorinstallierte iPhone 15 hat nur
 iOS 17 und kann die App nicht laden. Die Skripte nehmen ihn als Voreinstellung;
 ein anderer Simulator wird als UDID übergeben. Simulatoren immer über `id=`
 ansprechen, nie über `name=`; Gerätenamen sind nicht eindeutig.
+
+## Backutensilien-Übersicht
+
+Zwei Listen: „Deine Backutensilien“ (mit Varianten, etwa Material und Deckel)
+und „Nicht vorhanden, aber sinnvoll“ (die Utensilien ohne Variante, die noch
+fehlen). Die zweite erscheint erst nach der ersten Einrichtung und nur, wenn
+etwas fehlt. Hinter jedem Eintrag steht ein Glühbirnen-Symbol
+(`TipsIconButton`), das die Tipps-Seite des Utensils als Sheet öffnet.
+Bezeichner: `equipment-<id>` und `missing-<id>` für die Texte,
+`equipment-tip-<id>` und `missing-tip-<id>` für die Symbole.
+
+## Tipps und Tricks
+
+Die Texte sind **Markdown-Dateien** unter
+`SourdoughKit/Sources/SourdoughKit/Tips/`, eine je Thema, im Package
+mitgeliefert. Erlaubt ist eine kleine Teilmenge: `# Titel` (genau einmal, am
+Anfang), `## Abschnitt`, `- Listenpunkt`, Absätze und Inline-Markdown
+(**fett**, *kursiv*, Links). Quer-Verweise sind Links der Form
+`[Kastenform](tip:pan)`.
+
+**Ein neues Thema** braucht drei Schritte: einen Fall in
+`TipsTopic.ID` (der Rohwert ist der Dateiname), die Datei `Tips/<id>.md` und
+eine Zeile in `TipsTopic.category`. Das Inhaltsverzeichnis in der App
+entsteht daraus von selbst. `TipsCatalogTests` prüft, dass jedes Thema eine
+Datei mit Titel und Inhalt hat und jeder `tip:`-Link ein Thema trifft. Die
+Utensil-Themen tragen dieselben Ids wie die Zeilen der Utensilien
+(`kneader`, `pot`, `pan`, `basket`); das prüft `TipsTextTests`.
+
+**Aufruf aus jeder Ansicht:** Die Tipps öffnen als Sheet über der aktuellen
+Ansicht (`TipsButton` in der Symbolleiste, im Wizard direkt mit der Seite
+zum aktuellen Schritt). „Fertig“ schließt das Sheet, darunter bleibt alles
+unverändert. Neue Ansichten bekommen einen `TipsButton`; sitzt er in einer
+Ansicht, über der schon ein Sheet mit eigenem Knopf liegt, braucht er eine
+eigene `identifier`.
+
+**Links in Text:** Die `openURL`-Aktion hängt an der Seite selbst, nicht am
+`NavigationStack`; dort kam sie nicht an. Das URL aus dem Markdown hat kein
+`path`, `TipsText.topicID(from:)` liest deshalb den ganzen String.
 
 ## Startparameter für Tests
 
