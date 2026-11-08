@@ -1,0 +1,87 @@
+import SwiftUI
+
+/// The start screen: a hero picture and the ways into the app.
+struct StartView: View {
+    let store: EquipmentStore
+
+    enum Destination: Hashable {
+        case calculator, equipment
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 16) {
+                    hero
+                    option("Teig berechnen", subtitle: "Hydration und Mengen",
+                           symbol: "scalemass", destination: .calculator, id: "start-calculator")
+                    option("Meine Backutensilien", subtitle: store.startSubtitle,
+                           symbol: "frying.pan", destination: .equipment, id: "start-equipment")
+                }
+                .padding(.horizontal, 16)
+            }
+            .navigationTitle("Sourdough")
+            .navigationDestination(for: Destination.self) { destination in
+                switch destination {
+                case .calculator: CalculatorView()
+                case .equipment: EquipmentOverviewView(store: store)
+                }
+            }
+        }
+    }
+
+    /// Placeholder for a picture of a sourdough loaf.
+    private var hero: some View {
+        ZStack {
+            LinearGradient(colors: [.orange.opacity(0.7), .brown.opacity(0.8)],
+                           startPoint: .topLeading, endPoint: .bottomTrailing)
+            VStack(spacing: 8) {
+                Image(systemName: "photo")
+                    .font(.system(size: 48))
+                Text("Hier kommt ein Foto von einem Sauerteigbrot hin")
+                    .font(.footnote)
+                    .multilineTextAlignment(.center)
+            }
+            .foregroundStyle(.white)
+            .padding()
+        }
+        .frame(height: 220)
+        .clipShape(RoundedRectangle(cornerRadius: 20))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Platzhalter für ein Foto von einem Sauerteigbrot")
+        .accessibilityIdentifier("start-hero")
+    }
+
+    private func option(_ title: String, subtitle: String, symbol: String,
+                        destination: Destination, id: String) -> some View {
+        NavigationLink(value: destination) {
+            HStack(spacing: 16) {
+                Image(systemName: symbol)
+                    .font(.title2)
+                    .frame(width: 32)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title).font(.headline)
+                    Text(subtitle).font(.subheadline).foregroundStyle(.secondary)
+                }
+                Spacer()
+                Image(systemName: "chevron.right").foregroundStyle(.tertiary)
+            }
+            .padding()
+            .frame(maxWidth: .infinity)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier(id)
+    }
+}
+
+extension EquipmentStore {
+    /// The line under "Meine Backutensilien" on the start screen.
+    var startSubtitle: String {
+        isConfigured ? "Eingerichtet – ansehen oder ändern" : "Noch nicht eingerichtet"
+    }
+}
+
+#Preview {
+    StartView(store: EquipmentStore(defaults: UserDefaults(suiteName: "preview") ?? .standard))
+}
