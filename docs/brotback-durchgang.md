@@ -97,8 +97,21 @@ Roggen ist nicht frei gegen Weizen oder Dinkel tauschbar. Das verhindern die Gre
 Jede Stufe ist ein eigener Commit mit vollständigen Tests. Die Stufen A bis C
 hängen im Bildschirmfluss eng zusammen (Schritt 2 setzt die Mehlmenge von
 Schritt 1, Schritt 3 braucht beide) und sind deshalb ein gemeinsamer Commit.
-Die Umsetzung weicht in Einzelheiten von diesem Plan ab; maßgeblich ist der
-Abschnitt „Brot backen“ in `AGENTS.md`.
+Ebenso D und E: Das Protokoll ist der gespeicherte Durchgang selbst. Die
+Umsetzung weicht in Einzelheiten von diesem Plan ab; maßgeblich ist der
+Abschnitt „Brot backen“ in `AGENTS.md`, der Ablauf steht in `docs/ablauf.md`.
+
+## Nächste Ausbaustufen
+
+- Schritte verschieben, wenn der Teig noch nicht so weit ist, und den
+  restlichen Zeitplan daraufhin neu rechnen (bisher hält „Noch nicht“ nur an).
+- Weitere Zweige im Ablauf: Quellstück bei Vollkorn, „übergar, sofort backen“,
+  Kerntemperatur als Garprobe.
+- Mitteilungen zu den Handgriffen.
+- Saaten und Nüsse in der Mehlmischung.
+- Durchgang wiederholen, bewerten, Fotos, Teilen.
+- Randzeiten 8 und 21 Uhr einstellbar; Tage in der Übersichtsleiste
+  deutlicher.
 
 | Stufe | Inhalt | Ergebnis |
 | --- | --- | --- |

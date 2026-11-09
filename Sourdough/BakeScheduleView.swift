@@ -6,9 +6,11 @@ import SourdoughKit
 /// timeline that leads there.
 struct BakeScheduleView: View {
     let model: BakePlanModel
+    let starterStore: StarterStore
     let kitchenStore: KitchenStore
     /// "Now" for the proposed target; tests fix it.
     let now: Date
+    let onStart: (BakeRun) -> Void
     @State private var pickingTarget = false
     private var calendar: Calendar { .current }
 
@@ -63,6 +65,15 @@ struct BakeScheduleView: View {
                 } header: {
                     Text("Ablauf")
                 }
+            }
+            Section {
+                let run = model.makeRun(starters: starterStore.starters, now: Date(), calendar: calendar)
+                Button("Durchgang starten") { run.map(onStart) }
+                    .fontWeight(.semibold)
+                    .disabled(run == nil)
+                    .accessibilityIdentifier("schedule-start")
+            } footer: {
+                Text("Danach führt dich die App Schritt für Schritt durch den Plan.")
             }
         }
         .navigationTitle("Zeitplan")
@@ -233,6 +244,7 @@ struct RangeBar: View {
     let model = BakePlanModel()
     model.proposeSetup(from: [])
     return NavigationStack {
-        BakeScheduleView(model: model, kitchenStore: KitchenStore(defaults: defaults), now: Date())
+        BakeScheduleView(model: model, starterStore: StarterStore(defaults: defaults),
+                         kitchenStore: KitchenStore(defaults: defaults), now: Date()) { _ in }
     }
 }

@@ -19,10 +19,11 @@ ohne Xcode-Projekt und ohne Simulator prüfbar.
 
 Stand 2026-11-09: Startanimation (Platzhalter), Startbildschirm mit
 Platzhalter-Foto und vier Optionen (Brot backen, Backutensilien,
-Sauerteigstarter, Tipps und Tricks), Utensilien-Liste mit Speicherung, Tipps
-und Tricks, Starter-Protokoll. „Brot backen“ plant einen Durchgang in drei
-Schritten (Mehle, Utensilien und Menge, Zeitplan); Anleitung, Durchführung und
-Protokoll folgen (Plan: `docs/brotback-durchgang.md`). Der letzte volle Lauf mit Abdeckung 100 % ist vom
+Sauerteigstarter, Tipps und Tricks) und das Backprotokoll, Utensilien-Liste
+mit Speicherung, Tipps und Tricks, Starter-Protokoll. „Brot backen“ plant einen
+Durchgang in drei Schritten (Mehle, Utensilien und Menge, Zeitplan) und führt
+dann Schritt für Schritt hindurch (Plan: `docs/brotback-durchgang.md`, Ablauf:
+`docs/ablauf.md`). Der letzte volle Lauf mit Abdeckung 100 % ist vom
 2026-11-09 (siehe „Wann welcher Lauf“).
 
 ## Aufbau
@@ -38,9 +39,11 @@ SourdoughKit/          Swift Package: die Rechenlogik samt Tests
                          (`TipsTopic`, `TipsCatalog`, `TipsParser`),
                          Backplanung: `Flour`, `FlourMix`, `BreadType` und
                          `BakeRules`, `BakeSetup` und `DoughAmount`, `Recipe`,
-                         `Schedule` mit `ScheduleRules` —
+                         `Schedule` mit `ScheduleRules`, Ablauf
+                         `BakeProcess` und Durchgang `BakeRun` —
                          Werttypen und reine Funktionen
     Tips/*.md            die Texte der Tipps-Seiten, eine Datei je Thema
+    Steps/*.md           die Texte der Anleitung, eine Datei je Schritt-Variante
   Tests/SourdoughKitTests
 Sourdough/             Quellcode der App
   SourdoughApp.swift   @main, WindowGroup
@@ -65,6 +68,9 @@ Sourdough/             Quellcode der App
   BakePlanModel.swift  das Modell aller drei Planungsschritte
   BakeText.swift       deutsche Texte der Backplanung und der Zeitleiste
   KitchenStore.swift   gemerkte Raum- und Kühlschranktemperatur (`kitchen.v1`)
+  BakeRunView.swift, BakeRunStore.swift, BakeRunText.swift, BakeRunDemo.swift
+                       laufender Durchgang: Anzeige, Speicherung, Texte, Demo
+  BakeLogView.swift    Backprotokoll: Liste und Einzelansicht
   LaunchOptions.swift  Startparameter für Tests
   LaunchSetup.swift    wendet sie einmal beim App-Start an
   Refreshing.swift     setzt „jetzt“ jede Minute neu
@@ -305,8 +311,8 @@ am Starter merken sie sich dort, ebenso der Zeitplan beim Backen.
 ## Brot backen
 
 Plan und Entscheidungen stehen in `docs/brotback-durchgang.md`. Umgesetzt
-sind die drei Planungsschritte; die Rechnungen liegen im Package, jede
-Konstante als Richtwert an einer Stelle:
+sind die drei Planungsschritte, die Durchführung und das Protokoll; die
+Rechnungen liegen im Package, jede Konstante als Richtwert an einer Stelle:
 
 1. **Mehle** (`BakePlanView`): Brotart (sechs Vorgaben, `BreadType.preset`),
    Starter, Mehlmenge, Anteile. Ändert sich ein Anteil, verteilt
@@ -357,6 +363,39 @@ einem Element zusammen; UI-Tests prüfen dort das ganze Label („Hydration,
 81,6 %“). Menü-Picker wählen Tests mit `choose(_:_:)`, das den tippbaren
 Menüeintrag nimmt: Ein Segment darunter kann denselben Text tragen.
 
+**Durchführung** (`BakeRunView`): „Durchgang starten“ (`schedule-start`, nur
+ohne Fehler und Hinweise) legt einen `BakeRun` an: eine Kopie des ganzen
+Plans samt Starter und Utensilien, dazu erledigte Schritte und Antworten. Es
+gibt höchstens einen laufenden Durchgang; beim App-Start öffnet die App ihn
+direkt, auf dem Startbildschirm steht dann „Läuft: …“. Gespeichert wird je
+Durchgang eine JSON-Datei unter Application Support/`bakes/`
+(`BakeRunStore`), nicht in `UserDefaults`, weil später Fotos dazukommen.
+
+**Der Ablauf ist Daten** (`BakeProcess`): neun Schritte (`StepID`), davon drei
+Entscheidungen mit Antworten (`answers`); „Noch nicht“ hält den Schritt offen
+und zeigt, was in der Zwischenzeit zu tun ist. Welcher Text ein Schritt zeigt,
+hängt von Utensilien, Roggenanteil und Antworten ab (`text`); die Texte sind
+Markdown-Dateien unter `SourdoughKit/Sources/SourdoughKit/Steps/` mit
+Platzhaltern wie `{starter}` oder `{mainFlour}` (`Placeholder`), die
+`BakeRunText` auf Deutsch füllt. **Anleitung ändern:** die Datei bearbeiten.
+**Schritt oder Zweig ergänzen:** `StepID`, `answers` oder `text` erweitern,
+dann den Mermaid-Block in `docs/ablauf.md` aus `BakeProcess.mermaid()` neu
+erzeugen; `BakeProcessTests` prüft, dass jede Datei einen Titel hat, jeder
+Platzhalter bekannt ist und `docs/ablauf.md` zur Definition passt.
+
+**Backprotokoll** (`BakeLogView`, `BakeLogDetailView`): alle Durchgänge,
+neueste zuerst, mit Brotart, Status, Starter, Utensilien, Temperaturen,
+Mehlen in Gramm, Hydration, Sauerteigstufe, Salz und je Schritt geplanter
+und erledigter Zeit samt Antwort; ein Durchgang lässt sich löschen.
+
+Bezeichner der Durchführung: `run-target`, `run-status`, `run-planned`,
+`run-text`, `run-hint`, `run-done`, `run-answer-<antwort>` (`yes`, `notYet`,
+`belowRim`, `overRim`), `run-step-<n>`, `run-cancel`, `run-finished`,
+`run-close`; Protokoll: `start-log`, `log-empty`, `log-row-<n>`,
+`log-bread`, `log-status`, `log-started`, `log-target`, `log-starter`,
+`log-equipment`, `log-temperatures`, `log-flour-<mehl>`, `log-hydration`,
+`log-sourdough`, `log-salt`, `log-step-<n>`, `log-delete`.
+
 ## Tipps und Tricks
 
 Die Texte sind **Markdown-Dateien** unter
@@ -391,7 +430,7 @@ Jeder UI-Test startet die App in einem definierten Zustand:
 
 - `-skipSplash` überspringt die Startanimation.
 - `-resetData` vergisst alle gespeicherten Daten (Utensilien, Starter,
-  Temperaturen). Ein Neustart
+  Temperaturen, Durchgänge). Ein Neustart
   innerhalb eines Tests lässt ihn weg, um das Speichern zu beweisen.
 - `-splashSeconds <n>` dehnt die Startanimation, damit ein Test sie sicher
   sieht.
@@ -407,6 +446,10 @@ Jeder UI-Test startet die App in einem definierten Zustand:
   (`EquipmentListTests.testAddingAPanShowsItWithItsVolumeAndSurvivesRestartingTheApp`).
 - `-now 2026-11-13T09:00` legt „jetzt“ für die Backplanung fest (Ortszeit),
   damit der vorgeschlagene Zeitplan in Tests feststeht.
+- `-seedRun active` speichert einen laufenden Demo-Durchgang
+  (`BakeRunDemo`: Roggenmischbrot 50 mit den Demo-Utensilien und dem
+  Roggenstarter, geplant zu „jetzt“), `-seedRun finished` denselben,
+  vollständig erledigt.
 
 Ohne Parameter startet die App so, wie eine Nutzerin oder ein Nutzer sie
 vorfindet. Zurücksetzen und Vorbelegen geschieht einmal im App-Start

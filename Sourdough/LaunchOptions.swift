@@ -8,7 +8,8 @@ import SourdoughKit
 /// reliably see it, `-seedEquipment all` saves the pieces of `EquipmentDemo`
 /// before the start so a test need not add them by hand, `-seedStarters demo`
 /// saves two starters in known states, `-now <yyyy-MM-ddTHH:mm>` fixes the
-/// time a bake is planned from (local time). Without parameters the
+/// time a bake is planned from (local time), `-seedRun active` or
+/// `-seedRun finished` saves the demo bake (`BakeRunDemo`). Without parameters the
 /// app starts as a user would find it.
 struct LaunchOptions: Equatable {
     static let defaultSplashSeconds = 1.6
@@ -23,6 +24,13 @@ struct LaunchOptions: Equatable {
     /// "Now" for planning a bake; `nil` is the real time.
     var now: Date?
 
+    enum SeedRun: String {
+        case active, finished
+    }
+
+    /// Save the demo bake at launch, after equipment and starters.
+    var seedRun: SeedRun?
+
     init(arguments: [String]) {
         skipSplash = arguments.contains("-skipSplash")
         resetData = arguments.contains("-resetData")
@@ -33,6 +41,8 @@ struct LaunchOptions: Equatable {
             .flatMap { arguments.indices.contains($0 + 1) ? arguments[$0 + 1] : nil } == "demo"
         seedEquipment = arguments.firstIndex(of: "-seedEquipment")
             .flatMap { arguments.indices.contains($0 + 1) ? arguments[$0 + 1] : nil } == "all"
+        seedRun = arguments.firstIndex(of: "-seedRun")
+            .flatMap { arguments.indices.contains($0 + 1) ? SeedRun(rawValue: arguments[$0 + 1]) : nil }
         now = arguments.firstIndex(of: "-now")
             .flatMap { arguments.indices.contains($0 + 1) ? Self.parseNow(arguments[$0 + 1]) : nil }
     }

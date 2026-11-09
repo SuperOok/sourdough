@@ -27,6 +27,14 @@ struct LaunchOptionsTests {
                 == LaunchOptions.parseNow("2026-11-13T09:00"))
     }
 
+    @Test func aDemoBakeIsSeededOnlyOnRequest() {
+        #expect(LaunchOptions(arguments: ["Sourdough"]).seedRun == nil)
+        #expect(LaunchOptions(arguments: ["-seedRun", "active"]).seedRun == .active)
+        #expect(LaunchOptions(arguments: ["-seedRun", "finished"]).seedRun == .finished)
+        #expect(LaunchOptions(arguments: ["-seedRun", "x"]).seedRun == nil)
+        #expect(LaunchOptions(arguments: ["-seedRun"]).seedRun == nil)
+    }
+
     @Test func seedEquipmentIsOffByDefault() {
         #expect(!LaunchOptions(arguments: ["Sourdough"]).seedEquipment)
     }

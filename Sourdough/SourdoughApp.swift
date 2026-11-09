@@ -6,15 +6,17 @@ struct SourdoughApp: App {
     private let equipmentStore = EquipmentStore()
     private let starterStore = StarterStore()
     private let kitchenStore = KitchenStore()
+    private let runStore = BakeRunStore()
 
     init() {
-        LaunchSetup.apply(options, equipment: equipmentStore, starters: starterStore, kitchen: kitchenStore)
+        LaunchSetup.apply(options, equipment: equipmentStore, starters: starterStore, kitchen: kitchenStore,
+                          runs: runStore)
     }
 
     var body: some Scene {
         WindowGroup {
             ContentView(options: options, store: equipmentStore, starterStore: starterStore,
-                        kitchenStore: kitchenStore)
+                        kitchenStore: kitchenStore, runStore: runStore)
         }
     }
 }

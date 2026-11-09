@@ -12,8 +12,9 @@ let package = Package(
         .library(name: "SourdoughKit", targets: ["SourdoughKit"]),
     ],
     targets: [
-        // The tips and tricks texts are Markdown files in `Sources/SourdoughKit/Tips`.
-        .target(name: "SourdoughKit", resources: [.copy("Tips")]),
+        // The tips and tricks texts and the instructions of a bake are
+        // Markdown files in `Sources/SourdoughKit/Tips` and `Steps`.
+        .target(name: "SourdoughKit", resources: [.copy("Tips"), .copy("Steps")]),
         .testTarget(name: "SourdoughKitTests", dependencies: ["SourdoughKit"]),
     ]
 )

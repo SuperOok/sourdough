@@ -185,6 +185,12 @@ public struct ScheduleStep: Equatable, Sendable {
     public let outsideWindow: Bool
 
     public var hours: Double { end.timeIntervalSince(start) / 3600 }
+
+    /// Where a rest takes place; `nil` for actions and cooling.
+    public var place: Place? {
+        if case .rest(_, let place) = kind { return place }
+        return nil
+    }
 }
 
 /// The timeline of a bake, planned backwards from the time the bread can be cut.

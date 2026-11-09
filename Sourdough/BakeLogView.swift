@@ -1,0 +1,131 @@
+import SwiftUI
+import SourdoughKit
+
+/// All bakes, newest first.
+struct BakeLogView: View {
+    let store: BakeRunStore
+
+    var body: some View {
+        List {
+            if store.runs.isEmpty {
+                Text("Noch kein Brot gebacken.")
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("log-empty")
+            }
+            ForEach(Array(store.runs.enumerated()), id: \.element.id) { index, run in
+                // A link with its destination: the start screen's path holds
+                // its own destinations, not ids.
+                NavigationLink {
+                    BakeLogDetailView(store: store, id: run.id)
+                } label: {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(run.bread.germanName)
+                        Text("\(ScheduleText.day(run.startedAt, calendar: run.calendar)) · \(BakeRunText.status(run.status))")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .accessibilityIdentifier("log-row-\(index)")
+            }
+        }
+        .navigationTitle("Backprotokoll")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+/// One bake with everything that went into it.
+struct BakeLogDetailView: View {
+    let store: BakeRunStore
+    let id: BakeRun.ID
+    @Environment(\.dismiss) private var dismiss
+    @State private var confirmDelete = false
+
+    var body: some View {
+        if let run = store.run(id) {
+            content(run)
+        }
+    }
+
+    private func content(_ run: BakeRun) -> some View {
+        let recipe = run.recipe
+        let calendar = run.calendar
+        return Form {
+            Section("Brot") {
+                row("Brotart", run.bread.germanName, id: "log-bread")
+                row("Status", BakeRunText.status(run.status), id: "log-status")
+                row("Begonnen", ScheduleText.day(run.startedAt, calendar: calendar), id: "log-started")
+                row("Anschnittfertig geplant", ScheduleText.day(run.target, calendar: calendar), id: "log-target")
+                row("Starter", BakeLogText.starter(run.starter), id: "log-starter")
+                row("Utensilien", BakeLogText.equipment(run.setup), id: "log-equipment")
+                row("Temperaturen", BakeLogText.temperatures(run.temperatures), id: "log-temperatures")
+            }
+            Section("Mehl") {
+                ForEach(run.mix.flours, id: \.self) { flour in
+                    row(flour.germanName,
+                        "\(BakeText.percent(run.mix.share(of: flour))) · \(BakeText.grams(run.mix.grams(of: flour, totalGrams: run.totalGrams)))",
+                        id: "log-flour-\(flour.rawValue)")
+                }
+                row("Hydration", BakeText.percent(run.mix.hydration), id: "log-hydration")
+                row("Sauerteigstufe", BakeText.grams(recipe.sourdoughGrams), id: "log-sourdough")
+                row("Salz", BakeText.grams(recipe.salt), id: "log-salt")
+            }
+            Section("Ablauf") {
+                ForEach(Array(BakeProcess.StepID.allCases.enumerated()), id: \.offset) { index, step in
+                    row(BakeRunText.title(run, step), BakeLogText.times(run, step), id: "log-step-\(index)")
+                }
+            }
+            Section {
+                Button("Durchgang löschen", role: .destructive) { confirmDelete = true }
+                    .accessibilityIdentifier("log-delete")
+            }
+        }
+        .navigationTitle(run.bread.germanName)
+        .navigationBarTitleDisplayMode(.inline)
+        .alert("Durchgang löschen?", isPresented: $confirmDelete) {
+            Button("Löschen", role: .destructive) {
+                store.remove(id)
+                dismiss()
+            }
+            Button("Abbrechen", role: .cancel) {}
+        } message: {
+            Text("Der Durchgang verschwindet aus dem Backprotokoll.")
+        }
+    }
+
+    private func row(_ title: String, _ value: String, id: String) -> some View {
+        LabeledContent(title) {
+            Text(value).multilineTextAlignment(.trailing)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier(id)
+    }
+}
+
+/// German texts of the log.
+enum BakeLogText {
+    /// "Opa (Roggen)", or "keiner".
+    static func starter(_ starter: Starter?) -> String {
+        starter.map { "\($0.name) (\($0.flour.germanName))" } ?? "keiner"
+    }
+
+    /// "Römertopf, Gärkörbchen, Thermomix"; bowl, tray and hands by name.
+    static func equipment(_ setup: BakeSetup) -> String {
+        let vessel = setup.vesselItem?.name ?? "Blech"
+        let proof = setup.vessel.isFreeStanding ? [setup.basket?.name ?? "Schüssel"] : []
+        let kneader = setup.kneader?.name ?? "von Hand"
+        return ([vessel] + proof + [kneader]).joined(separator: ", ")
+    }
+
+    /// "Raum 22 °C, Kühlschrank 5 °C"
+    static func temperatures(_ temperatures: Temperatures) -> String {
+        "Raum \(StarterText.number(temperatures.roomCelsius)) °C, Kühlschrank \(StarterText.number(temperatures.fridgeCelsius)) °C"
+    }
+
+    /// "geplant Sa 08:10 · erledigt Sa 08:12", "· Über dem Rand" for an answer.
+    static func times(_ run: BakeRun, _ step: BakeProcess.StepID) -> String {
+        var parts = ["geplant \(ScheduleText.time(BakeProcess.plannedTime(step, in: run.schedule), calendar: run.calendar))"]
+        if let done = run.done[step] { parts.append("erledigt \(ScheduleText.time(done, calendar: run.calendar))") }
+        if let answer = run.answers[step] { parts.append(BakeRunText.answer(answer)) }
+        return parts.joined(separator: " · ")
+    }
+}

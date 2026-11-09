@@ -17,7 +17,8 @@ class SourdoughUITestCase: XCTestCase {
     static let friday = "2026-11-13T09:00"
 
     func launch(skipSplash: Bool = true, reset: Bool = true, splashSeconds: Int? = nil,
-                seedEquipment: Bool = false, seedStarters: Bool = false, now: String? = nil) {
+                seedEquipment: Bool = false, seedStarters: Bool = false, now: String? = nil,
+                seedRun: String? = nil) {
         app = XCUIApplication()
         var arguments: [String] = []
         if skipSplash { arguments.append("-skipSplash") }
@@ -26,6 +27,7 @@ class SourdoughUITestCase: XCTestCase {
         if seedEquipment { arguments += ["-seedEquipment", "all"] }
         if seedStarters { arguments += ["-seedStarters", "demo"] }
         if let now { arguments += ["-now", now] }
+        if let seedRun { arguments += ["-seedRun", seedRun] }
         app.launchArguments = arguments
         app.launch()
     }
@@ -57,7 +59,12 @@ class SourdoughUITestCase: XCTestCase {
         let button = element(app.buttons, id)
         // A row at the very bottom exists but cannot be tapped yet.
         if !button.isHittable { app.swipeUp() }
-        button.tap()
+        // It was above instead, and scrolling down took it away.
+        if !button.exists || !button.isHittable {
+            app.swipeDown()
+            app.swipeDown()
+        }
+        element(app.buttons, id).tap()
     }
 
     /// Flips a switch and checks that it took.
@@ -132,6 +139,16 @@ class SourdoughUITestCase: XCTestCase {
         }
         XCTAssertNotNil(item, "\(option) lässt sich nicht tippen.", line: line)
         item?.tap()
+    }
+
+    /// Waits until the element with this identifier, of whatever type, has
+    /// exactly this label.
+    func assertExact(_ id: String, _ expected: String, line: UInt = #line) {
+        let element = any(id, line: line)
+        let done = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "label == %@", expected), object: element)
+        XCTAssertEqual(XCTWaiter().wait(for: [done], timeout: 5), .completed,
+                       "\(id) ist nicht \(expected), sondern \(element.label).", line: line)
     }
 
     /// Waits until the element with this identifier has a label containing `part`.

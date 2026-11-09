@@ -216,6 +216,15 @@ final class BakePlanModel {
         choices = [:]
     }
 
+    /// The bake to start; `nil` while something is missing or does not fit.
+    func makeRun(starters: [Starter], now: Date, calendar: Calendar) -> BakeRun? {
+        guard errorText == nil, temperatureError == nil, issues(starters: starters).isEmpty,
+              let setup, let target, let total = totalGrams else { return nil }
+        return BakeRun(startedAt: now, bread: bread, mix: effectiveMix, totalGrams: total, limits: limits,
+                       starter: starter(in: starters), setup: setup, temperatures: temperatures, window: window,
+                       target: target, choices: choices, timeZone: calendar.timeZone)
+    }
+
     /// The amounts in grams; `nil` without a flour total.
     func recipe(starters: [Starter]) -> Recipe? {
         totalGrams.map { Recipe(mix: effectiveMix, totalGrams: $0, starterFlour: starter(in: starters)?.flour) }

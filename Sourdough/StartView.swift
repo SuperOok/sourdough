@@ -1,25 +1,35 @@
 import SwiftUI
+import SourdoughKit
 
 /// The start screen: a hero picture and the ways into the app.
 struct StartView: View {
     let store: EquipmentStore
     let starterStore: StarterStore
     let kitchenStore: KitchenStore
+    let runStore: BakeRunStore
     /// "Now" for planning a bake; `nil` is the real time.
     var now: Date?
     @State private var showTips = false
+    @State private var path: [Destination] = []
 
     enum Destination: Hashable {
-        case bake, equipment, starters
+        case bake, run(BakeRun.ID), log, equipment, starters
     }
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             ScrollView {
                 VStack(spacing: 16) {
                     hero
-                    option("Brot backen", subtitle: "Brot planen, Mengen und Zeitplan",
-                           symbol: "birthday.cake", destination: .bake, id: "start-bake")
+                    if let active = runStore.active {
+                        option("Brot backen", subtitle: "Läuft: \(active.bread.germanName)",
+                               symbol: "birthday.cake", destination: .run(active.id), id: "start-bake")
+                    } else {
+                        option("Brot backen", subtitle: "Brot planen, Mengen und Zeitplan",
+                               symbol: "birthday.cake", destination: .bake, id: "start-bake")
+                    }
+                    option("Backprotokoll", subtitle: runStore.startSubtitle,
+                           symbol: "book", destination: .log, id: "start-log")
                     option("Meine Backutensilien", subtitle: store.startSubtitle,
                            symbol: "frying.pan", destination: .equipment, id: "start-equipment")
                     option("Sauerteigstarter", subtitle: starterStore.startSubtitle,
@@ -34,12 +44,23 @@ struct StartView: View {
                 .padding(.horizontal, 16)
             }
             .navigationTitle("Sourdough")
+            // Back into the bake in progress when the app starts.
+            .task {
+                if let active = runStore.active, path.isEmpty { path = [.run(active.id)] }
+            }
             .sheet(isPresented: $showTips) { TipsView(initial: nil) }
             .navigationDestination(for: Destination.self) { destination in
                 switch destination {
                 case .bake:
                     BakePlanView(starterStore: starterStore, equipmentStore: store,
-                                 kitchenStore: kitchenStore, now: now ?? Date())
+                                 kitchenStore: kitchenStore, now: now ?? Date()) { run in
+                        runStore.start(run)
+                        path = [.run(run.id)]
+                    }
+                case .run(let id):
+                    BakeRunView(store: runStore, id: id) { path = [] }
+                case .log:
+                    BakeLogView(store: runStore)
                 case .equipment: EquipmentOverviewView(store: store)
                 case .starters: StarterListView(store: starterStore, kitchenStore: kitchenStore)
                 }
@@ -99,5 +120,6 @@ struct StartView: View {
 #Preview {
     StartView(store: EquipmentStore(defaults: UserDefaults(suiteName: "preview") ?? .standard),
               starterStore: StarterStore(defaults: UserDefaults(suiteName: "preview") ?? .standard),
-              kitchenStore: KitchenStore(defaults: UserDefaults(suiteName: "preview") ?? .standard))
+              kitchenStore: KitchenStore(defaults: UserDefaults(suiteName: "preview") ?? .standard),
+              runStore: BakeRunStore(directory: URL.temporaryDirectory.appendingPathComponent("preview")))
 }

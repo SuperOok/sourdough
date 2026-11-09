@@ -7,6 +7,8 @@ struct BakePlanView: View {
     let equipmentStore: EquipmentStore
     let kitchenStore: KitchenStore
     let now: Date
+    /// Starts the bake.
+    let onStart: (BakeRun) -> Void
     @State private var model = BakePlanModel()
     @State private var editing: EditedFlour?
 
@@ -34,7 +36,7 @@ struct BakePlanView: View {
             Section {
                 NavigationLink("Weiter: Utensilien und Menge") {
                     BakeEquipmentView(model: model, equipmentStore: equipmentStore, starterStore: starterStore,
-                                      kitchenStore: kitchenStore, now: now)
+                                      kitchenStore: kitchenStore, now: now, onStart: onStart)
                 }
                 .disabled(model.errorText != nil)
                 .accessibilityIdentifier("plan-next")
@@ -250,6 +252,6 @@ struct FlourEditView: View {
     let defaults = UserDefaults(suiteName: "preview") ?? .standard
     NavigationStack {
         BakePlanView(starterStore: StarterStore(defaults: defaults), equipmentStore: EquipmentStore(defaults: defaults),
-                     kitchenStore: KitchenStore(defaults: defaults), now: Date())
+                     kitchenStore: KitchenStore(defaults: defaults), now: Date()) { _ in }
     }
 }

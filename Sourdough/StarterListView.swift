@@ -23,9 +23,6 @@ struct StarterListView: View {
         .refreshing($now)
         .navigationTitle("Sauerteigstarter")
         .navigationBarTitleDisplayMode(.inline)
-        .navigationDestination(for: Starter.ID.self) { id in
-            StarterDetailView(store: store, kitchenStore: kitchenStore, id: id)
-        }
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 TipsButton(topic: .starter)
@@ -47,7 +44,11 @@ struct StarterListView: View {
 
     private func row(_ starter: Starter, now: Date) -> some View {
         let summary = StarterSummary(starter, now: now)
-        return NavigationLink(value: starter.id) {
+        // A link with its destination: the start screen's path holds its own
+        // destinations, not ids.
+        return NavigationLink {
+            StarterDetailView(store: store, kitchenStore: kitchenStore, id: starter.id)
+        } label: {
             VStack(alignment: .leading, spacing: 2) {
                 Text(starter.name).font(.headline)
                 Text("\(starter.flour.germanName) · \(summary.stateTitle)")

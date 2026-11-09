@@ -9,6 +9,7 @@ struct BakeEquipmentView: View {
     let starterStore: StarterStore
     let kitchenStore: KitchenStore
     let now: Date
+    let onStart: (BakeRun) -> Void
 
     private var items: [EquipmentItem] { equipmentStore.items }
 
@@ -33,7 +34,8 @@ struct BakeEquipmentView: View {
             }
             Section {
                 NavigationLink("Weiter: Zeitplan") {
-                    BakeScheduleView(model: model, kitchenStore: kitchenStore, now: now)
+                    BakeScheduleView(model: model, starterStore: starterStore, kitchenStore: kitchenStore,
+                                     now: now, onStart: onStart)
                 }
                 .accessibilityIdentifier("setup-next")
             }
@@ -170,6 +172,6 @@ struct BakeEquipmentView: View {
     NavigationStack {
         BakeEquipmentView(model: BakePlanModel(), equipmentStore: EquipmentStore(defaults: defaults),
                           starterStore: StarterStore(defaults: defaults), kitchenStore: KitchenStore(defaults: defaults),
-                          now: Date())
+                          now: Date()) { _ in }
     }
 }

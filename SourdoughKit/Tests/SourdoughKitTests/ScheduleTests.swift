@@ -103,6 +103,7 @@ struct ScheduleTests {
         }
         #expect(schedule.conflicts.isEmpty)
         #expect(schedule.vessel == .pot)
+        #expect(schedule.steps.map(\.place) == [nil, .room, nil, .room, nil, .room, nil, nil, nil])
         #expect(close(schedule.start, nov(14, 8, 10)))
         #expect(schedule.target == nov(15, 12))
         #expect(schedule.steps.last?.hours == 15)
