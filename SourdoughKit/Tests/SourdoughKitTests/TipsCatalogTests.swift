@@ -29,12 +29,18 @@ struct TipsCatalogTests {
     @Test func topicsAreGroupedIntoCategories() {
         #expect(TipsCatalog.topics(in: .utensils).map(\.id) == [.kneader, .pot, .pan, .basket])
         #expect(TipsCatalog.topics(in: .starters).map(\.id) == [.starter, .starterStates])
-        #expect(TipsTopic.Category.allCases == [.utensils, .starters])
+        #expect(TipsCatalog.topics(in: .baking).map(\.id) == [.flours, .schedule])
+        #expect(TipsTopic.Category.allCases == [.utensils, .starters, .baking])
     }
 
     @Test func titlesOfTheStarterTopics() {
         #expect(TipsCatalog.topic(.starter).title == "Sauerteigstarter")
         #expect(TipsCatalog.topic(.starterStates).title == "So wird der Zustand berechnet")
+    }
+
+    @Test func titlesOfTheBakingTopics() {
+        #expect(TipsCatalog.topic(.flours).title == "Mehle und ihre Mischung")
+        #expect(TipsCatalog.topic(.schedule).title == "So wird der Zeitplan berechnet")
     }
 
     @Test func everyTipLinkPointsToAnExistingTopic() {

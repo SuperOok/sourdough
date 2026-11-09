@@ -13,8 +13,11 @@ class SourdoughUITestCase: XCTestCase {
         continueAfterFailure = false
     }
 
+    /// The Friday morning the bake tests plan from (local time).
+    static let friday = "2026-11-13T09:00"
+
     func launch(skipSplash: Bool = true, reset: Bool = true, splashSeconds: Int? = nil,
-                seedEquipment: Bool = false, seedStarters: Bool = false) {
+                seedEquipment: Bool = false, seedStarters: Bool = false, now: String? = nil) {
         app = XCUIApplication()
         var arguments: [String] = []
         if skipSplash { arguments.append("-skipSplash") }
@@ -22,6 +25,7 @@ class SourdoughUITestCase: XCTestCase {
         if let splashSeconds { arguments += ["-splashSeconds", String(splashSeconds)] }
         if seedEquipment { arguments += ["-seedEquipment", "all"] }
         if seedStarters { arguments += ["-seedStarters", "demo"] }
+        if let now { arguments += ["-now", now] }
         app.launchArguments = arguments
         app.launch()
     }
@@ -103,6 +107,45 @@ class SourdoughUITestCase: XCTestCase {
         XCTAssertEqual(field.value as? String, text, "\(id) hat nicht den getippten Wert.")
         // Put the keyboard away so it does not cover the next field.
         if app.buttons["keyboard-done"].exists { app.buttons["keyboard-done"].tap() }
+    }
+
+    /// Any element with this identifier, whatever its type.
+    func any(_ id: String, file: StaticString = #filePath, line: UInt = #line) -> XCUIElement {
+        element(app.descendants(matching: .any), id, file: file, line: line)
+    }
+
+    /// Opens a menu picker and picks the option with this label. A segment
+    /// below may have the same label; while the menu is open it cannot be
+    /// tapped, the menu's button can.
+    func choose(_ id: String, _ option: String, line: UInt = #line) {
+        let matches = app.buttons.matching(NSPredicate(format: "label == %@", option))
+        let before = matches.count
+        tapButton(id)
+        let open = XCTNSPredicateExpectation(predicate: NSPredicate(format: "count > %d", before), object: matches)
+        XCTAssertEqual(XCTWaiter().wait(for: [open], timeout: 5), .completed, "\(option) fehlt in \(id).", line: line)
+        // A menu that is still opening swallows the tap: wait until one of
+        // the buttons can be tapped.
+        var item: XCUIElement?
+        for _ in 0..<10 where item == nil {
+            item = (0..<matches.count).map(matches.element(boundBy:)).first(where: \.isHittable)
+            if item == nil { _ = app.wait(for: .runningForeground, timeout: 0.5) }
+        }
+        XCTAssertNotNil(item, "\(option) lässt sich nicht tippen.", line: line)
+        item?.tap()
+    }
+
+    /// Waits until the element with this identifier has a label containing `part`.
+    func assertLabel(_ id: String, contains part: String, line: UInt = #line) {
+        let element = any(id, line: line)
+        let done = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "label CONTAINS %@", part), object: element)
+        XCTAssertEqual(XCTWaiter().wait(for: [done], timeout: 5), .completed,
+                       "\(id) enthält nicht \(part), sondern: \(element.label)", line: line)
+    }
+
+    func openBake() {
+        tapButton("start-bake")
+        _ = element(app.buttons, "plan-bread")
     }
 
     func openStarters() {

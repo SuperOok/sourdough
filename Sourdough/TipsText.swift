@@ -28,6 +28,7 @@ extension TipsTopic.Category {
         switch self {
         case .utensils: "Backutensilien"
         case .starters: "Sauerteigstarter"
+        case .baking: "Brot backen"
         }
     }
 }

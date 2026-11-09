@@ -1,3 +1,4 @@
+import Foundation
 import SourdoughKit
 
 /// Start parameters that bring the app into a defined state for tests.
@@ -6,7 +7,8 @@ import SourdoughKit
 /// saved data, `-splashSeconds <n>` stretches the splash so a test can
 /// reliably see it, `-seedEquipment all` saves the pieces of `EquipmentDemo`
 /// before the start so a test need not add them by hand, `-seedStarters demo`
-/// saves two starters in known states. Without parameters the
+/// saves two starters in known states, `-now <yyyy-MM-ddTHH:mm>` fixes the
+/// time a bake is planned from (local time). Without parameters the
 /// app starts as a user would find it.
 struct LaunchOptions: Equatable {
     static let defaultSplashSeconds = 1.6
@@ -18,6 +20,8 @@ struct LaunchOptions: Equatable {
     var seedEquipment: Bool
     /// Save the starters of `StarterDemo` at launch.
     var seedDemoStarters: Bool
+    /// "Now" for planning a bake; `nil` is the real time.
+    var now: Date?
 
     init(arguments: [String]) {
         skipSplash = arguments.contains("-skipSplash")
@@ -29,5 +33,16 @@ struct LaunchOptions: Equatable {
             .flatMap { arguments.indices.contains($0 + 1) ? arguments[$0 + 1] : nil } == "demo"
         seedEquipment = arguments.firstIndex(of: "-seedEquipment")
             .flatMap { arguments.indices.contains($0 + 1) ? arguments[$0 + 1] : nil } == "all"
+        now = arguments.firstIndex(of: "-now")
+            .flatMap { arguments.indices.contains($0 + 1) ? Self.parseNow(arguments[$0 + 1]) : nil }
+    }
+
+    /// "2026-11-13T09:00" in the device's time zone.
+    static func parseNow(_ text: String, timeZone: TimeZone = .current) -> Date? {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = timeZone
+        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm"
+        return formatter.date(from: text)
     }
 }

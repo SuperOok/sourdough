@@ -5,10 +5,11 @@ import Foundation
 /// rebuilds it, which would reset and reseed (with new ids) again and again.
 enum LaunchSetup {
     static func apply(_ options: LaunchOptions, equipment: EquipmentStore,
-                      starters: StarterStore, now: Date = Date()) {
+                      starters: StarterStore, kitchen: KitchenStore, now: Date = Date()) {
         if options.resetData {
             equipment.reset()
             starters.reset()
+            kitchen.reset()
         }
         if options.seedEquipment { EquipmentDemo.items().forEach(equipment.add) }
         if options.seedDemoStarters { StarterDemo.starters(now: now).forEach(starters.add) }

@@ -4,11 +4,13 @@ import SourdoughKit
 /// One starter: its state and dates, where it is kept, and its feedings.
 struct StarterDetailView: View {
     let store: StarterStore
+    let kitchenStore: KitchenStore
     let id: Starter.ID
     @Environment(\.dismiss) private var dismiss
     @State private var showFeed = false
     @State private var confirmDelete = false
     @State private var fridgeText = ""
+    @State private var roomText = ""
     @State private var now = Date()
 
     var body: some View {
@@ -46,6 +48,12 @@ struct StarterDetailView: View {
                         Text(StarterFormModel.fridgeRange).foregroundStyle(.red)
                             .accessibilityIdentifier("detail-fridge-error")
                     }
+                } else {
+                    NumberField(title: "Raumtemperatur (°C)", text: $roomText, id: "detail-room-temp")
+                    if StarterFormModel.parseRoom(roomText) == nil {
+                        Text(StarterFormModel.roomRange).foregroundStyle(.red)
+                            .accessibilityIdentifier("detail-room-error")
+                    }
                 }
             }
             Section("Fütterungen") {
@@ -68,10 +76,20 @@ struct StarterDetailView: View {
                 TipsButton(topic: .starterStates, identifier: "detail-tips")
             }
         }
-        .onAppear { fridgeText = StarterText.number(starter.fridgeCelsius) }
+        .onAppear {
+            fridgeText = StarterText.number(starter.fridgeCelsius)
+            roomText = StarterText.number(starter.roomCelsius)
+        }
         .onChange(of: fridgeText) { _, text in
             if let celsius = StarterFormModel.parseFridge(text) {
                 store.setFridgeCelsius(id, celsius)
+                kitchenStore.temperatures.fridgeCelsius = celsius
+            }
+        }
+        .onChange(of: roomText) { _, text in
+            if let celsius = StarterFormModel.parseRoom(text) {
+                store.setRoomCelsius(id, celsius)
+                kitchenStore.temperatures.roomCelsius = celsius
             }
         }
         .sheet(isPresented: $showFeed) {

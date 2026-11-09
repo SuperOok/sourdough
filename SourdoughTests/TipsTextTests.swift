@@ -41,6 +41,7 @@ struct TipsTextTests {
     @Test func categoriesHaveGermanTitles() {
         #expect(TipsTopic.Category.utensils.germanTitle == "Backutensilien")
         #expect(TipsTopic.Category.starters.germanTitle == "Sauerteigstarter")
+        #expect(TipsTopic.Category.baking.germanTitle == "Brot backen")
     }
 
     @Test func everyEquipmentKindOpensTheTopicWithItsOwnId() {

@@ -27,6 +27,20 @@ struct StarterTests {
         #expect(starter.celsius == 4)
         starter.inFridge = false
         #expect(starter.celsius == 22)
+        starter.roomCelsius = 19
+        #expect(starter.celsius == 19)
+    }
+
+    @Test func aStarterSavedWithoutRoomTemperatureGetsTheDefault() throws {
+        // As saved before the room temperature was added.
+        let json = """
+            {"id":"6F9619FF-8B86-D011-B42D-00C04FC964FF","name":"Alt","flour":"rye","createdAt":0,
+             "feedings":[],"inFridge":false,"fridgeCelsius":5}
+            """
+        let starter = try JSONDecoder().decode(Starter.self, from: Data(json.utf8))
+        #expect(starter.roomCelsius == 22)
+        #expect(starter.name == "Alt")
+        #expect(!starter.inFridge)
     }
 
     @Test func ageNeverGoesNegative() {
@@ -45,7 +59,7 @@ struct StarterTests {
 
     @Test func survivesAJSONRoundTrip() throws {
         let starter = Starter(name: "A", flour: .spelt, createdAt: t0,
-                              feedings: [feeding(at: t0)], inFridge: false, fridgeCelsius: 7)
+                              feedings: [feeding(at: t0)], inFridge: false, fridgeCelsius: 7, roomCelsius: 19)
         let data = try JSONEncoder().encode([starter])
         #expect(try JSONDecoder().decode([Starter].self, from: data) == [starter])
     }

@@ -81,6 +81,18 @@ struct StarterStoreTests {
         #expect(reopened?.inFridge == false)
     }
 
+    @Test func roomTemperatureChangesAloneAndIsSaved() {
+        let defaults = makeDefaults()
+        let store = StarterStore(defaults: defaults)
+        let a = starter("A")
+        store.add(a)
+        store.setRoomCelsius(a.id, 19)
+        store.setRoomCelsius(UUID(), 30)
+        let reopened = StarterStore(defaults: defaults).starter(a.id)
+        #expect(reopened?.roomCelsius == 19)
+        #expect(reopened?.inFridge == a.inFridge)
+    }
+
     @Test func removeDeletesOnlyThatStarter() {
         let defaults = makeDefaults()
         let store = StarterStore(defaults: defaults)

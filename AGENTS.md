@@ -18,10 +18,11 @@ Speicherung. `SourdoughKit/` ist ein Swift Package mit der **Rechenlogik**,
 ohne Xcode-Projekt und ohne Simulator prüfbar.
 
 Stand 2026-11-09: Startanimation (Platzhalter), Startbildschirm mit
-Platzhalter-Foto und drei Optionen (Backutensilien, Sauerteigstarter, Tipps
-und Tricks), Utensilien-Liste mit Speicherung, Tipps und Tricks,
-Starter-Protokoll. Weitere Startoptionen
-sind noch zu planen. Der letzte volle Lauf mit Abdeckung 100 % ist vom
+Platzhalter-Foto und vier Optionen (Brot backen, Backutensilien,
+Sauerteigstarter, Tipps und Tricks), Utensilien-Liste mit Speicherung, Tipps
+und Tricks, Starter-Protokoll. „Brot backen“ plant einen Durchgang in drei
+Schritten (Mehle, Utensilien und Menge, Zeitplan); Anleitung, Durchführung und
+Protokoll folgen (Plan: `docs/brotback-durchgang.md`). Der letzte volle Lauf mit Abdeckung 100 % ist vom
 2026-11-09 (siehe „Wann welcher Lauf“).
 
 ## Aufbau
@@ -34,7 +35,10 @@ SourdoughKit/          Swift Package: die Rechenlogik samt Tests
   Sources/SourdoughKit   `Dough` (Hydration mit Anstellgut), `EquipmentItem`
                          (Backutensilien, mit `Dimensions` und Volumen), `Starter` mit `Feeding` und die
                          Zustandsberechnung (`StarterModel`), Tipps
-                         (`TipsTopic`, `TipsCatalog`, `TipsParser`) —
+                         (`TipsTopic`, `TipsCatalog`, `TipsParser`),
+                         Backplanung: `Flour`, `FlourMix`, `BreadType` und
+                         `BakeRules`, `BakeSetup` und `DoughAmount`, `Recipe`,
+                         `Schedule` mit `ScheduleRules` —
                          Werttypen und reine Funktionen
     Tips/*.md            die Texte der Tipps-Seiten, eine Datei je Thema
   Tests/SourdoughKitTests
@@ -56,6 +60,11 @@ Sourdough/             Quellcode der App
   StarterForms.swift   Formular-Modelle (Anlegen, Füttern), Zahleneingabe
   StarterText.swift    deutsche Texte: Zustände, Dauer, Datum, Zusammenfassung
   StarterDemo.swift    Demo-Starter für UI-Tests
+  BakePlanView.swift, BakeEquipmentView.swift, BakeScheduleView.swift
+                       Brot backen: Mehle, Utensilien und Menge, Zeitplan
+  BakePlanModel.swift  das Modell aller drei Planungsschritte
+  BakeText.swift       deutsche Texte der Backplanung und der Zeitleiste
+  KitchenStore.swift   gemerkte Raum- und Kühlschranktemperatur (`kitchen.v1`)
   LaunchOptions.swift  Startparameter für Tests
   LaunchSetup.swift    wendet sie einmal beim App-Start an
   Refreshing.swift     setzt „jetzt“ jede Minute neu
@@ -287,7 +296,66 @@ Konstanten stehen an einer Stelle in `StarterModel`. Sie sind Richtwerte und
 nicht an echten Startern gemessen; wer sie ändert, ändert die Sollwerte in
 `StarterTests` von Hand nach.
 
-Ohne Kühlschrank gilt der Starter als bei 22 °C aufbewahrt (`Starter.roomCelsius`).
+Ohne Kühlschrank steht der Starter bei seiner eigenen Raumtemperatur
+(`Starter.roomCelsius`, 10 bis 35 °C, Voreinstellung 22 °C; ältere
+gespeicherte Starter ohne den Wert bekommen 22 °C). Ein neuer Starter beginnt
+mit den zuletzt benutzten Temperaturen (`KitchenStore`); Anlegen und Ändern
+am Starter merken sie sich dort, ebenso der Zeitplan beim Backen.
+
+## Brot backen
+
+Plan und Entscheidungen stehen in `docs/brotback-durchgang.md`. Umgesetzt
+sind die drei Planungsschritte; die Rechnungen liegen im Package, jede
+Konstante als Richtwert an einer Stelle:
+
+1. **Mehle** (`BakePlanView`): Brotart (sechs Vorgaben, `BreadType.preset`),
+   Starter, Mehlmenge, Anteile. Ändert sich ein Anteil, verteilt
+   `FlourMix.setting` den Unterschied: erst auf Mehle desselben Getreides,
+   dann auf das Gegenstück Weizen↔Dinkel, sonst auf alle. Grenzen in Gramm
+   (`FlourMix.limited`) verteilen den Rest ebenso. `BakeRules` prüft
+   Roggenbereich der Brotart (Vorgabe ± 10 Punkte), Roggensauerteig ab 30 %
+   Roggen und Grenzen; `BakeRules.range` liefert die möglichen ganzen
+   Prozente eines Mehls. Die Hydration ist das gewichtete Mittel der
+   Wasseraufnahme der Mehle (`Flour.waterUptake`).
+2. **Utensilien und Menge** (`BakeEquipmentView`): Kastenform, Bräter oder
+   Blech; freigeschoben gärt der Teig im Gärkörbchen oder in einer Schüssel;
+   Kneten mit Maschine oder von Hand. Teig aus der Kastenform: Volumen ×
+   0,5 g/ml; aus dem Bräter: 1 kg je Bodenfläche eines runden 27-cm-Bräters;
+   ohne Maße 1 kg. Mehl = Teig / (1 + Wasser + 2 % Salz). `Recipe` teilt in
+   Sauerteigstufe (35 % des Roggens, sonst 20 % des Mehls, dunkelste Mehle
+   zuerst, 100 % Wasser, 20 % Anstellgut obendrauf) und Hauptteig.
+3. **Zeitplan** (`BakeScheduleView`): rückwärts von „anschnittfertig“;
+   Ruhezeiten bei 22 °C (Sauerteig 8 h, Stockgare 3 − 2,5 × Roggenanteil h,
+   Stückgare 1,5 h), je 10 °C kälter dreimal so lang; jede Ruhe mit Ort
+   (warm 27 °C, Raum, Kühlschrank) und Spanne (Faktor 0,7–1,5, Sauerteig
+   0,6–1,6). Handgriffe liegen zwischen 8 und 21 Uhr; sonst wählt der Plan
+   einen anderen Ort oder meldet einen Konflikt. Auskühlen 2 h, ab 50 %
+   Roggen 6 h, ab 80 % einen Tag. Der Vorschlag ist der erste Mittag oder
+   Abend, dessen Plan nach „jetzt“ beginnt und ohne Konflikt ist.
+
+Bezeichner: `start-bake`; Schritt 1 `plan-bread`, `plan-bread-character`,
+`plan-starter`, `plan-no-starters`, `plan-total`, `plan-flour-<mehl>`,
+`plan-add-flour` mit `plan-add-<mehl>`, `plan-mix-summary`,
+`plan-hydration`, `plan-water`, `plan-error`, `plan-issue-<n>`,
+`plan-next`; im Mehl-Sheet `flour-kind`, `flour-share`, `flour-stepper`,
+`flour-slider`, `flour-range`, `flour-limit`, `flour-remove`, `flour-done`.
+Schritt 2 `setup-vessel`, `setup-pan`, `setup-pot`, `setup-basket`,
+`setup-kneader`, `setup-dough`, `setup-flour`, `setup-dough-source`,
+`setup-issue-<n>`, `recipe-sour-<mehl>`, `recipe-sour-water`,
+`recipe-starter`, `recipe-sourdough`, `recipe-main-<mehl>`,
+`recipe-main-water`, `recipe-salt`, `setup-next`. Schritt 3
+`schedule-target` (Sheet mit `schedule-datepicker`,
+`schedule-target-done`), `schedule-room`, `schedule-fridge`,
+`schedule-error`, `schedule-conflict-<n>`, `schedule-chart`,
+`schedule-step-<n>`, `schedule-range-<ruhe>`, `schedule-place-<ruhe>`,
+`schedule-stepper-<ruhe>`, `schedule-reset`. `<mehl>` ist der Rohwert von
+`Flour` (`rye1150`, `speltWholeGrain` …), `<ruhe>` der von `RestKind`
+(`sourdough`, `bulk`, `proof`).
+
+Ein Werte-Paar aus Titel und Wert (`LabeledContent`) fasst VoiceOver zu
+einem Element zusammen; UI-Tests prüfen dort das ganze Label („Hydration,
+81,6 %“). Menü-Picker wählen Tests mit `choose(_:_:)`, das den tippbaren
+Menüeintrag nimmt: Ein Segment darunter kann denselben Text tragen.
 
 ## Tipps und Tricks
 
@@ -322,7 +390,8 @@ eigene `identifier`.
 Jeder UI-Test startet die App in einem definierten Zustand:
 
 - `-skipSplash` überspringt die Startanimation.
-- `-resetData` vergisst alle gespeicherten Daten (Utensilien, Starter). Ein Neustart
+- `-resetData` vergisst alle gespeicherten Daten (Utensilien, Starter,
+  Temperaturen). Ein Neustart
   innerhalb eines Tests lässt ihn weg, um das Speichern zu beweisen.
 - `-splashSeconds <n>` dehnt die Startanimation, damit ein Test sie sicher
   sieht.
@@ -336,6 +405,8 @@ Jeder UI-Test startet die App in einem definierten Zustand:
   Test nicht erst alles anlegen muss. Nur ein Test legt ein Stück über das
   Formular an und startet danach neu
   (`EquipmentListTests.testAddingAPanShowsItWithItsVolumeAndSurvivesRestartingTheApp`).
+- `-now 2026-11-13T09:00` legt „jetzt“ für die Backplanung fest (Ortszeit),
+  damit der vorgeschlagene Zeitplan in Tests feststeht.
 
 Ohne Parameter startet die App so, wie eine Nutzerin oder ein Nutzer sie
 vorfindet. Zurücksetzen und Vorbelegen geschieht einmal im App-Start

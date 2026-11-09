@@ -4,10 +4,13 @@ import SwiftUI
 struct StartView: View {
     let store: EquipmentStore
     let starterStore: StarterStore
+    let kitchenStore: KitchenStore
+    /// "Now" for planning a bake; `nil` is the real time.
+    var now: Date?
     @State private var showTips = false
 
     enum Destination: Hashable {
-        case equipment, starters
+        case bake, equipment, starters
     }
 
     var body: some View {
@@ -15,6 +18,8 @@ struct StartView: View {
             ScrollView {
                 VStack(spacing: 16) {
                     hero
+                    option("Brot backen", subtitle: "Brot planen, Mengen und Zeitplan",
+                           symbol: "birthday.cake", destination: .bake, id: "start-bake")
                     option("Meine Backutensilien", subtitle: store.startSubtitle,
                            symbol: "frying.pan", destination: .equipment, id: "start-equipment")
                     option("Sauerteigstarter", subtitle: starterStore.startSubtitle,
@@ -32,8 +37,11 @@ struct StartView: View {
             .sheet(isPresented: $showTips) { TipsView(initial: nil) }
             .navigationDestination(for: Destination.self) { destination in
                 switch destination {
+                case .bake:
+                    BakePlanView(starterStore: starterStore, equipmentStore: store,
+                                 kitchenStore: kitchenStore, now: now ?? Date())
                 case .equipment: EquipmentOverviewView(store: store)
-                case .starters: StarterListView(store: starterStore)
+                case .starters: StarterListView(store: starterStore, kitchenStore: kitchenStore)
                 }
             }
         }
@@ -90,5 +98,6 @@ struct StartView: View {
 
 #Preview {
     StartView(store: EquipmentStore(defaults: UserDefaults(suiteName: "preview") ?? .standard),
-              starterStore: StarterStore(defaults: UserDefaults(suiteName: "preview") ?? .standard))
+              starterStore: StarterStore(defaults: UserDefaults(suiteName: "preview") ?? .standard),
+              kitchenStore: KitchenStore(defaults: UserDefaults(suiteName: "preview") ?? .standard))
 }

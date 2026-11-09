@@ -20,6 +20,7 @@ final class StarterFormModel {
     static let numbersOnly = "Bitte gib nur Zahlen ein."
     static let needsFood = "Mehl und Wasser dürfen nicht beide 0 sein."
     static let fridgeRange = "Die Kühlschranktemperatur liegt meist zwischen 0 und 15 °C."
+    static let roomRange = "Die Raumtemperatur liegt meist zwischen 10 und 35 °C."
 
     var name = ""
     var flour: FlourType = .rye
@@ -27,10 +28,14 @@ final class StarterFormModel {
     var flourText = "50"
     var waterText = "50"
     var inFridge = true
-    var fridgeText = "5"
+    var fridgeText: String
+    var roomText: String
 
-    init(now: Date = Date()) {
+    /// Starts with the temperatures used last.
+    init(now: Date = Date(), temperatures: Temperatures = Temperatures()) {
         createdAt = now
+        fridgeText = StarterText.number(temperatures.fridgeCelsius)
+        roomText = StarterText.number(temperatures.roomCelsius)
     }
 
     /// The typed name, or the default of the flour if there is none.
@@ -44,11 +49,17 @@ final class StarterFormModel {
         NumberInput.parse(text).flatMap { (0...15).contains($0) ? $0 : nil }
     }
 
+    /// A room temperature from a field; `nil` unless it is a number from 10 to 35.
+    static func parseRoom(_ text: String) -> Double? {
+        NumberInput.parse(text).flatMap { (10...35).contains($0) ? $0 : nil }
+    }
+
     var errorText: String? {
         guard let flourGrams = NumberInput.parse(flourText),
               let waterGrams = NumberInput.parse(waterText) else { return Self.numbersOnly }
         if flourGrams + waterGrams == 0 { return Self.needsFood }
         if inFridge && Self.parseFridge(fridgeText) == nil { return Self.fridgeRange }
+        if !inFridge && Self.parseRoom(roomText) == nil { return Self.roomRange }
         return nil
     }
 
@@ -63,7 +74,8 @@ final class StarterFormModel {
                             waterGrams: waterGrams)
         return Starter(id: id, name: resolvedName, flour: flour, createdAt: createdAt,
                        feedings: [first], inFridge: inFridge,
-                       fridgeCelsius: Self.parseFridge(fridgeText) ?? 5)
+                       fridgeCelsius: Self.parseFridge(fridgeText) ?? Temperatures().fridgeCelsius,
+                       roomCelsius: Self.parseRoom(roomText) ?? Starter.defaultRoomCelsius)
     }
 }
 

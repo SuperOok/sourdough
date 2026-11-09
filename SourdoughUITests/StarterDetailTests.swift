@@ -93,6 +93,19 @@ final class StarterDetailTests: SourdoughUITestCase {
         XCTAssertEqual(text("detail-feedby").label, inFridge)
     }
 
+    func testAStarterAtRoomTemperatureHasItsOwnTemperature() {
+        open("Weizensauerteig")
+        XCTAssertEqual(element(app.textFields, "detail-room-temp").value as? String, "22")
+        XCTAssertFalse(app.textFields["detail-fridge-temp"].exists)
+        let at22 = text("detail-feedby").label
+        replaceText("detail-room-temp", with: "40")
+        assertText("detail-room-error", "Die Raumtemperatur liegt meist zwischen 10 und 35 °C.")
+        // Colder: everything takes longer, the deadline moves.
+        replaceText("detail-room-temp", with: "18")
+        XCTAssertTrue(app.staticTexts["detail-room-error"].waitForNonExistence(timeout: 5))
+        XCTAssertNotEqual(text("detail-feedby").label, at22)
+    }
+
     func testDeletingAsksFirstAndRemovesTheStarter() {
         open("Weizensauerteig")
         tapButton("detail-delete")

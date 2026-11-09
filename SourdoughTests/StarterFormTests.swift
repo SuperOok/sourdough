@@ -26,6 +26,7 @@ struct StarterFormModelTests {
         #expect(model.waterText == "50")
         #expect(model.inFridge)
         #expect(model.fridgeText == "5")
+        #expect(model.roomText == "22")
         #expect(model.isValid)
         #expect(model.errorText == nil)
     }
@@ -77,6 +78,29 @@ struct StarterFormModelTests {
         #expect(model.errorText == nil)
     }
 
+    @Test func checksTheRoomTemperatureOnlyOutsideTheFridge() {
+        let model = StarterFormModel(now: now)
+        model.roomText = "5"
+        #expect(model.errorText == nil)
+        model.inFridge = false
+        #expect(model.errorText == StarterFormModel.roomRange)
+    }
+
+    @Test func roomTemperatureNeedsToBeFromTenToThirtyFive() {
+        #expect(StarterFormModel.parseRoom("10") == 10)
+        #expect(StarterFormModel.parseRoom("35") == 35)
+        #expect(StarterFormModel.parseRoom("19,5") == 19.5)
+        #expect(StarterFormModel.parseRoom("9.9") == nil)
+        #expect(StarterFormModel.parseRoom("36") == nil)
+        #expect(StarterFormModel.parseRoom("warm") == nil)
+    }
+
+    @Test func startsWithTheTemperaturesUsedLast() {
+        let model = StarterFormModel(now: now, temperatures: Temperatures(roomCelsius: 19.5, fridgeCelsius: 4))
+        #expect(model.roomText == "19,5")
+        #expect(model.fridgeText == "4")
+    }
+
     @Test func buildsTheStarterWithItsFirstFeeding() throws {
         let model = StarterFormModel(now: now)
         model.name = "Opa"
@@ -104,9 +128,18 @@ struct StarterFormModelTests {
         let model = StarterFormModel(now: now)
         model.inFridge = false
         model.fridgeText = "kaputt"
+        model.roomText = "19"
         let starter = try #require(model.makeStarter())
         #expect(!starter.inFridge)
         #expect(starter.fridgeCelsius == 5)
+        #expect(starter.roomCelsius == 19)
+    }
+
+    @Test func aStarterInTheFridgeKeepsTheDefaultRoomValue() throws {
+        let model = StarterFormModel(now: now)
+        model.roomText = "kaputt"
+        let starter = try #require(model.makeStarter())
+        #expect(starter.roomCelsius == 22)
     }
 
     @Test func anInvalidFormMakesNoStarter() {

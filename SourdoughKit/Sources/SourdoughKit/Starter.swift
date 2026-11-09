@@ -41,8 +41,9 @@ public struct Feeding: Codable, Equatable, Sendable, Identifiable {
 
 /// A sourdough starter and its history.
 public struct Starter: Codable, Equatable, Sendable, Identifiable {
-    /// Kitchen temperature assumed for a starter that is not in the fridge.
-    public static let roomCelsius = 22.0
+    /// Kitchen temperature for a starter that is not in the fridge, unless
+    /// the user gives another.
+    public static let defaultRoomCelsius = 22.0
 
     public var id: UUID
     public var name: String
@@ -52,9 +53,11 @@ public struct Starter: Codable, Equatable, Sendable, Identifiable {
     public var feedings: [Feeding]
     public var inFridge: Bool
     public var fridgeCelsius: Double
+    public var roomCelsius: Double
 
     public init(id: UUID = UUID(), name: String, flour: FlourType, createdAt: Date,
-                feedings: [Feeding] = [], inFridge: Bool = true, fridgeCelsius: Double = 5) {
+                feedings: [Feeding] = [], inFridge: Bool = true, fridgeCelsius: Double = 5,
+                roomCelsius: Double = defaultRoomCelsius) {
         self.id = id
         self.name = name
         self.flour = flour
@@ -62,11 +65,30 @@ public struct Starter: Codable, Equatable, Sendable, Identifiable {
         self.feedings = feedings
         self.inFridge = inFridge
         self.fridgeCelsius = fridgeCelsius
+        self.roomCelsius = roomCelsius
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, flour, createdAt, feedings, inFridge, fridgeCelsius, roomCelsius
+    }
+
+    /// Starters saved before the room temperature could be set have none;
+    /// they get `defaultRoomCelsius`.
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        flour = try container.decode(FlourType.self, forKey: .flour)
+        createdAt = try container.decode(Date.self, forKey: .createdAt)
+        feedings = try container.decode([Feeding].self, forKey: .feedings)
+        inFridge = try container.decode(Bool.self, forKey: .inFridge)
+        fridgeCelsius = try container.decode(Double.self, forKey: .fridgeCelsius)
+        roomCelsius = try container.decodeIfPresent(Double.self, forKey: .roomCelsius) ?? Self.defaultRoomCelsius
     }
 
     /// The temperature the starter is kept at.
     public var celsius: Double {
-        inFridge ? fridgeCelsius : Self.roomCelsius
+        inFridge ? fridgeCelsius : roomCelsius
     }
 
     /// The most recent feeding by date.

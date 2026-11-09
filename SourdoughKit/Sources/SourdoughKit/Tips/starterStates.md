@@ -7,7 +7,7 @@ Die App schätzt den Zustand deines Starters aus der letzten Fütterung. Das sin
 - Wie stark der Starter beim Füttern verdünnt wurde. Je mehr frisches Mehl und Wasser im Verhältnis zum behaltenen Starter, desto länger dauert es bis zum Höhepunkt.
 - Die Temperatur. Bei 22 °C braucht ein Weizenstarter für eine Verdopplung etwa 3 Stunden. Je 10 °C kälter dauert es dreimal so lang.
 - Das Mehl. Roggen reift etwas schneller als Weizen, Dinkel liegt dazwischen.
-- Ein Starter ohne Kühlschrank gilt als bei 22 °C aufbewahrt.
+- Steht der Starter nicht im Kühlschrank, rechnet die App mit der Raumtemperatur, die du beim Starter angibst.
 
 ## Die Zustände
 

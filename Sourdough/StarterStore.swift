@@ -42,6 +42,11 @@ final class StarterStore {
         change(id) { $0.fridgeCelsius = celsius }
     }
 
+    /// Changes only the room temperature, not where the starter is kept.
+    func setRoomCelsius(_ id: Starter.ID, _ celsius: Double) {
+        change(id) { $0.roomCelsius = celsius }
+    }
+
     func remove(_ id: Starter.ID) {
         starters.removeAll { $0.id == id }
         save()

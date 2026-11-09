@@ -7,11 +7,13 @@ public struct TipsTopic: Equatable, Sendable, Identifiable {
     public enum ID: String, CaseIterable, Sendable {
         case kneader, pot, pan, basket
         case starter, starterStates
+        case flours, schedule
     }
 
     public enum Category: String, CaseIterable, Sendable {
         case utensils
         case starters
+        case baking
     }
 
     public let id: ID
@@ -32,6 +34,7 @@ public struct TipsTopic: Equatable, Sendable, Identifiable {
         switch id {
         case .kneader, .pot, .pan, .basket: .utensils
         case .starter, .starterStates: .starters
+        case .flours, .schedule: .baking
         }
     }
 }

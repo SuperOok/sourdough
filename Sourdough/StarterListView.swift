@@ -4,6 +4,7 @@ import SourdoughKit
 /// All starters with their state, and the way to add one.
 struct StarterListView: View {
     let store: StarterStore
+    let kitchenStore: KitchenStore
     @State private var showAdd = false
     @State private var now = Date()
 
@@ -23,7 +24,7 @@ struct StarterListView: View {
         .navigationTitle("Sauerteigstarter")
         .navigationBarTitleDisplayMode(.inline)
         .navigationDestination(for: Starter.ID.self) { id in
-            StarterDetailView(store: store, id: id)
+            StarterDetailView(store: store, kitchenStore: kitchenStore, id: id)
         }
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
@@ -37,7 +38,10 @@ struct StarterListView: View {
             }
         }
         .sheet(isPresented: $showAdd) {
-            AddStarterView { store.add($0) }
+            AddStarterView(temperatures: kitchenStore.temperatures) { starter in
+                store.add(starter)
+                kitchenStore.remember(starter)
+            }
         }
     }
 
@@ -57,6 +61,7 @@ struct StarterListView: View {
 
 #Preview {
     NavigationStack {
-        StarterListView(store: StarterStore(defaults: UserDefaults(suiteName: "preview") ?? .standard))
+        StarterListView(store: StarterStore(defaults: UserDefaults(suiteName: "preview") ?? .standard),
+                        kitchenStore: KitchenStore(defaults: UserDefaults(suiteName: "preview") ?? .standard))
     }
 }

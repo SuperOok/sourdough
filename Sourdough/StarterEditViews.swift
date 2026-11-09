@@ -38,9 +38,14 @@ struct NumberField: View {
 
 /// The sheet for a new starter.
 struct AddStarterView: View {
-    @State private var model = StarterFormModel()
+    @State private var model: StarterFormModel
     let onSave: (Starter) -> Void
     @Environment(\.dismiss) private var dismiss
+
+    init(temperatures: Temperatures, onSave: @escaping (Starter) -> Void) {
+        _model = State(initialValue: StarterFormModel(temperatures: temperatures))
+        self.onSave = onSave
+    }
 
     var body: some View {
         NavigationStack {
@@ -79,6 +84,9 @@ struct AddStarterView: View {
                     if model.inFridge {
                         NumberField(title: "Kühlschranktemperatur (°C)", text: $model.fridgeText,
                                     id: "add-fridge-temp")
+                    } else {
+                        NumberField(title: "Raumtemperatur (°C)", text: $model.roomText,
+                                    id: "add-room-temp")
                     }
                 }
             }
@@ -153,5 +161,5 @@ struct FeedView: View {
 }
 
 #Preview {
-    AddStarterView { _ in }
+    AddStarterView(temperatures: Temperatures()) { _ in }
 }
