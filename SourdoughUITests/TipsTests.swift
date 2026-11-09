@@ -8,7 +8,7 @@ final class TipsTests: SourdoughUITestCase {
         launch()
         tapButton("start-tips")
         XCTAssertTrue(app.navigationBars["Tipps und Tricks"].firstMatch.waitForExistence(timeout: 10))
-        for id in ["kneader", "pot", "pan", "basket"] {
+        for id in ["kneader", "pot", "pan", "basket", "starter", "starterStates"] {
             XCTAssertTrue(element(app.buttons, "tips-topic-\(id)").exists)
         }
         tapButton("tips-topic-pot")
@@ -40,25 +40,6 @@ final class TipsTests: SourdoughUITestCase {
         tapButton("tips-button")
         _ = element(app.buttons, "tips-topic-pan")
         tapButton("tips-close")
-        _ = element(app.buttons, "equipment-edit")
-    }
-
-    func testTheWizardOpensTheTipsOfTheCurrentStepAndReturnsToIt() {
-        launch()
-        openEquipment()
-        tapButton("equipment-edit")
-        // Step 1: the kneading machine.
-        tapButton("wizard-tips")
-        assertTitle("Küchenmaschine")
-        tapButton("tips-topic-close")
-        assertStep("Küchenmaschine")
-        // Step 2 with an unsaved choice: still there afterwards.
-        next()
-        flip("toggle-pot", to: true)
-        tapButton("wizard-tips")
-        assertTitle("Bräter und Römertopf")
-        tapButton("tips-topic-close")
-        assertStep("Bräter oder Römertopf")
-        XCTAssertEqual(element(app.switches, "toggle-pot").value as? String, "1")
+        _ = element(app.buttons, "equipment-add")
     }
 }

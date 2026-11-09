@@ -6,10 +6,12 @@ public struct TipsTopic: Equatable, Sendable, Identifiable {
     /// of `tip:` links. The utensil topics use the ids of the equipment lines.
     public enum ID: String, CaseIterable, Sendable {
         case kneader, pot, pan, basket
+        case starter, starterStates
     }
 
     public enum Category: String, CaseIterable, Sendable {
         case utensils
+        case starters
     }
 
     public let id: ID
@@ -29,6 +31,7 @@ public struct TipsTopic: Equatable, Sendable, Identifiable {
     public var category: Category {
         switch id {
         case .kneader, .pot, .pan, .basket: .utensils
+        case .starter, .starterStates: .starters
         }
     }
 }

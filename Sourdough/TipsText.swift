@@ -5,9 +5,13 @@ import SourdoughKit
 enum TipsText {
     static let linkScheme = "tip"
 
-    /// Inline Markdown (bold, italic, links) of one block as styled text.
-    static func attributed(_ markdown: String) -> AttributedString {
-        (try? AttributedString(markdown: markdown)) ?? AttributedString(markdown)
+    /// Inline Markdown (bold, italic, links) of one block as styled text; the
+    /// plain text if the Markdown cannot be read. `parse` is there for the
+    /// tests: real Markdown practically always parses.
+    static func attributed(_ markdown: String,
+                           parse: (String) throws -> AttributedString = { try AttributedString(markdown: $0) })
+        -> AttributedString {
+        (try? parse(markdown)) ?? AttributedString(markdown)
     }
 
     /// The topic a `tip:<id>` link points to; `nil` for other links. Reads the
@@ -23,6 +27,7 @@ extension TipsTopic.Category {
     var germanTitle: String {
         switch self {
         case .utensils: "Backutensilien"
+        case .starters: "Sauerteigstarter"
         }
     }
 }

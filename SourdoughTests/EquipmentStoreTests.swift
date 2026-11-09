@@ -9,58 +9,104 @@ struct EquipmentStoreTests {
         UserDefaults(suiteName: "EquipmentStoreTests-\(UUID().uuidString)")!
     }
 
-    private let sample = Equipment(hasKneadingMachine: true, pot: .init(hasSiliconeLiner: true))
-
-    @Test func startsUnconfiguredAndEmpty() {
-        let store = EquipmentStore(defaults: makeDefaults())
-        #expect(!store.isConfigured)
-        #expect(store.equipment.isEmpty)
+    private func pan(_ name: String) -> EquipmentItem {
+        EquipmentItem(kind: .pan, name: name, material: .castIron, hasLid: true,
+                      dimensions: Dimensions(shape: .rectangular, lengthCm: 30, widthCm: 10, heightCm: 8))
     }
 
-    @Test func savedEquipmentIsReadBackByANewStore() {
+    @Test func startsEmpty() {
+        let store = EquipmentStore(defaults: makeDefaults())
+        #expect(store.items.isEmpty)
+    }
+
+    @Test func addedItemsKeepTheirOrderAndAreReadBackByANewStore() {
         let defaults = makeDefaults()
-        EquipmentStore(defaults: defaults).save(sample)
-        let reopened = EquipmentStore(defaults: defaults)
-        #expect(reopened.isConfigured)
-        #expect(reopened.equipment == sample)
+        let store = EquipmentStore(defaults: defaults)
+        let first = pan("A")
+        let second = EquipmentItem(kind: .kneader, name: "B")
+        store.add(first)
+        store.add(second)
+        #expect(store.items == [first, second])
+        #expect(EquipmentStore(defaults: defaults).items == [first, second])
     }
 
-    @Test func savingNothingStillCountsAsConfigured() {
+    @Test func severalItemsOfOneKindAreAllowed() {
         let store = EquipmentStore(defaults: makeDefaults())
-        store.save(Equipment())
-        #expect(store.isConfigured)
-        #expect(store.equipment.isEmpty)
+        store.add(pan("A"))
+        store.add(pan("B"))
+        #expect(store.items.map(\.name) == ["A", "B"])
     }
 
-    @Test func savingAgainReplacesTheOldValue() {
+    @Test func anItemIsFoundById() {
         let store = EquipmentStore(defaults: makeDefaults())
-        store.save(sample)
-        store.save(Equipment(hasProvingBasket: true))
-        #expect(store.equipment == Equipment(hasProvingBasket: true))
+        let item = pan("A")
+        store.add(item)
+        #expect(store.item(item.id) == item)
+        #expect(store.item(UUID()) == nil)
+    }
+
+    @Test func updateReplacesTheItemWithTheSameIdAndKeepsItsPlace() {
+        let defaults = makeDefaults()
+        let store = EquipmentStore(defaults: defaults)
+        var first = pan("A")
+        store.add(first)
+        store.add(pan("B"))
+        first.name = "A2"
+        store.update(first)
+        #expect(store.items.map(\.name) == ["A2", "B"])
+        #expect(EquipmentStore(defaults: defaults).items.map(\.name) == ["A2", "B"])
+    }
+
+    @Test func updateIgnoresUnknownIds() {
+        let store = EquipmentStore(defaults: makeDefaults())
+        store.add(pan("A"))
+        store.update(pan("other"))
+        #expect(store.items.map(\.name) == ["A"])
+    }
+
+    @Test func removeDeletesOnlyThatItem() {
+        let defaults = makeDefaults()
+        let store = EquipmentStore(defaults: defaults)
+        let first = pan("A")
+        store.add(first)
+        store.add(pan("B"))
+        store.remove(first.id)
+        #expect(store.items.map(\.name) == ["B"])
+        #expect(EquipmentStore(defaults: defaults).items.map(\.name) == ["B"])
     }
 
     @Test func resetForgetsEverything() {
         let defaults = makeDefaults()
         let store = EquipmentStore(defaults: defaults)
-        store.save(sample)
+        store.add(pan("A"))
         store.reset()
-        #expect(!store.isConfigured)
-        #expect(store.equipment.isEmpty)
-        #expect(!EquipmentStore(defaults: defaults).isConfigured)
+        #expect(store.items.isEmpty)
+        #expect(EquipmentStore(defaults: defaults).items.isEmpty)
     }
 
-    @Test func unreadableDataCountsAsNeverSetUp() {
+    @Test func unreadableDataCountsAsNoEquipment() {
         let defaults = makeDefaults()
         defaults.set(Data("kein JSON".utf8), forKey: EquipmentStore.key)
-        let store = EquipmentStore(defaults: defaults)
-        #expect(!store.isConfigured)
-        #expect(store.equipment.isEmpty)
+        #expect(EquipmentStore(defaults: defaults).items.isEmpty)
     }
 
-    @Test func startSubtitleFollowsTheState() {
+    @Test func theKeyIsVersionTwoSoTheOldSingleRecordIsLeftAlone() {
+        #expect(EquipmentStore.key == "equipment.v2")
+    }
+
+    @Test func missingKindsFollowTheItems() {
         let store = EquipmentStore(defaults: makeDefaults())
-        #expect(store.startSubtitle == "Noch nicht eingerichtet")
-        store.save(sample)
-        #expect(store.startSubtitle == "Eingerichtet")
+        #expect(store.missingKinds == [.kneader, .pot, .pan, .basket])
+        store.add(pan("A"))
+        #expect(store.missingKinds == [.kneader, .pot, .basket])
+    }
+
+    @Test func startSubtitleFollowsTheCount() {
+        let store = EquipmentStore(defaults: makeDefaults())
+        #expect(store.startSubtitle == "Noch nichts angelegt")
+        store.add(pan("A"))
+        #expect(store.startSubtitle == "1 angelegt")
+        store.add(pan("B"))
+        #expect(store.startSubtitle == "2 angelegt")
     }
 }

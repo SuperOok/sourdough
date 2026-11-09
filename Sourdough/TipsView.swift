@@ -101,7 +101,7 @@ struct TipsTopicView: View {
 struct TipsButton: View {
     var topic: TipsTopic.ID?
     /// Screens can be stacked (a sheet over a screen that has its own button),
-    /// so the wizard gives its button another identifier.
+    /// so the equipment form gives its button another identifier.
     var identifier = "tips-button"
     @State private var showing = false
 

@@ -21,13 +21,13 @@ final class StartScreenTests: SourdoughUITestCase {
         element(app.otherElements, "start-hero")
         XCTAssertTrue(element(app.buttons, "start-equipment").isHittable)
         XCTAssertTrue(element(app.buttons, "start-tips").isHittable)
-        XCTAssertTrue(app.staticTexts["Noch nicht eingerichtet"].exists)
+        XCTAssertTrue(app.staticTexts["Noch nichts angelegt"].exists)
     }
 
     func testTheEquipmentOptionOpensTheOverview() {
         launch()
         openEquipment()
-        XCTAssertEqual(element(app.buttons, "equipment-edit").label, "Einrichten")
+        XCTAssertEqual(text("equipment-empty").label, "Noch keine Utensilien angelegt.")
         app.navigationBars.buttons.element(boundBy: 0).tap()
         _ = element(app.buttons, "start-equipment")
     }

@@ -3,10 +3,11 @@ import SwiftUI
 /// The start screen: a hero picture and the ways into the app.
 struct StartView: View {
     let store: EquipmentStore
+    let starterStore: StarterStore
     @State private var showTips = false
 
     enum Destination: Hashable {
-        case equipment
+        case equipment, starters
     }
 
     var body: some View {
@@ -16,6 +17,8 @@ struct StartView: View {
                     hero
                     option("Meine Backutensilien", subtitle: store.startSubtitle,
                            symbol: "frying.pan", destination: .equipment, id: "start-equipment")
+                    option("Sauerteigstarter", subtitle: starterStore.startSubtitle,
+                           symbol: "drop", destination: .starters, id: "start-starters")
                     Button { showTips = true } label: {
                         card("Tipps und Tricks", subtitle: "Hilfe zu Utensilien und mehr",
                              symbol: "lightbulb")
@@ -30,6 +33,7 @@ struct StartView: View {
             .navigationDestination(for: Destination.self) { destination in
                 switch destination {
                 case .equipment: EquipmentOverviewView(store: store)
+                case .starters: StarterListView(store: starterStore)
                 }
             }
         }
@@ -84,13 +88,7 @@ struct StartView: View {
     }
 }
 
-extension EquipmentStore {
-    /// The line under "Meine Backutensilien" on the start screen.
-    var startSubtitle: String {
-        isConfigured ? "Eingerichtet" : "Noch nicht eingerichtet"
-    }
-}
-
 #Preview {
-    StartView(store: EquipmentStore(defaults: UserDefaults(suiteName: "preview") ?? .standard))
+    StartView(store: EquipmentStore(defaults: UserDefaults(suiteName: "preview") ?? .standard),
+              starterStore: StarterStore(defaults: UserDefaults(suiteName: "preview") ?? .standard))
 }

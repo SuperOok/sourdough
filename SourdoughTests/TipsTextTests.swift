@@ -32,20 +32,21 @@ struct TipsTextTests {
         #expect(String(TipsText.attributed("Nur Text").characters) == "Nur Text")
     }
 
+    @Test func unreadableMarkdownStaysPlainText() {
+        struct Unreadable: Error {}
+        let text = TipsText.attributed("**halb", parse: { _ in throw Unreadable() })
+        #expect(String(text.characters) == "**halb")
+    }
+
     @Test func categoriesHaveGermanTitles() {
         #expect(TipsTopic.Category.utensils.germanTitle == "Backutensilien")
+        #expect(TipsTopic.Category.starters.germanTitle == "Sauerteigstarter")
     }
 
-    @Test func everyWizardStepOpensItsOwnTopic() {
-        let tips = EquipmentWizardModel.Step.allCases.map(\.tip)
-        #expect(tips == [.kneader, .pot, .pan, .basket])
-    }
-
-    @Test func everyEquipmentLineHasATipsTopic() {
-        let all = Equipment(hasKneadingMachine: true, pot: .init(), loafPan: .init(),
-                            hasProvingBasket: true)
-        for line in all.lines {
-            #expect(TipsTopic.ID(rawValue: line.id) != nil, "\(line.id) hat keine Tipps-Seite.")
+    @Test func everyEquipmentKindOpensTheTopicWithItsOwnId() {
+        for kind in EquipmentKind.allCases {
+            #expect(kind.tip.rawValue == kind.rawValue)
         }
+        #expect(EquipmentKind.allCases.map(\.tip) == [.kneader, .pot, .pan, .basket])
     }
 }

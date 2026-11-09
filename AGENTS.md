@@ -17,12 +17,12 @@ Der Code ist zweierlei. `Sourdough/` ist die App: Oberfläche und
 Speicherung. `SourdoughKit/` ist ein Swift Package mit der **Rechenlogik**,
 ohne Xcode-Projekt und ohne Simulator prüfbar.
 
-Stand 2026-11-08: Startanimation (Platzhalter), Startbildschirm mit
-Platzhalter-Foto und zwei Optionen (Backutensilien, Tipps und Tricks),
-Utensilien-Wizard mit Speicherung, Tipps und Tricks. Weitere Startoptionen
-sind noch zu planen. Der letzte volle Lauf mit Abdeckung 100 % stammt aus der
-Zeit vor den Tipps; seither sind nur gezielte Läufe gemacht (siehe „Wann
-welcher Lauf“).
+Stand 2026-11-09: Startanimation (Platzhalter), Startbildschirm mit
+Platzhalter-Foto und drei Optionen (Backutensilien, Sauerteigstarter, Tipps
+und Tricks), Utensilien-Liste mit Speicherung, Tipps und Tricks,
+Starter-Protokoll. Weitere Startoptionen
+sind noch zu planen. Der letzte volle Lauf mit Abdeckung 100 % ist vom
+2026-11-09 (siehe „Wann welcher Lauf“).
 
 ## Aufbau
 
@@ -31,9 +31,11 @@ Sourdough.xcodeproj    drei Targets, „Sourdough“, „SourdoughTests“ und
                        „SourdoughUITests“, dazu ein geteiltes Schema
                        „Sourdough“
 SourdoughKit/          Swift Package: die Rechenlogik samt Tests
-  Sources/SourdoughKit   `Dough` (Hydration mit Anstellgut), `Equipment`
-                         (Backutensilien), Tipps (`TipsTopic`, `TipsCatalog`,
-                         `TipsParser`) — Werttypen und reine Funktionen
+  Sources/SourdoughKit   `Dough` (Hydration mit Anstellgut), `EquipmentItem`
+                         (Backutensilien, mit `Dimensions` und Volumen), `Starter` mit `Feeding` und die
+                         Zustandsberechnung (`StarterModel`), Tipps
+                         (`TipsTopic`, `TipsCatalog`, `TipsParser`) —
+                         Werttypen und reine Funktionen
     Tips/*.md            die Texte der Tipps-Seiten, eine Datei je Thema
   Tests/SourdoughKitTests
 Sourdough/             Quellcode der App
@@ -43,11 +45,20 @@ Sourdough/             Quellcode der App
   StartView.swift      Startbildschirm: Foto-Platzhalter und Optionen
   TipsView.swift       Tipps und Tricks: Inhaltsverzeichnis, Seite, Button
   TipsText.swift       Inline-Markdown und `tip:`-Links
-  EquipmentOverviewView.swift   gespeicherte Utensilien, „Einrichten/Ändern“
-  EquipmentWizardView.swift, EquipmentWizardModel.swift   Wizard mit Entwurf
-  EquipmentStore.swift Speicherung (UserDefaults, JSON, Schlüssel `equipment.v1`)
+  EquipmentOverviewView.swift   Liste der Utensilien, „+“-Menü, fehlende Arten
+  EquipmentFormView.swift, EquipmentForm.swift   Formular (neu/ändern) und Modell
+  EquipmentStore.swift Speicherung (UserDefaults, JSON, Schlüssel `equipment.v2`)
   EquipmentText.swift  deutsche Beschreibung der Utensilien
+  EquipmentDemo.swift  Demo-Utensilien für UI-Tests
+  StarterListView.swift, StarterDetailView.swift, StarterEditViews.swift
+                       Starter: Liste, Detail, Anlegen, Füttern
+  StarterStore.swift   Speicherung der Starter (UserDefaults, `starters.v1`)
+  StarterForms.swift   Formular-Modelle (Anlegen, Füttern), Zahleneingabe
+  StarterText.swift    deutsche Texte: Zustände, Dauer, Datum, Zusammenfassung
+  StarterDemo.swift    Demo-Starter für UI-Tests
   LaunchOptions.swift  Startparameter für Tests
+  LaunchSetup.swift    wendet sie einmal beim App-Start an
+  Refreshing.swift     setzt „jetzt“ jede Minute neu
   Assets.xcassets/
 SourdoughTests/        App-Tests (im Simulator, mit der App als Host):
                        Speicherung, View-Modelle, Formatierung
@@ -183,8 +194,8 @@ tools/uitests.sh
 ```
 
 Das ganze Schema, also auch die App-Fälle; braucht einen Simulator und
-dauert gut sechs Minuten (Stand 2026-11-08, 19 UI-Fälle auf einem
-MacBook Air mit 16 GB). Die Zeit steckt in XCUITest selbst: rund 6,5 s je
+dauert eine Viertelstunde (Stand 2026-11-09, 38 UI-Fälle auf einem
+MacBook Air mit 16 GB, nebenher lief ein Build). Die Zeit steckt in XCUITest selbst: rund 6,5 s je
 App-Start und 1 bis 3 s je Bedienschritt. Paralleles Testen ist
 ausgeschaltet, weil es hier einzelne Fälle bis zu zehnmal langsamer machte;
 `PARALLEL=YES WORKERS=<n>` schaltet es ein. Läuft nebenher die Live-Ansicht des Simulators in der
@@ -216,15 +227,67 @@ iOS 17 und kann die App nicht laden. Die Skripte nehmen ihn als Voreinstellung;
 ein anderer Simulator wird als UDID übergeben. Simulatoren immer über `id=`
 ansprechen, nie über `name=`; Gerätenamen sind nicht eindeutig.
 
-## Backutensilien-Übersicht
+## Backutensilien
 
-Zwei Listen: „Deine Backutensilien“ (mit Varianten, etwa Material und Deckel)
-und „Nicht vorhanden, aber sinnvoll“ (die Utensilien ohne Variante, die noch
-fehlen). Die zweite erscheint erst nach der ersten Einrichtung und nur, wenn
-etwas fehlt. Hinter jedem Eintrag steht ein Glühbirnen-Symbol
-(`TipsIconButton`), das die Tipps-Seite des Utensils als Sheet öffnet.
-Bezeichner: `equipment-<id>` und `missing-<id>` für die Texte,
-`equipment-tip-<id>` und `missing-tip-<id>` für die Symbole.
+Die Utensilien sind eine **Liste einzelner Stücke** (`EquipmentItem`): Von
+einer Art (`EquipmentKind`: Küchenmaschine, Bräter/Römertopf, Kastenform,
+Gärkörbchen) kann es mehrere geben, jedes mit eigenem Namen. Über das „+“
+der Symbolleiste (ein Menü mit den vier Arten) öffnet das Formular für ein
+neues Stück; ein Tipp auf eine Zeile öffnet dasselbe Formular zum Ändern,
+dort steht auch „Utensil löschen“ (mit Rückfrage). Der **Name ist
+optional**: Ohne Eingabe heißt das Stück wie seine Art, der Platzhalter im
+Feld zeigt das.
+
+Welche Angaben ein Stück hat, hängt von der Art ab (`EquipmentKind`):
+Bräter und Kastenform haben eine Silikoneinlage (ja/nein), die Kastenform
+dazu Material (Blech/Gusseisen) und Deckel. Bräter und Kastenform haben
+außerdem **optionale Innenmaße** in Zentimetern (`Dimensions`): Form
+rechteckig (Länge × Breite × Höhe), oval (π/4 × Länge × Breite × Höhe) oder
+rund (π/4 × Durchmesser² × Höhe), daraus das Volumen in Litern, auf eine
+Nachkommastelle gerundet. Alle Felder leer (oder 0) heißt „keine Maße“;
+sind nur einige gefüllt, ist das Formular ungültig („Gib alle Maße an oder
+keines.“). Ein neuer Bräter beginnt rund, eine neue Kastenform rechteckig.
+Angaben, die nicht zur Art passen, werden beim Speichern auf die
+Voreinstellung zurückgesetzt.
+
+Unter der Liste steht „Nicht vorhanden, aber sinnvoll“: die Arten, von denen
+es noch kein Stück gibt. Sie erscheint erst, wenn die Liste nicht leer ist,
+und nur, wenn eine Art fehlt. Hinter jedem Eintrag und im Formular steht ein
+Glühbirnen-Symbol (`TipsIconButton`, im Formular `TipsButton` mit
+`identifier` `item-tips`), das die Tipps-Seite der Art als Sheet öffnet.
+
+Bezeichner: `equipment-add` (das „+“-Menü) und `equipment-add-<art>`,
+`equipment-row-<name>` (Zeile), `equipment-tip-<name>`, `missing-<art>` und
+`missing-tip-<art>`, `equipment-empty`; im Formular `item-name`,
+`item-material`, `item-lid`, `item-liner`, `item-shape`, `item-length`,
+`item-width`, `item-height`, `item-volume`, `item-error`, `item-save`,
+`item-cancel`, `item-delete`, `item-tips`. `<art>` ist der Rohwert von
+`EquipmentKind` (`kneader`, `pot`, `pan`, `basket`).
+
+Gespeichert wird unter `equipment.v2`. Der frühere Eintrag `equipment.v1`
+(feste Felder statt Liste, aus der Zeit des Wizards) wird nicht übernommen.
+
+## Sauerteigstarter
+
+Ein Starter hat Name, Mehlsorte (Roggen, Weizen, Dinkel), Ansetzdatum, einen
+Aufbewahrungsort (Raumtemperatur oder Kühlschrank mit Temperatur von 0 bis
+15 °C) und ein Protokoll von Fütterungen (behaltener Starter, Mehl, Wasser,
+Zeitpunkt). Das Anlegen ist die erste Fütterung, ohne behaltenen Starter.
+
+**Der Zustand ist eine Schätzung** (`StarterModel`, Beschreibung im
+Dokumentationskommentar und in der Tipps-Seite „So wird der Zustand
+berechnet“): Aus der Verdünnung bei der letzten Fütterung (Starter + Mehl +
+Wasser im Verhältnis zum behaltenen Starter) folgt die Zahl der
+Verdopplungen; eine Verdopplung dauert bei 22 °C 3 Stunden für Weizen
+(Roggen ×0,8, Dinkel ×0,9) und je 10 °C kälter dreimal so lang. Daraus
+ergeben sich die Zeit bis zum Höhepunkt und die Grenzen: bester Bereich bei
+0,75 bis 1,5, hungrig bei 2,5, lange nicht gefüttert bei 4 Höhepunkt-Zeiten.
+Der Zeitpunkt „füttern oder verwenden bis“ ist die Hungrig-Grenze. Alle
+Konstanten stehen an einer Stelle in `StarterModel`. Sie sind Richtwerte und
+nicht an echten Startern gemessen; wer sie ändert, ändert die Sollwerte in
+`StarterTests` von Hand nach.
+
+Ohne Kühlschrank gilt der Starter als bei 22 °C aufbewahrt (`Starter.roomCelsius`).
 
 ## Tipps und Tricks
 
@@ -240,12 +303,12 @@ Anfang), `## Abschnitt`, `- Listenpunkt`, Absätze und Inline-Markdown
 eine Zeile in `TipsTopic.category`. Das Inhaltsverzeichnis in der App
 entsteht daraus von selbst. `TipsCatalogTests` prüft, dass jedes Thema eine
 Datei mit Titel und Inhalt hat und jeder `tip:`-Link ein Thema trifft. Die
-Utensil-Themen tragen dieselben Ids wie die Zeilen der Utensilien
+Utensil-Themen tragen dieselben Ids wie die Arten der Utensilien
 (`kneader`, `pot`, `pan`, `basket`); das prüft `TipsTextTests`.
 
 **Aufruf aus jeder Ansicht:** Die Tipps öffnen als Sheet über der aktuellen
-Ansicht (`TipsButton` in der Symbolleiste, im Wizard direkt mit der Seite
-zum aktuellen Schritt). „Fertig“ schließt das Sheet, darunter bleibt alles
+Ansicht (`TipsButton` in der Symbolleiste, im Utensilien-Formular direkt mit der
+Seite der Art). „Fertig“ schließt das Sheet, darunter bleibt alles
 unverändert. Neue Ansichten bekommen einen `TipsButton`; sitzt er in einer
 Ansicht, über der schon ein Sheet mit eigenem Knopf liegt, braucht er eine
 eigene `identifier`.
@@ -259,18 +322,25 @@ eigene `identifier`.
 Jeder UI-Test startet die App in einem definierten Zustand:
 
 - `-skipSplash` überspringt die Startanimation.
-- `-resetData` vergisst alle gespeicherten Daten (Utensilien). Ein Neustart
+- `-resetData` vergisst alle gespeicherten Daten (Utensilien, Starter). Ein Neustart
   innerhalb eines Tests lässt ihn weg, um das Speichern zu beweisen.
 - `-splashSeconds <n>` dehnt die Startanimation, damit ein Test sie sicher
   sieht.
-- `-seedEquipment all|none` speichert beim Start Utensilien (alles in den
-  Nicht-Standard-Varianten, beziehungsweise „eingerichtet, aber nichts
-  vorhanden“), damit ein Test nicht erst durch den Wizard klicken muss. Nur
-  ein Test geht die ganze Strecke durch den Wizard
-  (`EquipmentSavedTests.testEverythingSavedIsShownAndSurvivesRestartingTheApp`).
+- `-seedStarters demo` speichert zwei Starter in bekannten Zuständen
+  (Roggen im Kühlschrank, vor einer Stunde gefüttert: „Reift“; Weizen bei
+  Raumtemperatur, vor drei Tagen gefüttert: „Lange nicht gefüttert“).
+- `-seedEquipment all` speichert fünf Utensilien (`EquipmentDemo`):
+  Küchenmaschine „Thermomix“, ovaler Römertopf mit Einlage (30 × 20 × 12 cm,
+  5,7 l), „Gusseisenform“ mit Deckel und Einlage (30 × 10 × 8 cm, 2,4 l),
+  eine schlichte „Kastenform“ ohne Maße und ein „Gärkörbchen“, damit ein
+  Test nicht erst alles anlegen muss. Nur ein Test legt ein Stück über das
+  Formular an und startet danach neu
+  (`EquipmentListTests.testAddingAPanShowsItWithItsVolumeAndSurvivesRestartingTheApp`).
 
 Ohne Parameter startet die App so, wie eine Nutzerin oder ein Nutzer sie
-vorfindet. Die Parameter wirken nur über `LaunchOptions` und sind in
+vorfindet. Zurücksetzen und Vorbelegen geschieht einmal im App-Start
+(`LaunchSetup`), nicht im `init` einer View: Das läuft bei jedem Neuaufbau
+der View erneut und würde die Demo-Starter mit neuen Ids neu anlegen. Die Parameter wirken nur über `LaunchOptions` und sind in
 `SourdoughTests/LaunchOptionsTests.swift` geprüft.
 
 ## Build-Einstellungen

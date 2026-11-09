@@ -3,69 +3,86 @@ import SourdoughKit
 @testable import Sourdough
 
 struct EquipmentTextTests {
-    @Test func nothingOwnedHasNoLines() {
-        #expect(Equipment().lines.isEmpty)
+    @Test func kindNamesAreGerman() {
+        #expect(EquipmentKind.allCases.map(\.germanName) ==
+                ["Küchenmaschine", "Bräter/Römertopf", "Kastenform", "Gärkörbchen"])
     }
 
-    @Test func kneadingMachine() {
-        #expect(Equipment(hasKneadingMachine: true).lines ==
-                [EquipmentLine(topic: .kneader, text: "Küchenmaschine mit Knetfunktion")])
+    @Test func materialAndShapeNames() {
+        #expect(EquipmentItem.Material.sheetMetal.germanName == "Blech")
+        #expect(EquipmentItem.Material.castIron.germanName == "Gusseisen")
+        #expect(Dimensions.Shape.allCases.map(\.germanName) == ["Rechteckig", "Rund", "Oval"])
+    }
+
+    @Test func dimensionsAreWrittenPerShape() {
+        #expect(Dimensions(shape: .rectangular, lengthCm: 30, widthCm: 10, heightCm: 8).germanText
+                == "30 × 10 × 8 cm")
+        #expect(Dimensions(shape: .oval, lengthCm: 30, widthCm: 20, heightCm: 12).germanText
+                == "oval 30 × 20 × 12 cm")
+        #expect(Dimensions(shape: .round, lengthCm: 24, heightCm: 10).germanText
+                == "rund Ø 24 × 10 cm")
+    }
+
+    @Test func decimalsUseACommaInDimensions() {
+        #expect(Dimensions(shape: .rectangular, lengthCm: 12.5, widthCm: 10, heightCm: 8).germanText
+                == "12,5 × 10 × 8 cm")
+    }
+
+    @Test func volumeIsRoundedToATenthOfALitre() {
+        // 2400 ml = 2,4 l; 4523,9 ml = 4,5 l; 5654,9 ml = 5,7 l; 5000 ml = 5 l
+        #expect(Dimensions(shape: .rectangular, lengthCm: 30, widthCm: 10, heightCm: 8).volumeText == "2,4 l")
+        #expect(Dimensions(shape: .round, lengthCm: 24, heightCm: 10).volumeText == "4,5 l")
+        #expect(Dimensions(shape: .oval, lengthCm: 30, widthCm: 20, heightCm: 12).volumeText == "5,7 l")
+        #expect(Dimensions(shape: .rectangular, lengthCm: 25, widthCm: 20, heightCm: 10).volumeText == "5 l")
+    }
+
+    @Test func kneadingMachineAndBasketHaveFixedDescriptions() {
+        #expect(EquipmentItem(kind: .kneader, name: "x").detailText == "Küchenmaschine mit Knetfunktion")
+        #expect(EquipmentItem(kind: .basket, name: "x").detailText == "Gärkörbchen")
     }
 
     @Test func potWithAndWithoutLiner() {
-        #expect(Equipment(pot: .init(hasSiliconeLiner: true)).lines.map(\.text) ==
-                ["Bräter/Römertopf mit Silikoneinlage"])
-        #expect(Equipment(pot: .init(hasSiliconeLiner: false)).lines.map(\.text) ==
-                ["Bräter/Römertopf ohne Silikoneinlage"])
+        #expect(EquipmentItem(kind: .pot, name: "x", hasSiliconeLiner: true).detailText ==
+                "Bräter/Römertopf mit Silikoneinlage")
+        #expect(EquipmentItem(kind: .pot, name: "x").detailText ==
+                "Bräter/Römertopf ohne Silikoneinlage")
     }
 
     @Test func loafPanDescribesMaterialLidAndLiner() {
-        let sheet = Equipment(loafPan: .init(material: .sheetMetal, hasLid: false, hasSiliconeLiner: true))
-        #expect(sheet.lines.map(\.text) == ["Kastenform aus Blech, ohne Deckel, mit Silikoneinlage"])
-        let iron = Equipment(loafPan: .init(material: .castIron, hasLid: true, hasSiliconeLiner: false))
-        #expect(iron.lines.map(\.text) == ["Kastenform aus Gusseisen, mit Deckel, ohne Silikoneinlage"])
+        let sheet = EquipmentItem(kind: .pan, name: "x", hasSiliconeLiner: true)
+        #expect(sheet.detailText == "Kastenform aus Blech, ohne Deckel, mit Silikoneinlage")
+        let iron = EquipmentItem(kind: .pan, name: "x", material: .castIron, hasLid: true)
+        #expect(iron.detailText == "Kastenform aus Gusseisen, mit Deckel, ohne Silikoneinlage")
     }
 
-    @Test func provingBasket() {
-        #expect(Equipment(hasProvingBasket: true).lines ==
-                [EquipmentLine(topic: .basket, text: "Gärkörbchen")])
+    @Test func aGivenSizeAndItsVolumeFollowTheDescription() {
+        let pot = EquipmentItem(
+            kind: .pot, name: "x", hasSiliconeLiner: true,
+            dimensions: Dimensions(shape: .oval, lengthCm: 30, widthCm: 20, heightCm: 12))
+        #expect(pot.detailText == "Bräter/Römertopf mit Silikoneinlage · oval 30 × 20 × 12 cm · 5,7 l")
+        let pan = EquipmentItem(
+            kind: .pan, name: "x", material: .castIron, hasLid: true, hasSiliconeLiner: true,
+            dimensions: Dimensions(shape: .rectangular, lengthCm: 30, widthCm: 10, heightCm: 8))
+        #expect(pan.detailText ==
+                "Kastenform aus Gusseisen, mit Deckel, mit Silikoneinlage · 30 × 10 × 8 cm · 2,4 l")
+    }
+}
+
+struct EquipmentDemoTests {
+    @Test func demoHasFivePiecesWithTwoPans() {
+        let items = EquipmentDemo.items()
+        #expect(items.map(\.name) == ["Thermomix", "Römertopf", "Gusseisenform", "Kastenform", "Gärkörbchen"])
+        #expect(items.map(\.kind) == [.kneader, .pot, .pan, .pan, .basket])
     }
 
-    @Test func linesFollowTheOrderOfTheWizard() {
-        let all = Equipment(hasKneadingMachine: true, pot: .init(), loafPan: .init(),
-                            hasProvingBasket: true)
-        #expect(all.lines.map(\.id) == ["kneader", "pot", "pan", "basket"])
+    @Test func demoSizesGiveTheVolumesTheUITestsExpect() {
+        let items = EquipmentDemo.items()
+        #expect(items[1].dimensions?.volumeText == "5,7 l")
+        #expect(items[2].dimensions?.volumeText == "2,4 l")
+        #expect(items[3].dimensions == nil)
     }
 
-    @Test func everythingMissingWhenNothingIsOwned() {
-        #expect(Equipment().missingLines.map(\.text) ==
-                ["Küchenmaschine mit Knetfunktion", "Bräter/Römertopf", "Kastenform", "Gärkörbchen"])
-        #expect(Equipment().missingLines.map(\.id) == ["kneader", "pot", "pan", "basket"])
-    }
-
-    @Test func nothingMissingWhenEverythingIsOwned() {
-        let all = Equipment(hasKneadingMachine: true, pot: .init(), loafPan: .init(),
-                            hasProvingBasket: true)
-        #expect(all.missingLines.isEmpty)
-    }
-
-    @Test func eachItemIsEitherOwnedOrMissing() {
-        let some = Equipment(hasKneadingMachine: true, loafPan: .init())
-        #expect(some.lines.map(\.id) == ["kneader", "pan"])
-        #expect(some.missingLines.map(\.id) == ["pot", "basket"])
-        let others = Equipment(pot: .init(), hasProvingBasket: true)
-        #expect(others.lines.map(\.id) == ["pot", "basket"])
-        #expect(others.missingLines.map(\.id) == ["kneader", "pan"])
-    }
-
-    @Test func lineIdsAreTheTipsTopicIds() {
-        let all = Equipment(hasKneadingMachine: true, pot: .init(), loafPan: .init(),
-                            hasProvingBasket: true)
-        #expect(all.lines.map(\.topic) == TipsTopic.ID.allCases)
-    }
-
-    @Test func materialNames() {
-        #expect(Equipment.LoafPan.Material.sheetMetal.germanName == "Blech")
-        #expect(Equipment.LoafPan.Material.castIron.germanName == "Gusseisen")
+    @Test func demoHasOneOfEveryKindSoNothingIsMissing() {
+        #expect(EquipmentDemo.items().missingKinds.isEmpty)
     }
 }

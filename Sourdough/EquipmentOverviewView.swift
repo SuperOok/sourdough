@@ -1,52 +1,81 @@
 import SwiftUI
+import SourdoughKit
 
-/// Shows the saved equipment and opens the wizard to set it up or change it.
+/// The saved equipment as a list, and the way to add, change and remove
+/// pieces. Below it, the kinds the user has nothing of yet.
 struct EquipmentOverviewView: View {
     let store: EquipmentStore
-    @State private var showWizard = false
+    @State private var editor: EquipmentEditor?
 
     var body: some View {
-        let lines = store.equipment.lines
-        let missing = store.equipment.missingLines
-        Form {
+        List {
             Section("Deine Backutensilien") {
-                if lines.isEmpty {
-                    Text(store.isConfigured ? "Du hast keine Utensilien angegeben."
-                                            : "Noch nichts eingerichtet.")
+                if store.items.isEmpty {
+                    Text("Noch keine Utensilien angelegt.")
                         .foregroundStyle(.secondary)
                         .accessibilityIdentifier("equipment-empty")
                 } else {
-                    ForEach(lines) { row($0, prefix: "equipment") }
+                    ForEach(store.items) { row($0) }
                 }
             }
-            // Before the first setup nothing is known to be missing.
-            if store.isConfigured && !missing.isEmpty {
+            // Before the first piece nothing is known to be missing.
+            if !store.items.isEmpty && !store.missingKinds.isEmpty {
                 Section("Nicht vorhanden, aber sinnvoll") {
-                    ForEach(missing) { row($0, prefix: "missing") }
+                    ForEach(store.missingKinds, id: \.self) { missingRow($0) }
                 }
-            }
-            Section {
-                Button(store.isConfigured ? "Ändern" : "Einrichten") { showWizard = true }
-                    .accessibilityIdentifier("equipment-edit")
             }
         }
         .navigationTitle("Backutensilien")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar { ToolbarItem(placement: .primaryAction) { TipsButton() } }
-        .sheet(isPresented: $showWizard) {
-            EquipmentWizardView(starting: store.equipment) { store.save($0) }
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) { TipsButton() }
+            ToolbarItem(placement: .primaryAction) {
+                Menu {
+                    ForEach(EquipmentKind.allCases, id: \.self) { kind in
+                        Button(kind.germanName) { editor = .add(kind) }
+                            .accessibilityIdentifier("equipment-add-\(kind.rawValue)")
+                    }
+                } label: {
+                    Label("Utensil hinzufügen", systemImage: "plus")
+                }
+                .accessibilityIdentifier("equipment-add")
+            }
+        }
+        .sheet(item: $editor) { editor in
+            switch editor {
+            case .add:
+                EquipmentFormView(editor: editor) { store.add($0) }
+            case .edit(let item):
+                EquipmentFormView(editor: editor, onSave: { store.update($0) },
+                                  onDelete: { store.remove(item.id) })
+            }
         }
     }
-}
 
-extension EquipmentOverviewView {
-    /// An item with the symbol that leads to its tips page.
-    fileprivate func row(_ line: EquipmentLine, prefix: String) -> some View {
+    /// A piece: tapping the text edits it, the symbol leads to its tips.
+    private func row(_ item: EquipmentItem) -> some View {
         HStack {
-            Text(line.text)
-                .accessibilityIdentifier("\(prefix)-\(line.id)")
+            Button { editor = .edit(item) } label: {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(item.name).font(.headline)
+                    Text(item.detailText).font(.footnote).foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.borderless)
+            .foregroundStyle(.primary)
+            .accessibilityIdentifier("equipment-row-\(item.name)")
+            TipsIconButton(topic: item.kind.tip, identifier: "equipment-tip-\(item.name)")
+        }
+    }
+
+    private func missingRow(_ kind: EquipmentKind) -> some View {
+        HStack {
+            Text(kind.germanName)
+                .accessibilityIdentifier("missing-\(kind.rawValue)")
             Spacer()
-            TipsIconButton(topic: line.topic, identifier: "\(prefix)-tip-\(line.id)")
+            TipsIconButton(topic: kind.tip, identifier: "missing-tip-\(kind.rawValue)")
         }
     }
 }

@@ -1,62 +1,88 @@
+import Foundation
 import SourdoughKit
 
-/// One item as shown to the user. The id is the one of its tips topic and
-/// stable for tests.
-struct EquipmentLine: Equatable, Identifiable {
-    let topic: TipsTopic.ID
-    let text: String
-
-    var id: String { topic.rawValue }
-}
-
-extension Equipment {
-    /// The owned items in plain German, in the order of the wizard.
-    var lines: [EquipmentLine] {
-        var result: [EquipmentLine] = []
-        if hasKneadingMachine {
-            result.append(EquipmentLine(topic: .kneader, text: "Küchenmaschine mit Knetfunktion"))
+extension EquipmentKind {
+    /// The name of the kind, which is also the name a new piece gets when the
+    /// user types none.
+    var germanName: String {
+        switch self {
+        case .kneader: "Küchenmaschine"
+        case .pot: "Bräter/Römertopf"
+        case .pan: "Kastenform"
+        case .basket: "Gärkörbchen"
         }
-        if let pot {
-            result.append(EquipmentLine(
-                topic: .pot,
-                text: "Bräter/Römertopf \(Self.withOrWithout(pot.hasSiliconeLiner)) Silikoneinlage"))
-        }
-        if let loafPan {
-            let material = loafPan.material.germanName
-            let lid = Self.withOrWithout(loafPan.hasLid)
-            let liner = Self.withOrWithout(loafPan.hasSiliconeLiner)
-            result.append(EquipmentLine(
-                topic: .pan,
-                text: "Kastenform aus \(material), \(lid) Deckel, \(liner) Silikoneinlage"))
-        }
-        if hasProvingBasket {
-            result.append(EquipmentLine(topic: .basket, text: "Gärkörbchen"))
-        }
-        return result
     }
 
-    /// What is not owned yet, in the order of the wizard, without variants.
-    var missingLines: [EquipmentLine] {
-        var result: [EquipmentLine] = []
-        if !hasKneadingMachine {
-            result.append(EquipmentLine(topic: .kneader, text: "Küchenmaschine mit Knetfunktion"))
+    /// The tips page of the kind.
+    var tip: TipsTopic.ID {
+        switch self {
+        case .kneader: .kneader
+        case .pot: .pot
+        case .pan: .pan
+        case .basket: .basket
         }
-        if pot == nil { result.append(EquipmentLine(topic: .pot, text: "Bräter/Römertopf")) }
-        if loafPan == nil { result.append(EquipmentLine(topic: .pan, text: "Kastenform")) }
-        if !hasProvingBasket { result.append(EquipmentLine(topic: .basket, text: "Gärkörbchen")) }
-        return result
-    }
-
-    private static func withOrWithout(_ flag: Bool) -> String {
-        flag ? "mit" : "ohne"
     }
 }
 
-extension Equipment.LoafPan.Material {
+extension EquipmentItem.Material {
     var germanName: String {
         switch self {
         case .sheetMetal: "Blech"
         case .castIron: "Gusseisen"
         }
+    }
+}
+
+extension Dimensions.Shape {
+    var germanName: String {
+        switch self {
+        case .rectangular: "Rechteckig"
+        case .round: "Rund"
+        case .oval: "Oval"
+        }
+    }
+}
+
+extension Dimensions {
+    /// "30 × 10 × 8 cm", "oval 30 × 20 × 12 cm", "rund Ø 24 × 10 cm"
+    var germanText: String {
+        let length = StarterText.number(lengthCm)
+        let width = StarterText.number(widthCm)
+        let height = StarterText.number(heightCm)
+        return switch shape {
+        case .rectangular: "\(length) × \(width) × \(height) cm"
+        case .oval: "oval \(length) × \(width) × \(height) cm"
+        case .round: "rund Ø \(length) × \(height) cm"
+        }
+    }
+
+    /// "2,4 l", "5 l": the volume rounded to a tenth of a litre.
+    var volumeText: String {
+        StarterText.number((volumeLiters * 10).rounded() / 10) + " l"
+    }
+}
+
+extension EquipmentItem {
+    /// What the piece is, in plain German: the kind with its variant and, if
+    /// given, its size and volume.
+    var detailText: String {
+        var parts: [String] = []
+        switch kind {
+        case .kneader: parts.append("Küchenmaschine mit Knetfunktion")
+        case .pot: parts.append("Bräter/Römertopf \(Self.withOrWithout(hasSiliconeLiner)) Silikoneinlage")
+        case .pan:
+            parts.append("Kastenform aus \(material.germanName), \(Self.withOrWithout(hasLid)) Deckel, "
+                         + "\(Self.withOrWithout(hasSiliconeLiner)) Silikoneinlage")
+        case .basket: parts.append("Gärkörbchen")
+        }
+        if let dimensions {
+            parts.append(dimensions.germanText)
+            parts.append(dimensions.volumeText)
+        }
+        return parts.joined(separator: " · ")
+    }
+
+    private static func withOrWithout(_ flag: Bool) -> String {
+        flag ? "mit" : "ohne"
     }
 }

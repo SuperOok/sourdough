@@ -3,21 +3,20 @@ import SwiftUI
 /// The root: the splash animation over the start screen.
 struct ContentView: View {
     private let store: EquipmentStore
+    private let starterStore: StarterStore
     private let splashDuration: Duration
     @State private var showSplash: Bool
 
-    init(options: LaunchOptions = LaunchOptions(arguments: ProcessInfo.processInfo.arguments),
-         store: EquipmentStore = EquipmentStore()) {
-        if options.resetData { store.reset() }
-        if let seed = options.seedEquipment { store.save(seed) }
+    init(options: LaunchOptions, store: EquipmentStore, starterStore: StarterStore) {
         self.store = store
+        self.starterStore = starterStore
         splashDuration = options.splashDuration
         _showSplash = State(initialValue: !options.skipSplash)
     }
 
     var body: some View {
         ZStack {
-            StartView(store: store)
+            StartView(store: store, starterStore: starterStore)
             if showSplash {
                 SplashView()
                     .transition(.opacity)
@@ -34,5 +33,6 @@ struct ContentView: View {
 
 #Preview {
     ContentView(options: LaunchOptions(arguments: ["-skipSplash"]),
-                store: EquipmentStore(defaults: UserDefaults(suiteName: "preview") ?? .standard))
+                store: EquipmentStore(defaults: UserDefaults(suiteName: "preview") ?? .standard),
+                starterStore: StarterStore(defaults: UserDefaults(suiteName: "preview") ?? .standard))
 }

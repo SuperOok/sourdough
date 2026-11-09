@@ -11,25 +11,30 @@ struct LaunchOptionsTests {
     }
 
     @Test func seedEquipmentIsOffByDefault() {
-        #expect(LaunchOptions(arguments: ["Sourdough"]).seedEquipment == nil)
+        #expect(!LaunchOptions(arguments: ["Sourdough"]).seedEquipment)
     }
 
-    @Test func seedAllMeansEverythingInTheNonDefaultVariants() {
-        let seed = LaunchOptions(arguments: ["-seedEquipment", "all"]).seedEquipment
-        #expect(seed == Equipment(
-            hasKneadingMachine: true,
-            pot: .init(hasSiliconeLiner: true),
-            loafPan: .init(material: .castIron, hasLid: true, hasSiliconeLiner: true),
-            hasProvingBasket: true))
-    }
-
-    @Test func seedNoneMeansConfiguredWithNothing() {
-        #expect(LaunchOptions(arguments: ["-seedEquipment", "none"]).seedEquipment == Equipment())
+    @Test func seedAllTurnsTheDemoEquipmentOn() {
+        #expect(LaunchOptions(arguments: ["-seedEquipment", "all"]).seedEquipment)
     }
 
     @Test func unknownOrMissingSeedValueMeansNoSeed() {
-        #expect(LaunchOptions(arguments: ["-seedEquipment", "x"]).seedEquipment == nil)
-        #expect(LaunchOptions(arguments: ["-seedEquipment"]).seedEquipment == nil)
+        #expect(!LaunchOptions(arguments: ["-seedEquipment", "x"]).seedEquipment)
+        #expect(!LaunchOptions(arguments: ["-seedEquipment", "none"]).seedEquipment)
+        #expect(!LaunchOptions(arguments: ["-seedEquipment"]).seedEquipment)
+    }
+
+    @Test func demoStartersAreOffByDefault() {
+        #expect(!LaunchOptions(arguments: ["Sourdough"]).seedDemoStarters)
+    }
+
+    @Test func seedStartersDemoTurnsThemOn() {
+        #expect(LaunchOptions(arguments: ["-seedStarters", "demo"]).seedDemoStarters)
+    }
+
+    @Test func otherOrMissingStarterSeedsAreIgnored() {
+        #expect(!LaunchOptions(arguments: ["-seedStarters", "x"]).seedDemoStarters)
+        #expect(!LaunchOptions(arguments: ["-seedStarters"]).seedDemoStarters)
     }
 
     @Test func splashSecondsStretchTheSplash() {
