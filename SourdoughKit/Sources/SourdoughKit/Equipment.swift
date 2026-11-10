@@ -16,8 +16,13 @@ public enum EquipmentKind: String, Codable, CaseIterable, Sendable {
     public var hasDimensions: Bool { self == .pot || self == .pan }
     /// Pots and pans can come with a silicone liner.
     public var hasLiner: Bool { self == .pot || self == .pan }
-    /// Only a loaf pan has a material and may have a lid.
-    public var hasMaterialAndLid: Bool { self == .pan }
+    /// Only a loaf pan has a material.
+    public var hasMaterial: Bool { self == .pan }
+    /// Pots and pans may come with a lid; a pot has one unless said otherwise.
+    public var hasLid: Bool { self == .pot || self == .pan }
+    /// A banneton is round, oval or long (rectangular); the shape decides how
+    /// the dough is shaped.
+    public var hasShape: Bool { self == .basket }
 }
 
 /// The inner size of a pot or pan, in centimetres, and the volume it gives.
@@ -73,10 +78,13 @@ public struct EquipmentItem: Codable, Equatable, Identifiable, Sendable {
     public var hasSiliconeLiner: Bool
     /// The size, if the user gave it; only for pots and pans.
     public var dimensions: Dimensions?
+    /// The shape of a banneton; round for everything else.
+    public var shape: Dimensions.Shape
 
     public init(id: UUID = UUID(), kind: EquipmentKind, name: String,
                 material: Material = .sheetMetal, hasLid: Bool = false,
-                hasSiliconeLiner: Bool = false, dimensions: Dimensions? = nil) {
+                hasSiliconeLiner: Bool = false, dimensions: Dimensions? = nil,
+                shape: Dimensions.Shape = .round) {
         self.id = id
         self.kind = kind
         self.name = name
@@ -84,6 +92,47 @@ public struct EquipmentItem: Codable, Equatable, Identifiable, Sendable {
         self.hasLid = hasLid
         self.hasSiliconeLiner = hasSiliconeLiner
         self.dimensions = dimensions
+        self.shape = shape
+    }
+
+    /// Whether a loaf from it is long rather than round: an oval or
+    /// rectangular banneton.
+    public var isLong: Bool { shape != .round }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, kind, name, material, hasLid, hasSiliconeLiner, dimensions, shape
+        /// The lid of a pot. Pots saved before they could be lidless are stored
+        /// with `hasLid` false for every pot, so a pot has its own key.
+        case potLid
+    }
+
+    /// Pieces saved before bannetons had a shape are round, and pots saved
+    /// before they had a lid setting have one.
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        kind = try container.decode(EquipmentKind.self, forKey: .kind)
+        name = try container.decode(String.self, forKey: .name)
+        material = try container.decode(Material.self, forKey: .material)
+        hasLid = kind == .pot
+            ? try container.decodeIfPresent(Bool.self, forKey: .potLid) ?? true
+            : try container.decode(Bool.self, forKey: .hasLid)
+        hasSiliconeLiner = try container.decode(Bool.self, forKey: .hasSiliconeLiner)
+        dimensions = try container.decodeIfPresent(Dimensions.self, forKey: .dimensions)
+        shape = try container.decodeIfPresent(Dimensions.Shape.self, forKey: .shape) ?? .round
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(kind, forKey: .kind)
+        try container.encode(name, forKey: .name)
+        try container.encode(material, forKey: .material)
+        try container.encode(hasLid, forKey: .hasLid)
+        if kind == .pot { try container.encode(hasLid, forKey: .potLid) }
+        try container.encode(hasSiliconeLiner, forKey: .hasSiliconeLiner)
+        try container.encodeIfPresent(dimensions, forKey: .dimensions)
+        try container.encode(shape, forKey: .shape)
     }
 }
 

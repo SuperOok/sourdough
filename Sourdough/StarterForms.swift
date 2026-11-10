@@ -54,14 +54,20 @@ final class StarterFormModel {
         NumberInput.parse(text).flatMap { (10...35).contains($0) ? $0 : nil }
     }
 
-    var errorText: String? {
+    /// What is wrong with the first feeding (flour and water).
+    var foodError: String? {
         guard let flourGrams = NumberInput.parse(flourText),
               let waterGrams = NumberInput.parse(waterText) else { return Self.numbersOnly }
-        if flourGrams + waterGrams == 0 { return Self.needsFood }
-        if inFridge && Self.parseFridge(fridgeText) == nil { return Self.fridgeRange }
-        if !inFridge && Self.parseRoom(roomText) == nil { return Self.roomRange }
-        return nil
+        return flourGrams + waterGrams == 0 ? Self.needsFood : nil
     }
+
+    /// What is wrong with the temperature of the place.
+    var storageError: String? {
+        if inFridge { return Self.parseFridge(fridgeText) == nil ? Self.fridgeRange : nil }
+        return Self.parseRoom(roomText) == nil ? Self.roomRange : nil
+    }
+
+    var errorText: String? { foodError ?? storageError }
 
     var isValid: Bool { errorText == nil }
 

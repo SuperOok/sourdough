@@ -139,6 +139,12 @@ final class BakePlanModel {
         takeAmountFromSetup()
     }
 
+    /// Seeds, nuts and the like, in percent of the flour. They take their
+    /// share of the dough, so the flour total follows them.
+    var addIns = AddIns() {
+        didSet { takeAmountFromSetup() }
+    }
+
     /// Grams of dough the vessel takes; `nil` without a setup.
     var doughGrams: Double? {
         setup.map(DoughAmount.grams)
@@ -147,7 +153,7 @@ final class BakePlanModel {
     /// Sets the flour total to what the vessel takes.
     private func takeAmountFromSetup() {
         guard let dough = doughGrams else { return }
-        let flour = DoughAmount.flourGrams(doughGrams: dough, hydration: effectiveMix.hydration)
+        let flour = DoughAmount.flourGrams(doughGrams: dough, hydration: effectiveMix.hydration, addIns: addIns)
         totalText = String(Int(flour.rounded()))
     }
 
@@ -222,11 +228,13 @@ final class BakePlanModel {
               let setup, let target, let total = totalGrams else { return nil }
         return BakeRun(startedAt: now, bread: bread, mix: effectiveMix, totalGrams: total, limits: limits,
                        starter: starter(in: starters), setup: setup, temperatures: temperatures, window: window,
-                       target: target, choices: choices, timeZone: calendar.timeZone)
+                       target: target, choices: choices, timeZone: calendar.timeZone, addIns: addIns)
     }
 
     /// The amounts in grams; `nil` without a flour total.
     func recipe(starters: [Starter]) -> Recipe? {
-        totalGrams.map { Recipe(mix: effectiveMix, totalGrams: $0, starterFlour: starter(in: starters)?.flour) }
+        totalGrams.map {
+            Recipe(mix: effectiveMix, totalGrams: $0, starterFlour: starter(in: starters)?.flour, addIns: addIns)
+        }
     }
 }

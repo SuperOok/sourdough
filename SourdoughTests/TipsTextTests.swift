@@ -1,5 +1,7 @@
 import Foundation
+import SwiftUI
 import Testing
+import UIKit
 import SourdoughKit
 @testable import Sourdough
 
@@ -21,6 +23,16 @@ struct TipsTextTests {
         #expect(TipsText.topicID(from: URL(string: "tip:unknown")!) == nil)
     }
 
+    @Test func aTipLinkOpensItsPageAndOtherLinksGoToTheSystem() {
+        var shown: [TipsTopic.ID] = []
+        let handled = TipsText.open(URL(string: "tip:kneading")!) { shown.append($0) }
+        #expect(String(describing: handled) == String(describing: OpenURLAction.Result.handled))
+        #expect(shown == [.kneading])
+        let other = TipsText.open(URL(string: "https://example.com")!) { shown.append($0) }
+        #expect(String(describing: other) == String(describing: OpenURLAction.Result.systemAction))
+        #expect(shown == [.kneading])
+    }
+
     @Test func inlineMarkdownBecomesStyledText() {
         let text = TipsText.attributed("Das ist **fett** und [ein Link](tip:pot).")
         #expect(String(text.characters) == "Das ist fett und ein Link.")
@@ -38,9 +50,14 @@ struct TipsTextTests {
         #expect(String(text.characters) == "**halb")
     }
 
+    @Test func aMissingPhotoBecomesAPlaceholder() {
+        #expect(TipsText.picture(named: "gibt-es-nicht").pngData() == UIImage(systemName: "photo")!.pngData())
+    }
+
     @Test func categoriesHaveGermanTitles() {
         #expect(TipsTopic.Category.utensils.germanTitle == "Backutensilien")
         #expect(TipsTopic.Category.starters.germanTitle == "Sauerteigstarter")
+        #expect(TipsTopic.Category.ingredients.germanTitle == "Zutaten")
         #expect(TipsTopic.Category.baking.germanTitle == "Brot backen")
     }
 

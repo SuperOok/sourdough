@@ -2,6 +2,23 @@ import Testing
 @testable import SourdoughKit
 
 struct TipsParserTests {
+    @Test func anImageStandsOnItsOwnLine() {
+        #expect(TipsParser.parse("Text\n![Ein Bild](Foto)\n- Punkt") == [
+            .paragraph("Text"), .image(name: "Foto", caption: "Ein Bild"), .bullets(["Punkt"])])
+        // Not an image: no closing parenthesis, or no link part.
+        #expect(TipsParser.parse("![Bild](Foto") == [.paragraph("![Bild](Foto")])
+        #expect(TipsParser.parse("![Bild] (Foto)") == [.paragraph("![Bild] (Foto)")])
+        #expect(TipsParser.parse("![](Foto)") == [.image(name: "Foto", caption: "")])
+    }
+
+    @Test func anAnimationIsAnImageWithAKnownAnimationName() {
+        #expect(TipsParser.parse("![Dehnen](animation:stretchFold)")
+                == [.animation(.stretchFold, caption: "Dehnen")])
+        // An unknown animation is just a picture of that name, which the app leaves out.
+        #expect(TipsParser.parse("![Gibt es nicht](animation:nichtda)")
+                == [.image(name: "animation:nichtda", caption: "Gibt es nicht")])
+    }
+
     @Test func emptyTextHasNoBlocks() {
         #expect(TipsParser.parse("").isEmpty)
         #expect(TipsParser.parse("\n  \n").isEmpty)

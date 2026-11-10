@@ -69,11 +69,13 @@ extension EquipmentItem {
         var parts: [String] = []
         switch kind {
         case .kneader: parts.append("Küchenmaschine mit Knetfunktion")
-        case .pot: parts.append("Bräter/Römertopf \(Self.withOrWithout(hasSiliconeLiner)) Silikoneinlage")
+        case .pot:
+            parts.append("Bräter/Römertopf, \(Self.withOrWithout(hasLid)) Deckel, "
+                         + "\(Self.withOrWithout(hasSiliconeLiner)) Silikoneinlage")
         case .pan:
             parts.append("Kastenform aus \(material.germanName), \(Self.withOrWithout(hasLid)) Deckel, "
                          + "\(Self.withOrWithout(hasSiliconeLiner)) Silikoneinlage")
-        case .basket: parts.append("Gärkörbchen")
+        case .basket: parts.append("Gärkörbchen, \(shape.germanName.lowercased())")
         }
         if let dimensions {
             parts.append(dimensions.germanText)

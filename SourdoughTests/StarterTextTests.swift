@@ -52,9 +52,9 @@ struct StarterTextTests {
     }
 
     @Test func flourNames() {
-        #expect(FlourType.allCases.map(\.germanName) == ["Roggen", "Weizen", "Dinkel"])
+        #expect(FlourType.allCases.map(\.germanName) == ["Roggen", "Weizen", "Dinkel", "Buchweizen"])
         #expect(FlourType.allCases.map(\.starterName) ==
-                ["Roggensauerteig", "Weizensauerteig", "Dinkelsauerteig"])
+                ["Roggensauerteig", "Weizensauerteig", "Dinkelsauerteig", "Buchweizensauerteig"])
     }
 
     @Test func stateTitlesAndHints() {

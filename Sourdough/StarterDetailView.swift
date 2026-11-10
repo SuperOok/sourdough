@@ -21,7 +21,7 @@ struct StarterDetailView: View {
 
     private func content(_ starter: Starter, now: Date) -> some View {
         let summary = StarterSummary(starter, now: now)
-        return Form {
+        return NumberForm(fields: [starter.inFridge ? "detail-fridge-temp" : "detail-room-temp"]) { focus in
             Section {
                 Button("Füttern") { showFeed = true }
                     .accessibilityIdentifier("detail-feed")
@@ -43,13 +43,13 @@ struct StarterDetailView: View {
                 .accessibilityIdentifier("detail-storage")
                 if starter.inFridge {
                     NumberField(title: "Kühlschranktemperatur (°C)", text: $fridgeText,
-                                id: "detail-fridge-temp")
+                                id: "detail-fridge-temp", focus: focus)
                     if StarterFormModel.parseFridge(fridgeText) == nil {
                         Text(StarterFormModel.fridgeRange).foregroundStyle(.red)
                             .accessibilityIdentifier("detail-fridge-error")
                     }
                 } else {
-                    NumberField(title: "Raumtemperatur (°C)", text: $roomText, id: "detail-room-temp")
+                    NumberField(title: "Raumtemperatur (°C)", text: $roomText, id: "detail-room-temp", focus: focus)
                     if StarterFormModel.parseRoom(roomText) == nil {
                         Text(StarterFormModel.roomRange).foregroundStyle(.red)
                             .accessibilityIdentifier("detail-room-error")

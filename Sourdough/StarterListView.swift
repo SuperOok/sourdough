@@ -49,11 +49,14 @@ struct StarterListView: View {
         return NavigationLink {
             StarterDetailView(store: store, kitchenStore: kitchenStore, id: starter.id)
         } label: {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(starter.name).font(.headline)
-                Text("\(starter.flour.germanName) · \(summary.stateTitle)")
-                Text("Füttern oder verwenden bis \(summary.feedBy)")
-                    .font(.footnote).foregroundStyle(.secondary)
+            HStack(spacing: 12) {
+                CustomIcon(name: IngredientIcon.name(starter.flour))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(starter.name).font(.headline)
+                    Text("\(starter.flour.germanName) · \(summary.stateTitle)")
+                    Text("Füttern oder verwenden bis \(summary.feedBy)")
+                        .font(.footnote).foregroundStyle(.secondary)
+                }
             }
         }
         .accessibilityIdentifier("starter-row-\(starter.name)")

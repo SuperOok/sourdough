@@ -47,7 +47,7 @@ public struct FlourMix: Codable, Equatable, Sendable {
 
     /// Percent of whole grain flour.
     public var wholeGrainShare: Double {
-        shares.filter { $0.key.typeNumber == nil }.values.reduce(0, +)
+        shares.filter { $0.key.isWholeGrain }.values.reduce(0, +)
     }
 
     /// Water per 100 parts of flour, in percent: the water uptakes of the

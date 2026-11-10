@@ -13,19 +13,34 @@ struct BakeTextTests {
             "Roggen 997", "Roggen 1150", "Roggen 1370", "Roggenvollkorn",
             "Dinkel 630", "Dinkel 1050", "Dinkelvollkorn",
             "Weizen 405", "Weizen 550", "Weizen 1050", "Weizenvollkorn",
+            "Buchweizenmehl",
         ])
     }
 
     @Test func breadNamesAndCharacters() {
         #expect(BreadType.allCases.map(\.germanName) == [
-            "Dinkelbrot", "Dinkel-Mischbrot", "Roggenmischbrot 50",
+            "Weizenbrot", "Weizenvollkornbrot", "Weizenmischbrot", "Dinkelbrot", "Dinkel-Mischbrot", "Roggenmischbrot 50",
             "Roggenmischbrot 70", "Roggenbrot 80", "Roggenvollkornbrot",
+            "Buchweizen-Roggenbrot", "Buchweizen-Dinkelbrot",
         ])
         #expect(BreadType.allCases.map(\.character) == [
+            "Locker, mild, mit knuspriger Kruste.", "Saftig, kräftig, leicht nussig.",
+            "Locker mit Roggenwürze, bleibt länger frisch.",
             "Luftig, mild-nussig, schnittfest.", "Locker bis mittel, leicht säuerlich.",
             "Mitteldicht und würzig.", "Dicht, feucht, kräftig-säuerlich.",
             "Dicht, saftig, aromatisch.", "Sehr dicht, feucht und herb.",
+            "Dicht, feucht, nussig-herb.", "Mitteldicht, feucht, mild-nussig.",
         ])
+    }
+
+    @Test func addInNamesAndAmounts() {
+        #expect(AddIn.allCases.map(\.germanName)
+                == ["Saaten", "Nüsse", "Trockenfrüchte", "Röstzwiebeln", "Kräuter"])
+        // 15 % of 400 g = 60 g.
+        #expect(BakeText.addInAmount(share: 15, totalGrams: 400) == "15 % · 60 g")
+        #expect(BakeText.addInAmount(share: 15, totalGrams: nil) == "15 %")
+        #expect(BakeText.soakAmount(Recipe.AddInPortion(addIn: .seeds, grams: 60, waterGrams: 60))
+                == "60 g in 60 g Wasser")
     }
 
     @Test func percentsHaveAtMostOneDecimal() {
@@ -49,6 +64,8 @@ struct BakeTextTests {
                 == "Zu wenig Roggen: Ein Roggenmischbrot 70 braucht mindestens 60 % Roggen.")
         #expect(BakeText.issue(.tooMuchRye(maximum: 10), bread: .speltBread)
                 == "Zu viel Roggen: Ein Dinkelbrot verträgt höchstens 10 % Roggen.")
+        #expect(BakeText.issue(.tooMuchBuckwheat(maximum: 30), bread: .buckwheatSpeltBread)
+                == "Zu viel Buchweizen: Ohne Gluten wird das Brot ab 30 % dicht und schwer. Nimm höchstens 30 %.")
         #expect(BakeText.issue(.needsRyeStarter, bread: .ryeMixedBread50)
                 == "Ab 30 % Roggen braucht der Teig einen Roggensauerteig. Wähle einen Roggenstarter oder nimm weniger Roggen.")
         #expect(BakeText.issue(.overLimit(.rye1150), bread: .ryeWholeGrainBread)
@@ -148,7 +165,7 @@ struct BakePlanModelTests {
 
     @Test func addableFloursAreThoseNotInTheMix() {
         #expect(BakePlanModel().addableFlours == [.rye997, .rye1370, .spelt630,
-                                                  .wheat405, .wheat550, .wheat1050, .wheatWholeGrain])
+                                                  .wheat405, .wheat550, .wheat1050, .wheatWholeGrain, .buckwheat])
     }
 
     @Test func anAddedFlourTakesTenPercentFromAll() {
@@ -256,6 +273,20 @@ struct BakePlanSetupTests {
         #expect(model.setup == BakeSetup(vessel: .pot, pot: pot, basket: basket, kneader: kneader))
         #expect(model.doughGrams.map { abs($0 - 1000) < 1e-9 } == true)
         #expect(model.totalText == "545")
+    }
+
+    @Test func addInsTakeTheirShareOfTheDough() {
+        // 1000 g dough; seeds 15 % with as much water add 0.30 per gram of
+        // flour: 1000 / (1.836 + 0.30) = 468.16 g flour.
+        let model = BakePlanModel()
+        model.proposeSetup(from: items)
+        model.addIns.add(.seeds)
+        #expect(model.totalText == "468")
+        model.addIns.remove(.seeds)
+        #expect(model.totalText == "545")
+        // The recipe and the bake get them too: 15 % of 545 g = 81.75 g.
+        model.addIns.add(.nuts)
+        #expect(model.recipe(starters: [])?.addIns.map(\.addIn) == [.nuts])
     }
 
     @Test func aProposalDoesNotOverrideAChoice() {

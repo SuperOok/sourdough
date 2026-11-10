@@ -80,4 +80,26 @@ final class BakeEquipmentScreenTests: SourdoughUITestCase {
         assertText("setup-issue-0", "Mit mehr als 50 % Roggen läuft ein freigeschobenes Brot auseinander. "
                    + "Nimm die Kastenform oder weniger Roggen.")
     }
+
+    func testFreeStandingLinksToItsPageFromTheHintAndFromTheIssue() {
+        openEquipmentStep()
+        // The pot is proposed: the hint under the vessels names the term as a link.
+        let link = element(app.links, "Freigeschoben")
+        link.tap()
+        assertTitle("Freigeschoben backen")
+        tapButton("tips-topic-close")
+        openEquipmentStepAgainWithRye()
+        tapButton("setup-issue-tip-0")
+        assertTitle("Freigeschoben backen")
+        tapButton("tips-topic-close")
+    }
+
+    private func openEquipmentStepAgainWithRye() {
+        // Roggenmischbrot 70 does not stand free: back to step one, new bread.
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        choose("plan-bread", "Roggenmischbrot 70")
+        tapButton("plan-next")
+        _ = element(app.segmentedControls, "setup-vessel")
+        vessel("Bräter")
+    }
 }

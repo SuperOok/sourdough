@@ -68,6 +68,7 @@ struct BakeLogDetailView: View {
                 row("Hydration", BakeText.percent(run.mix.hydration), id: "log-hydration")
                 row("Sauerteigstufe", BakeText.grams(recipe.sourdoughGrams), id: "log-sourdough")
                 row("Salz", BakeText.grams(recipe.salt), id: "log-salt")
+                row("Zusätze", BakeLogText.addIns(recipe), id: "log-addins")
             }
             Section("Ablauf") {
                 ForEach(Array(BakeProcess.StepID.allCases.enumerated()), id: \.offset) { index, step in
@@ -103,6 +104,12 @@ struct BakeLogDetailView: View {
 
 /// German texts of the log.
 enum BakeLogText {
+    /// "50 g Saaten, 40 g Röstzwiebeln", or "keine".
+    static func addIns(_ recipe: Recipe) -> String {
+        guard !recipe.addIns.isEmpty else { return "keine" }
+        return recipe.addIns.map { "\(BakeText.grams($0.grams)) \($0.addIn.germanName)" }.joined(separator: ", ")
+    }
+
     /// "Opa (Roggen)", or "keiner".
     static func starter(_ starter: Starter?) -> String {
         starter.map { "\($0.name) (\($0.flour.germanName))" } ?? "keiner"

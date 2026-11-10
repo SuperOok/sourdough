@@ -18,8 +18,8 @@ struct EquipmentOverviewView: View {
                     ForEach(store.items) { row($0) }
                 }
             }
-            // Before the first piece nothing is known to be missing.
-            if !store.items.isEmpty && !store.missingKinds.isEmpty {
+            // Also before the first piece: then every kind is missing.
+            if !store.missingKinds.isEmpty {
                 Section("Nicht vorhanden, aber sinnvoll") {
                     ForEach(store.missingKinds, id: \.self) { missingRow($0) }
                 }
@@ -32,8 +32,10 @@ struct EquipmentOverviewView: View {
             ToolbarItem(placement: .primaryAction) {
                 Menu {
                     ForEach(EquipmentKind.allCases, id: \.self) { kind in
-                        Button(kind.germanName) { editor = .add(kind) }
-                            .accessibilityIdentifier("equipment-add-\(kind.rawValue)")
+                        Button { editor = .add(kind) } label: {
+                            Label(kind.germanName, image: EquipmentIcon.name(for: kind))
+                        }
+                        .accessibilityIdentifier("equipment-add-\(kind.rawValue)")
                     }
                 } label: {
                     Label("Utensil hinzufügen", systemImage: "plus")
@@ -52,13 +54,19 @@ struct EquipmentOverviewView: View {
         }
     }
 
-    /// A piece: tapping the text edits it, the symbol leads to its tips.
+    /// A piece: tapping the text edits it, the symbols lead to its tips and
+    /// to a new piece of the same kind.
     private func row(_ item: EquipmentItem) -> some View {
         HStack {
             Button { editor = .edit(item) } label: {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(item.name).font(.headline)
-                    Text(item.detailText).font(.footnote).foregroundStyle(.secondary)
+                HStack(spacing: 12) {
+                    CustomIcon(name: EquipmentIcon.name(item))
+                        .accessibilityHidden(true)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(item.name).font(.headline)
+                        Text(item.detailText).font(.footnote).foregroundStyle(.secondary)
+                            .multilineTextAlignment(.leading)
+                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(Rectangle())
@@ -67,16 +75,32 @@ struct EquipmentOverviewView: View {
             .foregroundStyle(.primary)
             .accessibilityIdentifier("equipment-row-\(item.name)")
             TipsIconButton(topic: item.kind.tip, identifier: "equipment-tip-\(item.name)")
+            addButton(item.kind, identifier: "equipment-plus-\(item.name)")
         }
     }
 
     private func missingRow(_ kind: EquipmentKind) -> some View {
-        HStack {
+        HStack(spacing: 12) {
+            CustomIcon(name: EquipmentIcon.name(for: kind))
+                .accessibilityHidden(true)
             Text(kind.germanName)
                 .accessibilityIdentifier("missing-\(kind.rawValue)")
             Spacer()
             TipsIconButton(topic: kind.tip, identifier: "missing-tip-\(kind.rawValue)")
+            addButton(kind, identifier: "missing-add-\(kind.rawValue)")
         }
+    }
+
+    /// Opens the form for a new piece of `kind`.
+    private func addButton(_ kind: EquipmentKind, identifier: String) -> some View {
+        Button { editor = .add(kind) } label: {
+            Image(systemName: "plus.circle")
+        }
+        // Without this a whole list row would be the button.
+        .buttonStyle(.borderless)
+        .padding(.leading, 8)
+        .accessibilityLabel("\(kind.germanName) hinzufügen")
+        .accessibilityIdentifier(identifier)
     }
 }
 

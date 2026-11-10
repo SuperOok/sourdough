@@ -86,6 +86,20 @@ struct StarterFormModelTests {
         #expect(model.errorText == StarterFormModel.roomRange)
     }
 
+    @Test func eachMessageBelongsToItsSection() {
+        let model = StarterFormModel(now: now)
+        model.flourText = "0"
+        model.waterText = "0"
+        model.fridgeText = "30"
+        #expect(model.foodError == StarterFormModel.needsFood)
+        #expect(model.storageError == StarterFormModel.fridgeRange)
+        // Saving waits for the first of them.
+        #expect(model.errorText == StarterFormModel.needsFood)
+        model.flourText = "10"
+        #expect(model.foodError == nil)
+        #expect(model.errorText == StarterFormModel.fridgeRange)
+    }
+
     @Test func roomTemperatureNeedsToBeFromTenToThirtyFive() {
         #expect(StarterFormModel.parseRoom("10") == 10)
         #expect(StarterFormModel.parseRoom("35") == 35)

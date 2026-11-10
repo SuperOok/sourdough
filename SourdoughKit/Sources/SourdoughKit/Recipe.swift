@@ -10,6 +10,9 @@ import Foundation
 ///   flour as starter ("Anstellgut"). The starter is on top: it is small and
 ///   counts towards neither flour nor water.
 /// - The main dough gets the rest of each flour and of the water, and the salt.
+/// - Add-ins are percent of the flour. Those that soak (`AddIn.soaks`) do so
+///   in their water from the time the sourdough is mixed; the water of the
+///   others goes into the main dough.
 public struct Recipe: Equatable, Sendable {
     public static let souredRyePercent = 35.0
     public static let souredFlourPercent = 20.0
@@ -20,15 +23,29 @@ public struct Recipe: Equatable, Sendable {
         public let grams: Double
     }
 
+    /// An add-in in grams with the water it gets.
+    public struct AddInPortion: Equatable, Sendable {
+        public let addIn: AddIn
+        public let grams: Double
+        public let waterGrams: Double
+
+        public init(addIn: AddIn, grams: Double, waterGrams: Double) {
+            self.addIn = addIn
+            self.grams = grams
+            self.waterGrams = waterGrams
+        }
+    }
+
     public let sourdoughFlour: [Portion]
     public let starterGrams: Double
     public let mainFlour: [Portion]
     public let mainWater: Double
     public let salt: Double
+    public let addIns: [AddInPortion]
 
     /// For `totalGrams` of flour mixed as `mix`, made with a starter of
-    /// `starterFlour` (`nil`: not known yet).
-    public init(mix: FlourMix, totalGrams: Double, starterFlour: FlourType?) {
+    /// `starterFlour` (`nil`: not known yet), with `addIns`.
+    public init(mix: FlourMix, totalGrams: Double, starterFlour: FlourType?, addIns: AddIns = AddIns()) {
         let candidates: [Flour]
         let soured: Double
         if mix.ryeShare >= BakeRules.ryeStarterFrom - FlourMix.tolerance {
@@ -52,9 +69,17 @@ public struct Recipe: Equatable, Sendable {
             let grams = mix.grams(of: flour, totalGrams: totalGrams) - (taken[flour] ?? 0)
             return grams > FlourMix.tolerance ? Portion(flour: flour, grams: grams) : nil
         }
-        mainWater = totalGrams * mix.hydration / 100 - soured
+        self.addIns = addIns.addIns.map { addIn in
+            let grams = totalGrams * addIns.share(of: addIn) / 100
+            return AddInPortion(addIn: addIn, grams: grams, waterGrams: grams * addIn.waterPerGram)
+        }
+        let unsoaked = self.addIns.filter { !$0.addIn.soaks }.reduce(0) { $0 + $1.waterGrams }
+        mainWater = totalGrams * mix.hydration / 100 - soured + unsoaked
         salt = totalGrams * DoughAmount.saltPercent / 100
     }
+
+    /// The add-ins that soak ahead, with their water.
+    public var soaked: [AddInPortion] { addIns.filter(\.addIn.soaks) }
 
     /// Flour of the sourdough stage, which is also its water.
     public var sourdoughWater: Double {

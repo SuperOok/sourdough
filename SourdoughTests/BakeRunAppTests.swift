@@ -106,17 +106,20 @@ struct BakeRunTextTests {
         #expect(values[.proofVessel] == "eine Schüssel")
         // A bulk rest at room temperature: water 2 × 26 − 22 = 30 °C.
         #expect(values[.waterCelsius] == "30 °C")
+        // The starter stands where an accusative fits, with or without a name.
+        #expect(BakeRunText.markdown(bake, .mixSourdough).contains("Anstellgut – nimm dafür deinen Starter"))
     }
 
     @Test func markdownTitlesAndWaiting() {
         let bake = demo()
         #expect(BakeRunText.markdown(bake, .mixSourdough).contains("- 78 g Roggenvollkorn"))
-        #expect(BakeRunText.markdown(bake, .mixSourdough).contains("16 g Anstellgut von „Roggensauerteig“"))
+        #expect(BakeRunText.markdown(bake, .mixSourdough).contains("16 g Anstellgut – nimm dafür „Roggensauerteig“"))
         #expect(!BakeRunText.markdown(bake, .knead).contains("{"))
         #expect(BakeRunText.waitMarkdown(bake, .checkStarter)?.contains("Füttere „Roggensauerteig“") == true)
         #expect(BakeRunText.waitMarkdown(bake, .knead) == nil)
         // 50 % rye: mixed, not kneaded and folded.
         #expect(BakeRunText.title(bake, .knead) == "Hauptteig mischen")
+        #expect(BakeRunText.undoLabel(bake, .mixSourdough) == "Zurück zu „Sauerteigstufe ansetzen“")
     }
 
     @Test func answersPlacesPortionsAndStatus() {
@@ -128,6 +131,53 @@ struct BakeRunTextTests {
         #expect(BakeRunText.portions([], separator: ", ") == "")
         #expect([BakeRun.Status.active, .finished, .cancelled].map(BakeRunText.status)
                 == ["läuft", "fertig", "abgebrochen"])
+    }
+}
+
+struct BakeRunAddInTextTests {
+    /// 500 g Weizen 550 with seeds, nuts and dried fruit 10 % each (50 g)
+    /// and herbs 2 % (10 g); seeds soak in 50 g water, the fruit in 25 g.
+    private let recipe = Recipe(mix: FlourMix([.wheat550: 100]), totalGrams: 500, starterFlour: .wheat,
+                                addIns: AddIns([.seeds: 10, .nuts: 10, .driedFruit: 10, .herbs: 2]))
+    private let plain = Recipe(mix: FlourMix([.wheat550: 100]), totalGrams: 500, starterFlour: .wheat)
+
+    @Test func seedsAndFruitSoakWithTheSourdough() {
+        #expect(BakeRunText.soaker(recipe) == """
+            Weiche gleichzeitig in einer zweiten Schüssel ein und decke sie ab:
+
+            - 50 g Saaten in 50 g Wasser
+            - 50 g Trockenfrüchte in 25 g Wasser
+            """)
+        #expect(BakeRunText.soaker(plain) == "")
+    }
+
+    @Test func seedsGoInFirstTheRestAtTheEnd() {
+        #expect(BakeRunText.addIns(recipe) == "Gib gleich 50 g Saaten (eingeweicht) mit dazu. "
+                + "Arbeite am Ende des Knetens 50 g Nüsse, 50 g Trockenfrüchte (eingeweicht) und 10 g Kräuter "
+                + "kurz unter.")
+        let onlyNuts = Recipe(mix: FlourMix([.wheat550: 100]), totalGrams: 500, starterFlour: .wheat,
+                              addIns: AddIns([.nuts: 10]))
+        #expect(BakeRunText.addIns(onlyNuts) == "Arbeite am Ende des Knetens 50 g Nüsse kurz unter.")
+        let onlySeeds = Recipe(mix: FlourMix([.wheat550: 100]), totalGrams: 500, starterFlour: .wheat,
+                               addIns: AddIns([.seeds: 10]))
+        #expect(BakeRunText.addIns(onlySeeds) == "Gib gleich 50 g Saaten (eingeweicht) mit dazu.")
+        #expect(BakeRunText.addIns(plain) == "")
+    }
+
+    @Test func listsJoinWithUnd() {
+        #expect(BakeRunText.list([]) == "")
+        #expect(BakeRunText.list(["a"]) == "a")
+        #expect(BakeRunText.list(["a", "b"]) == "a und b")
+        #expect(BakeRunText.list(["a", "b", "c"]) == "a, b und c")
+    }
+
+    @Test func theLogNamesTheAddIns() {
+        #expect(BakeLogText.addIns(recipe) == "50 g Saaten, 50 g Nüsse, 50 g Trockenfrüchte, 10 g Kräuter")
+        #expect(BakeLogText.addIns(plain) == "keine")
+    }
+
+    @Test func withoutAddInsNoPlaceholderIsLeft() {
+        #expect(!BakeRunText.markdown(demo(), .mixSourdough).contains("{"))
     }
 }
 
@@ -207,6 +257,31 @@ struct BakeRunStoreTests {
         #expect(BakeRunStore(directory: directory).runs.map(\.id) == [second.id, first.id])
     }
 
+    @Test func aStepIsUndoneAndSaved() {
+        let directory = makeDirectory()
+        let store = BakeRunStore(directory: directory)
+        let bake = demo()
+        store.start(bake)
+        store.answer(bake.id, .yes, at: nov(13, 21))
+        store.complete(bake.id, at: nov(13, 21))
+        store.undo(bake.id)
+        #expect(BakeRunStore(directory: directory).run(bake.id)?.current == .mixSourdough)
+    }
+
+    @Test func aFinishedBakeRunsAgainOnlyWhileNoOtherDoes() {
+        let store = BakeRunStore(directory: makeDirectory())
+        let finished = BakeRunDemo.finished(now: nov(13, 9), starters: [], items: [], calendar: utc)
+        store.start(finished)
+        let next = BakeRunDemo.run(now: nov(14, 9), starters: [], items: [], calendar: utc)
+        store.start(next)
+        store.undo(finished.id)
+        #expect(store.run(finished.id)?.status == .finished)
+        store.cancel(next.id, at: nov(14, 10))
+        store.undo(finished.id)
+        #expect(store.run(finished.id)?.status == .active)
+        #expect(store.active?.id == finished.id)
+    }
+
     @Test func removingAndResetting() {
         let directory = makeDirectory()
         let store = BakeRunStore(directory: directory)
@@ -246,6 +321,20 @@ struct BakePlanRunTests {
         #expect(bake?.target == nov(14, 18))
         #expect(bake?.setup == model.setup)
         #expect(bake?.timeZone == utc.timeZone)
+    }
+
+    @Test func theBakeTakesTheAddIns() {
+        // The Römertopf takes 823.04 g dough; herbs 3 % add 0.03 per gram of
+        // flour: 823.04 / (1.836 + 0.03) = 441.07 g flour.
+        let model = BakePlanModel()
+        model.addIns.add(.herbs)
+        model.proposeSetup(from: EquipmentDemo.items())
+        model.useTemperatures(Temperatures())
+        model.proposeTarget(now: nov(13, 9), calendar: utc)
+        model.starterID = rye.id
+        let bake = model.makeRun(starters: [rye], now: nov(13, 9), calendar: utc)
+        #expect(bake?.totalGrams == 441)
+        #expect(bake?.addIns == AddIns([.herbs: 3]))
     }
 
     @Test func noBakeWithIssuesOrWrongTemperatures() {

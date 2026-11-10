@@ -4,9 +4,9 @@ Die App plant rückwärts: vom Zeitpunkt, an dem du das Brot anschneiden willst,
 
 ## Ruhezeiten und Temperatur
 
-- Bei 22 °C reift die Sauerteigstufe etwa 8 Stunden, die Stückgare dauert etwa 1,5 Stunden.
-- Die Stockgare ist umso kürzer, je mehr Roggen im Teig ist: ohne Roggen etwa 3 Stunden, bei reinem Roggen etwa eine halbe.
-- Je 10 °C kälter dauert alles etwa dreimal so lang. Im Kühlschrank bei 5 °C wird aus 1,5 Stunden Stückgare so eine Nacht.
+- Bei 22 °C reift die Sauerteigstufe etwa 8 Stunden, die [Stückgare](tip:proofing) dauert etwa 1,5 Stunden.
+- Die [Stockgare](tip:proofing) ist umso kürzer, je mehr Roggen im Teig ist: ohne Roggen etwa 3 Stunden, bei reinem Roggen etwa eine halbe.
+- Je 10 °C kälter dauert alles etwa dreimal so lang. Im Kühlschrank bei 5 °C wird aus 1,5 Stunden Stückgare so eine Nacht. Was Stock- und Stückgare sind, steht unter [Gare](tip:proofing).
 - Warm heißt etwa 27 °C: der Backofen mit eingeschaltetem Licht oder eine warme Ecke. Warmes Wasser beim Ansetzen hilft ebenfalls.
 
 ## Was sich verschieben lässt

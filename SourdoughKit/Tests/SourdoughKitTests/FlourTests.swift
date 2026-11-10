@@ -11,15 +11,16 @@ private func same(_ mix: FlourMix, _ expected: [Flour: Double]) -> Bool {
 }
 
 struct FlourTests {
-    @Test func elevenFloursOfThreeGrains() {
-        #expect(Flour.allCases.count == 11)
+    @Test func twelveFloursOfFourGrains() {
+        #expect(Flour.allCases.count == 12)
+        #expect(Flour.allCases.filter { $0.grain == .buckwheat } == [.buckwheat])
         #expect(Flour.allCases.filter { $0.grain == .rye } == [.rye997, .rye1150, .rye1370, .ryeWholeGrain])
         #expect(Flour.allCases.filter { $0.grain == .spelt } == [.spelt630, .spelt1050, .speltWholeGrain])
         #expect(Flour.allCases.filter { $0.grain == .wheat } == [.wheat405, .wheat550, .wheat1050, .wheatWholeGrain])
     }
 
     @Test func typeNumbersAndWholeGrain() {
-        #expect(Flour.allCases.map(\.typeNumber) == [997, 1150, 1370, nil, 630, 1050, nil, 405, 550, 1050, nil])
+        #expect(Flour.allCases.map(\.typeNumber) == [997, 1150, 1370, nil, 630, 1050, nil, 405, 550, 1050, nil, nil])
     }
 
     @Test func darkerFlourTakesMoreWaterAndSpeltLessThanWheat() {
@@ -37,7 +38,30 @@ struct FlourTests {
             nil, nil, nil, nil,
             .wheat550, .wheat1050, .wheatWholeGrain,
             .spelt630, .spelt630, .spelt1050, .speltWholeGrain,
+            nil,
         ])
+    }
+
+    @Test func buckwheatIsAFlourOfItsOwnAndNotWholeGrain() {
+        // No type number, but not "Vollkorn" either: only the other three
+        // grains have a whole grain flour.
+        #expect(Flour.allCases.filter(\.isWholeGrain) == [.ryeWholeGrain, .speltWholeGrain, .wheatWholeGrain])
+        #expect(Flour.buckwheat.waterUptake == 95)
+        #expect(FlourMix([.buckwheat: 20, .wheatWholeGrain: 30, .wheat550: 50]).wholeGrainShare == 30)
+        // 0.2 × 95 + 0.8 × 66 = 71.8
+        #expect(close(FlourMix([.buckwheat: 20, .wheat550: 80]).hydration, 71.8, 1e-9))
+    }
+
+    @Test func buckwheatTakesTheShareOfOthersAndGivesItBackToThem() {
+        // No flour of its own grain, no counterpart: the others share the rest.
+        let mix = FlourMix([.buckwheat: 20, .spelt1050: 50, .spelt630: 30])
+        let less = mix.setting(.buckwheat, to: 10)
+        #expect(close(less.share(of: Flour.buckwheat), 10))
+        #expect(close(less.share(of: .spelt1050), 56.25))
+        #expect(close(less.share(of: .spelt630), 33.75))
+        let more = mix.setting(.buckwheat, to: 30)
+        #expect(close(more.share(of: .spelt1050), 43.75))
+        #expect(close(more.share(of: .spelt630), 26.25))
     }
 }
 
@@ -195,34 +219,47 @@ struct FlourMixTests {
 }
 
 struct BreadTypeTests {
-    @Test func sixBreadTypes() {
-        #expect(BreadType.allCases == [.speltBread, .speltMixedBread, .ryeMixedBread50,
-                                       .ryeMixedBread70, .ryeBread80, .ryeWholeGrainBread])
+    @Test func elevenBreadTypesFromWheatToRyeAndTwoWithBuckwheat() {
+        #expect(BreadType.allCases == [.wheatBread, .wheatWholeGrainBread, .wheatMixedBread,
+                                       .speltBread, .speltMixedBread, .ryeMixedBread50,
+                                       .ryeMixedBread70, .ryeBread80, .ryeWholeGrainBread,
+                                       .buckwheatRyeBread, .buckwheatSpeltBread])
     }
 
     @Test func presetsAreCompleteWithTheRyeOfTheirName() {
         for bread in BreadType.allCases {
             #expect(bread.preset.total == 100)
         }
-        // Dinkelbrot 0/0, Dinkel-Mischbrot 20 + 10, then 50, 70, 80, 100.
-        #expect(BreadType.allCases.map(\.preset.ryeShare) == [0, 30, 50, 70, 80, 100])
+        // Weizenbrot and Weizenvollkornbrot 0, Weizenmischbrot 30, Dinkelbrot 0,
+        // Dinkel-Mischbrot 20 + 10, then 50, 70, 80, 100; Buchweizen-Roggenbrot
+        // 45 + 25 = 70, Buchweizen-Dinkelbrot 0.
+        #expect(BreadType.allCases.map(\.preset.ryeShare) == [0, 0, 30, 0, 30, 50, 70, 80, 100, 70, 0])
     }
 
     @Test func presetHydrationsLieInTheRangesOfTheNotes() {
+        // Weizenbrot 0.8 × 66 + 0.2 × 72 = 67.2
+        // Weizenvollkornbrot 80
+        // Weizenmischbrot 0.5 × 66 + 0.2 × 72 + 0.3 × 85 = 72.9
         // Dinkelbrot 0.7 × 70 + 0.3 × 78 = 72.4 (notes: 70–75)
         // Dinkel-Mischbrot 0.2 × 85 + 0.1 × 95 + 0.5 × 70 + 0.2 × 78 = 77.1 (75–80)
         // Roggenmischbrot 50: 81.6 (about 80)
         // Roggenmischbrot 70: 0.35 × 85 + 0.35 × 95 + 0.3 × 70 = 84 (about 85)
         // Roggenbrot 80: 0.4 × 85 + 0.4 × 95 + 0.2 × 70 = 86 (85–90)
         // Roggenvollkorn: 0.2 × 85 + 0.8 × 95 = 93 (90–100)
-        let expected = [72.4, 77.1, 81.6, 84, 86, 93]
+        // Buchweizen-Roggenbrot: 0.45 × 85 + 0.25 × 95 + 0.2 × 95 + 0.1 × 70
+        //   = 38.25 + 23.75 + 19 + 7 = 88
+        // Buchweizen-Dinkelbrot: 0.5 × 70 + 0.25 × 65 + 0.25 × 95
+        //   = 35 + 16.25 + 23.75 = 75
+        let expected = [67.2, 80, 72.9, 72.4, 77.1, 81.6, 84, 86, 93, 88, 75]
         for (bread, hydration) in zip(BreadType.allCases, expected) {
             #expect(close(bread.preset.hydration, hydration, 1e-9))
         }
     }
 
     @Test func ryeRangesAreThePresetGiveOrTakeTen() {
-        #expect(BreadType.allCases.map(\.ryeRange) == [0...10, 20...40, 40...60, 60...80, 70...90, 90...100])
+        #expect(BreadType.allCases.map(\.ryeRange)
+                == [0...10, 0...10, 20...40, 0...10, 20...40, 40...60, 60...80, 70...90, 90...100,
+                    60...80, 0...10])
     }
 }
 
@@ -257,6 +294,20 @@ struct BakeRulesTests {
                                  starterFlour: .rye, totalGrams: 1000, limits: [:]) == [.tooLittleRye(minimum: 90)])
         #expect(BakeRules.issues(mix: FlourMix([.rye1150: 100]), bread: .ryeWholeGrainBread,
                                  starterFlour: .rye, totalGrams: 1000, limits: [.rye1150: 500]) == [.overLimit(.rye1150)])
+    }
+
+    @Test func buckwheatAboveThirtyPercentIsAnIssue() {
+        let mix = FlourMix([.buckwheat: 31, .spelt1050: 69])
+        #expect(BakeRules.issues(mix: mix, bread: .buckwheatSpeltBread, starterFlour: nil,
+                                 totalGrams: 1000, limits: [:]) == [.tooMuchBuckwheat(maximum: 30)])
+        let limit = FlourMix([.buckwheat: 30, .spelt1050: 70])
+        #expect(BakeRules.issues(mix: limit, bread: .buckwheatSpeltBread, starterFlour: nil,
+                                 totalGrams: 1000, limits: [:]).isEmpty)
+    }
+
+    @Test func buckwheatCanBeSetFromNothingUpToThirtyPercent() {
+        #expect(BakeRules.range(of: .buckwheat, in: BreadType.buckwheatSpeltBread.preset,
+                                bread: .buckwheatSpeltBread, totalGrams: 1000, limits: [:]) == 0...30)
     }
 
     @Test func lessSpeltFlowsToWheatSoOnlyMoreSpeltIsBounded() {

@@ -16,24 +16,7 @@ struct BakeScheduleView: View {
 
     var body: some View {
         let schedule = model.schedule(calendar: calendar)
-        Form {
-            if let error = model.temperatureError {
-                Section {
-                    Text(error)
-                        .foregroundStyle(.red)
-                        .accessibilityIdentifier("schedule-error")
-                }
-            }
-            if let schedule, !schedule.conflicts.isEmpty {
-                Section {
-                    ForEach(Array(schedule.steps.filter(\.outsideWindow).enumerated()), id: \.offset) { index, step in
-                        Text(ScheduleText.conflict(step, vessel: schedule.vessel, window: model.window,
-                                                   calendar: calendar))
-                            .foregroundStyle(.red)
-                            .accessibilityIdentifier("schedule-conflict-\(index)")
-                    }
-                }
-            }
+        NumberForm(fields: ["schedule-room", "schedule-fridge"]) { focus in
             Section {
                 Button { pickingTarget = true } label: {
                     LabeledContent("Anschnittfertig") {
@@ -43,11 +26,19 @@ struct BakeScheduleView: View {
                 .foregroundStyle(.primary)
                 .accessibilityIdentifier("schedule-target")
                 NumberField(title: "Raumtemperatur (°C)", text: Binding(
-                    get: { model.roomText }, set: { model.roomText = $0 }), id: "schedule-room")
+                    get: { model.roomText }, set: { model.roomText = $0 }), id: "schedule-room", focus: focus)
                 NumberField(title: "Kühlschrank (°C)", text: Binding(
-                    get: { model.fridgeText }, set: { model.fridgeText = $0 }), id: "schedule-fridge")
+                    get: { model.fridgeText }, set: { model.fridgeText = $0 }), id: "schedule-fridge", focus: focus)
             } footer: {
-                Text("Handgriffe liegen zwischen \(model.window.startHour) und \(model.window.endHour) Uhr.")
+                // Below the fields, so that it does not move them while typing.
+                VStack(alignment: .leading, spacing: 4) {
+                    if let error = model.temperatureError {
+                        Text(error)
+                            .foregroundStyle(.red)
+                            .accessibilityIdentifier("schedule-error")
+                    }
+                    Text("Handgriffe liegen zwischen \(model.window.startHour) und \(model.window.endHour) Uhr.")
+                }
             }
             if let schedule {
                 Section {
@@ -64,6 +55,17 @@ struct BakeScheduleView: View {
                         .accessibilityIdentifier("schedule-reset")
                 } header: {
                     Text("Ablauf")
+                } footer: {
+                    // The steps outside the window are marked in their rows; the
+                    // explanation sits below the list. Above the list it moved
+                    // the whole screen whenever it appeared or went away.
+                    VStack(alignment: .leading, spacing: 2) {
+                        ForEach(Array(schedule.steps.filter(\.outsideWindow).enumerated()), id: \.offset) { index, step in
+                            Text(ScheduleText.conflict(step, vessel: schedule.vessel, window: model.window,
+                                                       calendar: calendar))
+                                .accessibilityIdentifier("schedule-conflict-\(index)")
+                        }
+                    }
                 }
             }
             Section {
@@ -90,19 +92,29 @@ struct BakeScheduleView: View {
     private func stepRow(_ step: ScheduleStep, index: Int, vessel: BakeSetup.Vessel) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .firstTextBaseline) {
-                Text(ScheduleText.time(step.start, calendar: calendar))
-                    .monospacedDigit()
-                    .frame(width: 76, alignment: .leading)
-                Text(ScheduleText.title(step.kind, vessel: vessel))
-                    .fontWeight(step.isAction ? .semibold : .regular)
-                Spacer()
-                if !step.isAction {
-                    Text(ScheduleText.duration(hours: step.hours))
-                        .foregroundStyle(.secondary)
+                HStack(alignment: .firstTextBaseline) {
+                    Text(ScheduleText.time(step.start, calendar: calendar))
+                        .monospacedDigit()
+                        .foregroundStyle(step.outsideWindow ? Color.orange : Color.primary)
+                        .frame(width: 76, alignment: .leading)
+                    Text(ScheduleText.title(step.kind, vessel: vessel))
+                        .fontWeight(step.isAction ? .semibold : .regular)
+                    Spacer()
+                    if !step.isAction {
+                        Text(ScheduleText.duration(hours: step.hours))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityValue(step.outsideWindow ? "außerhalb des Zeitfensters" : "")
+                .accessibilityIdentifier("schedule-step-\(index)")
+                // Stockgare and Stückgare are terms to look up; the other
+                // rests are named plainly.
+                if case .rest(let rest, _) = step.kind, rest != .sourdough {
+                    TipsIconButton(topic: .proofing, identifier: "schedule-tip-\(rest.rawValue)")
+                        .padding(.leading, 8)
                 }
             }
-            .accessibilityElement(children: .combine)
-            .accessibilityIdentifier("schedule-step-\(index)")
             if case .rest(let rest, let place) = step.kind, let range = step.hourRange {
                 restControls(rest, place: place, step: step, range: range)
             }

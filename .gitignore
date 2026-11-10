@@ -35,3 +35,13 @@ coverage/
 
 # Worktrees paralleler Sitzungen (Claude Code legt sie hier an)
 .claude/worktrees/
+
+# Fotos ohne geklärte Rechte: nur lokal, nie einchecken. Fehlt eines, zeigt
+# die App an seiner Stelle einen Platzhalter (`TipsText.picture`).
+Sourdough/Assets.xcassets/BasketPhoto.imageset/
+# Vorläufiges Startfoto ohne Rechte, nur lokal; ohne die Datei bleibt der
+# Platzhalter des Startbildschirms (`StartView.hero`).
+Sourdough/Assets.xcassets/StartPhoto.imageset/
+
+# Foto zum Kneten, Rechte nicht geklärt: nur lokal (Seite „Kneten“).
+Sourdough/Assets.xcassets/KneadingPhoto.imageset/

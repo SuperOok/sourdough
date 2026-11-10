@@ -7,12 +7,15 @@ public enum Flour: String, Codable, CaseIterable, Sendable {
     case rye997, rye1150, rye1370, ryeWholeGrain
     case spelt630, spelt1050, speltWholeGrain
     case wheat405, wheat550, wheat1050, wheatWholeGrain
+    /// Buckwheat flour as it is sold: no type number, no gluten.
+    case buckwheat
 
     public var grain: FlourType {
         switch self {
         case .rye997, .rye1150, .rye1370, .ryeWholeGrain: .rye
         case .spelt630, .spelt1050, .speltWholeGrain: .spelt
         case .wheat405, .wheat550, .wheat1050, .wheatWholeGrain: .wheat
+        case .buckwheat: .buckwheat
         }
     }
 
@@ -27,8 +30,14 @@ public enum Flour: String, Codable, CaseIterable, Sendable {
         case .wheat405: 405
         case .wheat550: 550
         case .wheat1050: 1050
-        case .ryeWholeGrain, .speltWholeGrain, .wheatWholeGrain: nil
+        case .ryeWholeGrain, .speltWholeGrain, .wheatWholeGrain, .buckwheat: nil
         }
+    }
+
+    /// Whole grain flour of rye, spelt or wheat. Buckwheat flour has no type
+    /// number either, but it is a flour of its own and not "Vollkorn".
+    public var isWholeGrain: Bool {
+        typeNumber == nil && self != .buckwheat
     }
 
     /// Grams of water 100 g of this flour take up in a dough, as a rule of
@@ -48,11 +57,14 @@ public enum Flour: String, Codable, CaseIterable, Sendable {
         case .wheat550: 66
         case .wheat1050: 72
         case .wheatWholeGrain: 80
+        // It swells and turns slimy: about as much as whole grain rye. A rule
+        // of thumb, not measured.
+        case .buckwheat: 95
         }
     }
 
     /// The flour of the other grain among wheat and spelt that replaces this
-    /// one 1:1; `nil` for rye, which cannot stand in for either.
+    /// one 1:1; `nil` for rye and buckwheat, which cannot stand in for either.
     public var counterpart: Flour? {
         switch self {
         case .wheat405, .wheat550: .spelt630
@@ -61,7 +73,7 @@ public enum Flour: String, Codable, CaseIterable, Sendable {
         case .spelt630: .wheat550
         case .spelt1050: .wheat1050
         case .speltWholeGrain: .wheatWholeGrain
-        case .rye997, .rye1150, .rye1370, .ryeWholeGrain: nil
+        case .rye997, .rye1150, .rye1370, .ryeWholeGrain, .buckwheat: nil
         }
     }
 }

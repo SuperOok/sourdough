@@ -121,6 +121,45 @@ struct RecipeTests {
         #expect(close(recipe.salt, 16.5))
     }
 
+    @Test func buckwheatStaysInTheMainDoughOfARyeBread() {
+        // Buchweizen-Roggenbrot, 1000 g: rye 700 g, 35 % of it = 245 g, from rye
+        // whole grain (250 g) first. Water 88 % = 880 g, 245 g of it in the
+        // sourdough: 635 g. Starter 20 % = 49 g. Salt 2 % = 20 g.
+        let recipe = Recipe(mix: BreadType.buckwheatRyeBread.preset, totalGrams: 1000, starterFlour: .rye)
+        #expect(recipe.sourdoughFlour.map(\.flour) == [.ryeWholeGrain])
+        #expect(close(grams(recipe.sourdoughFlour)[.ryeWholeGrain]!, 245))
+        #expect(close(recipe.starterGrams, 49))
+        #expect(recipe.mainFlour.map(\.flour) == [.rye1150, .ryeWholeGrain, .spelt1050, .buckwheat])
+        let main = grams(recipe.mainFlour)
+        #expect(close(main[.rye1150]!, 450))
+        #expect(close(main[.ryeWholeGrain]!, 5))
+        #expect(close(main[.spelt1050]!, 100))
+        #expect(close(main[.buckwheat]!, 200))
+        #expect(close(recipe.mainWater, 635))
+        #expect(close(recipe.salt, 20))
+    }
+
+    @Test func buckwheatSpeltBreadSoursTheStartersGrainFirst() {
+        // Buchweizen-Dinkelbrot, 1000 g, spelt starter: 200 g from spelt 1050
+        // (500 g), the darkest spelt. Water 75 % = 750 g, 550 g in the main dough.
+        let recipe = Recipe(mix: BreadType.buckwheatSpeltBread.preset, totalGrams: 1000, starterFlour: .spelt)
+        #expect(recipe.sourdoughFlour.map(\.flour) == [.spelt1050])
+        #expect(close(grams(recipe.sourdoughFlour)[.spelt1050]!, 200))
+        let main = grams(recipe.mainFlour)
+        #expect(close(main[.spelt1050]!, 300))
+        #expect(close(main[.spelt630]!, 250))
+        #expect(close(main[.buckwheat]!, 250))
+        #expect(close(recipe.mainWater, 550))
+    }
+
+    @Test func aRyeStarterSoursTheDarkestFlourOfASpeltBread() {
+        // No spelt flour is the starter's grain: the darkest flour of the mix,
+        // buckwheat (95), gives the 200 g out of its 250 g.
+        let recipe = Recipe(mix: BreadType.buckwheatSpeltBread.preset, totalGrams: 1000, starterFlour: .rye)
+        #expect(recipe.sourdoughFlour.map(\.flour) == [.buckwheat])
+        #expect(close(grams(recipe.sourdoughFlour)[.buckwheat]!, 200))
+    }
+
     @Test func whatTheDarkestCannotGiveComesFromTheNext() {
         // Rye 1150 40, whole grain 10, spelt 50, 1000 g: rye 500 g, soured
         // 175 g: 100 g whole grain, then 75 g rye 1150. Whole grain is used up.

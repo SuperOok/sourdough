@@ -35,6 +35,42 @@ final class BakePlanScreenTests: SourdoughUITestCase {
         _ = element(app.buttons, "plan-bread")
     }
 
+    /// Add-ins: added from the menu, stepped, removed with a swipe; each
+    /// add-in and each flour leads to its tips page.
+    func testAddInsAndTheTipsOfIngredients() {
+        launch(seedEquipment: true)
+        openBake()
+        tapButton("plan-add-addin")
+        tapButton("plan-add-addin-herbs")
+        tapButton("plan-add-addin")
+        tapButton("plan-add-addin-seeds")
+        // 15 % of 1000 g.
+        assertLabel("plan-addin-seeds", contains: "15 % · 150 g")
+        element(app.steppers, "plan-addin-stepper-seeds").buttons.element(boundBy: 1).tap()
+        assertLabel("plan-addin-seeds", contains: "16 % · 160 g")
+        tapButton("plan-addin-tip-seeds")
+        assertTitle("Saaten")
+        tapButton("tips-topic-close")
+        any("plan-addin-herbs").swipeLeft()
+        tapButton("plan-addin-remove-herbs")
+        XCTAssertTrue(app.staticTexts["plan-addin-herbs"].waitForNonExistence(timeout: 5))
+        tapButton("plan-flour-tip-rye1150")
+        assertTitle("Roggen")
+        tapButton("tips-topic-close")
+        openFlour("spelt1050")
+        tapButton("flour-tips")
+        assertTitle("Dinkel")
+        tapButton("tips-topic-close")
+        done()
+        // The Römertopf takes 823.05 g dough; seeds 16 % with as much water:
+        // 823.05 / (1 + 0.816 + 0.02 + 0.32) = 381.75 → 382 g flour, and
+        // 16 % of it 61.1 g seeds soaking in 61.1 g water.
+        tapButton("plan-next")
+        assertText("setup-flour", "Mehl gesamt, 382 g")
+        assertExact("recipe-soak-seeds", "Saaten, 61 g in 61 g Wasser")
+        assertExact("recipe-addin-seeds", "Saaten, 61 g")
+    }
+
     func testAnotherBreadStartsFromItsPreset() {
         launch()
         openBake()
@@ -45,6 +81,27 @@ final class BakePlanScreenTests: SourdoughUITestCase {
         assertText("plan-hydration", "Hydration, 72,4 %")
         XCTAssertTrue(row("spelt1050").label.contains("70 %"))
         XCTAssertFalse(app.buttons["plan-flour-rye1150"].exists)
+    }
+
+    func testTheBuckwheatBreadsStartFromTheirPresetsAndBuckwheatHasItsPage() {
+        launch()
+        openBake()
+        choose("plan-bread", "Buchweizen-Dinkelbrot")
+        assertText("plan-bread-character", "Mitteldicht, feucht, mild-nussig.")
+        assertText("plan-mix-summary", "Roggen 0 % (erlaubt 0–10 %) · Vollkorn 0 %")
+        // 0.5 × 70 + 0.25 × 65 + 0.25 × 95 = 75 %.
+        assertText("plan-hydration", "Hydration, 75 %")
+        XCTAssertTrue(row("buckwheat").label.contains("Buchweizenmehl"))
+        XCTAssertTrue(row("buckwheat").label.contains("25 %"))
+        choose("plan-bread", "Buchweizen-Roggenbrot")
+        assertText("plan-mix-summary", "Roggen 70 % (erlaubt 60–80 %) · Vollkorn 25 %")
+        // 0.45 × 85 + 0.25 × 95 + 0.2 × 95 + 0.1 × 70 = 88 %.
+        assertText("plan-hydration", "Hydration, 88 %")
+        XCTAssertTrue(row("buckwheat").label.contains("20 %"))
+        tapButton("plan-flour-tip-buckwheat")
+        assertTitle("Buchweizen")
+        XCTAssertEqual(any("tips-image-BuckwheatPhoto").label, "Buchweizenkörner. Foto: V.Boldychev, CC BY-SA 4.0, via Wikimedia Commons.")
+        tapButton("tips-topic-close")
     }
 
     func testAWheatStarterIsNotEnoughForRye() {

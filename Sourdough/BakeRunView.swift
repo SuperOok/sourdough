@@ -9,6 +9,8 @@ struct BakeRunView: View {
     /// Back to the start screen.
     let onClose: () -> Void
     @State private var confirmCancel = false
+    /// The page of a `tip:` link in the instructions, shown as a sheet.
+    @State private var linkedTip: TipsTopic.ID?
 
     var body: some View {
         if let run = store.run(id) {
@@ -37,6 +39,7 @@ struct BakeRunView: View {
                         .accessibilityIdentifier("run-finished")
                     Button("Zum Startbildschirm", action: onClose)
                         .accessibilityIdentifier("run-close")
+                    undoButton(run)
                 }
             }
             Section("Ablauf") {
@@ -56,6 +59,8 @@ struct BakeRunView: View {
         .navigationTitle(run.bread.germanName)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar { TipsButton(topic: .schedule) }
+        .environment(\.openURL, OpenURLAction { TipsText.open($0) { linkedTip = $0 } })
+        .sheet(item: $linkedTip) { TipsView(initial: $0) }
         .alert("Durchgang abbrechen?", isPresented: $confirmCancel) {
             Button("Abbrechen", role: .destructive) {
                 store.cancel(id, at: Date())
@@ -89,8 +94,24 @@ struct BakeRunView: View {
                         .accessibilityIdentifier("run-answer-\(answer.rawValue)")
                 }
             }
+            undoButton(run)
         } header: {
             Text("Jetzt")
+        }
+    }
+
+    /// Opens the last done step again, for a tap by mistake.
+    @ViewBuilder
+    private func undoButton(_ run: BakeRun) -> some View {
+        if let previous = run.previous {
+            Button {
+                store.undo(id)
+            } label: {
+                Label(BakeRunText.undoLabel(run, previous), systemImage: "arrow.uturn.backward")
+                    .font(.subheadline)
+            }
+            .foregroundStyle(.secondary)
+            .accessibilityIdentifier("run-undo")
         }
     }
 
@@ -119,18 +140,7 @@ struct MarkdownBlocks: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             ForEach(Array(TipsParser.parse(markdown).enumerated()), id: \.offset) { _, block in
-                switch block {
-                case .title(let text), .heading(let text):
-                    Text(text).font(.headline)
-                case .paragraph(let text):
-                    Text(TipsText.attributed(text))
-                case .bullets(let items):
-                    VStack(alignment: .leading, spacing: 4) {
-                        ForEach(items, id: \.self) { item in
-                            Text("• ") + Text(TipsText.attributed(item))
-                        }
-                    }
-                }
+                TipsBlockView(block: block, compact: true)
             }
         }
         .accessibilityElement(children: .combine)

@@ -37,7 +37,24 @@ struct EquipmentItemTests {
         #expect(EquipmentKind.allCases == [.kneader, .pot, .pan, .basket])
         #expect(EquipmentKind.allCases.filter(\.hasDimensions) == [.pot, .pan])
         #expect(EquipmentKind.allCases.filter(\.hasLiner) == [.pot, .pan])
-        #expect(EquipmentKind.allCases.filter(\.hasMaterialAndLid) == [.pan])
+        #expect(EquipmentKind.allCases.filter(\.hasMaterial) == [.pan])
+        #expect(EquipmentKind.allCases.filter(\.hasLid) == [.pot, .pan])
+        #expect(EquipmentKind.allCases.filter(\.hasShape) == [.basket])
+    }
+
+    @Test func aBannetonIsRoundOrLong() {
+        #expect(!EquipmentItem(kind: .basket, name: "R").isLong)
+        #expect(EquipmentItem(kind: .basket, name: "O", shape: .oval).isLong)
+        #expect(EquipmentItem(kind: .basket, name: "L", shape: .rectangular).isLong)
+    }
+
+    @Test func piecesSavedWithoutAShapeAreRound() throws {
+        let json = #"[{"id":"5D4E1C36-0F7E-4C1B-8D2A-0E8A3B6C9F11","kind":"basket","name":"Alt","#
+            + #""material":"sheetMetal","hasLid":false,"hasSiliconeLiner":false}]"#
+        let items = try JSONDecoder().decode([EquipmentItem].self, from: Data(json.utf8))
+        #expect(items.first?.shape == .round)
+        #expect(items.first?.dimensions == nil)
+        #expect(items.first?.name == "Alt")
     }
 
     @Test func rawValuesAreTheTipsTopicIds() {
@@ -50,10 +67,35 @@ struct EquipmentItemTests {
         #expect(!item.hasLid)
         #expect(!item.hasSiliconeLiner)
         #expect(item.dimensions == nil)
+        #expect(item.shape == .round)
     }
 
     @Test func eachItemGetsItsOwnId() {
         #expect(EquipmentItem(kind: .basket, name: "A").id != EquipmentItem(kind: .basket, name: "A").id)
+    }
+
+    @Test func potsSavedBeforeTheLidSettingHaveALid() throws {
+        // Every pot was stored with `hasLid` false then, as the field did not apply to it.
+        let json = #"[{"id":"5D4E1C36-0F7E-4C1B-8D2A-0E8A3B6C9F11","kind":"pot","name":"Alt","#
+            + #""material":"sheetMetal","hasLid":false,"hasSiliconeLiner":false}]"#
+        let items = try JSONDecoder().decode([EquipmentItem].self, from: Data(json.utf8))
+        #expect(items.first?.hasLid == true)
+    }
+
+    @Test func thePotLidSurvivesAJSONRoundTripInEitherState() throws {
+        let withLid = EquipmentItem(kind: .pot, name: "Mit", hasLid: true)
+        let without = EquipmentItem(kind: .pot, name: "Ohne", hasLid: false)
+        let data = try JSONEncoder().encode([withLid, without])
+        #expect(try JSONDecoder().decode([EquipmentItem].self, from: data) == [withLid, without])
+        // The pot's own key carries the setting; the old key stays for older readers.
+        let text = String(decoding: data, as: UTF8.self)
+        #expect(text.contains("\"potLid\":false") && text.contains("\"potLid\":true"))
+    }
+
+    @Test func aPanKeepsItsLidUnderTheOldKey() throws {
+        let pan = EquipmentItem(kind: .pan, name: "Pan", hasLid: true)
+        let text = String(decoding: try JSONEncoder().encode(pan), as: UTF8.self)
+        #expect(text.contains("\"hasLid\":true") && !text.contains("potLid"))
     }
 
     @Test func survivesAJSONRoundTrip() throws {
@@ -61,8 +103,9 @@ struct EquipmentItemTests {
             kind: .pan, name: "Gusseisen", material: .castIron, hasLid: true,
             hasSiliconeLiner: true,
             dimensions: Dimensions(shape: .rectangular, lengthCm: 30, widthCm: 10, heightCm: 8))
-        let data = try JSONEncoder().encode([item])
-        #expect(try JSONDecoder().decode([EquipmentItem].self, from: data) == [item])
+        let basket = EquipmentItem(kind: .basket, name: "Lang", shape: .rectangular)
+        let data = try JSONEncoder().encode([item, basket])
+        #expect(try JSONDecoder().decode([EquipmentItem].self, from: data) == [item, basket])
     }
 
     @Test func allMaterialsAreListed() {

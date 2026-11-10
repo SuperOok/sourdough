@@ -14,14 +14,9 @@ struct BakePlanView: View {
 
     var body: some View {
         let issues = model.issues(starters: starterStore.starters)
-        Form {
-            if model.errorText != nil || !issues.isEmpty {
+        NumberForm(fields: ["plan-total"]) { focus in
+            if !issues.isEmpty {
                 Section {
-                    if let error = model.errorText {
-                        Text(error)
-                            .foregroundStyle(.red)
-                            .accessibilityIdentifier("plan-error")
-                    }
                     ForEach(Array(issues.enumerated()), id: \.offset) { index, issue in
                         Text(BakeText.issue(issue, bread: model.bread))
                             .foregroundStyle(.red)
@@ -31,7 +26,8 @@ struct BakePlanView: View {
             }
             breadSection
             starterSection
-            flourSection
+            flourSection(focus)
+            addInSection
             waterSection
             Section {
                 NavigationLink("Weiter: Utensilien und Menge") {
@@ -75,7 +71,9 @@ struct BakePlanView: View {
                 Picker("Starter", selection: $model.starterID) {
                     Text("Bitte wählen").tag(Starter.ID?.none)
                     ForEach(starterStore.starters) { starter in
-                        Text("\(starter.name) (\(starter.flour.germanName))").tag(Starter.ID?.some(starter.id))
+                        Label("\(starter.name) (\(starter.flour.germanName))",
+                              image: IngredientIcon.name(starter.flour))
+                            .tag(Starter.ID?.some(starter.id))
                     }
                 }
                 .pickerStyle(.menu)
@@ -86,16 +84,24 @@ struct BakePlanView: View {
         }
     }
 
-    private var flourSection: some View {
+    private func flourSection(_ focus: FocusState<String?>.Binding) -> some View {
         Section {
-            NumberField(title: "Mehl gesamt (g)", text: $model.totalText, id: "plan-total")
+            NumberField(title: "Mehl gesamt (g)", text: $model.totalText, id: "plan-total", focus: focus)
             ForEach(model.effectiveMix.flours, id: \.self) { flour in
-                Button { editing = EditedFlour(flour: flour) } label: { flourRow(flour) }
-                    .accessibilityIdentifier("plan-flour-\(flour.rawValue)")
+                HStack {
+                    Button { editing = EditedFlour(flour: flour) } label: { flourRow(flour) }
+                        .buttonStyle(.borderless)
+                        .accessibilityIdentifier("plan-flour-\(flour.rawValue)")
+                    TipsIconButton(topic: TipsTopic.id(for: flour.grain),
+                                   identifier: "plan-flour-tip-\(flour.rawValue)")
+                        .padding(.leading, 8)
+                }
             }
             Menu {
                 ForEach(model.addableFlours, id: \.self) { flour in
-                    Button(flour.germanName) { model.add(flour) }
+                    Button { model.add(flour) } label: {
+                        Label(flour.germanName, image: IngredientIcon.name(flour))
+                    }
                         .accessibilityIdentifier("plan-add-\(flour.rawValue)")
                 }
             } label: {
@@ -108,13 +114,79 @@ struct BakePlanView: View {
         } header: {
             Text("Mehl")
         } footer: {
-            Text(BakeText.mixSummary(model.effectiveMix, bread: model.bread))
-                .accessibilityIdentifier("plan-mix-summary")
+            // Below the field, not above the form: a section appearing above
+            // while typing moves the form and takes the focus away.
+            VStack(alignment: .leading, spacing: 4) {
+                if let error = model.errorText {
+                    Text(error)
+                        .foregroundStyle(.red)
+                        .accessibilityIdentifier("plan-error")
+                }
+                Text(BakeText.mixSummary(model.effectiveMix, bread: model.bread))
+                    .accessibilityIdentifier("plan-mix-summary")
+            }
+        }
+    }
+
+    /// Seeds, nuts and the like, each with its share of the flour.
+    private var addInSection: some View {
+        Section {
+            ForEach(model.addIns.addIns, id: \.self) { addIn in
+                addInRow(addIn)
+            }
+            if !model.addIns.addable.isEmpty {
+                Menu {
+                    ForEach(model.addIns.addable, id: \.self) { addIn in
+                        Button { model.addIns.add(addIn) } label: {
+                            Label(addIn.germanName, image: IngredientIcon.name(addIn))
+                        }
+                            .accessibilityIdentifier("plan-add-addin-\(addIn.rawValue)")
+                    }
+                } label: {
+                    Label("Zusatz hinzufügen", systemImage: "plus")
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
+                }
+                .accessibilityIdentifier("plan-add-addin")
+            }
+        } header: {
+            Text("Zusätze")
+        } footer: {
+            Text("Anteile vom Mehl. Wasser zum Einweichen rechnet die App zur Teigmenge dazu.")
+        }
+    }
+
+    private func addInRow(_ addIn: AddIn) -> some View {
+        let share = model.addIns.share(of: addIn)
+        return HStack {
+            CustomIcon(name: IngredientIcon.name(addIn))
+                .padding(.trailing, 4)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(addIn.germanName)
+                Text(BakeText.addInAmount(share: share, totalGrams: model.totalGrams))
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("plan-addin-\(addIn.rawValue)")
+            Spacer()
+            Stepper("Anteil", value: Binding(get: { share }, set: { model.addIns.set(addIn, to: $0) }),
+                    in: addIn.shareRange, step: 1)
+                .labelsHidden()
+                .accessibilityIdentifier("plan-addin-stepper-\(addIn.rawValue)")
+            TipsIconButton(topic: TipsTopic.id(for: addIn), identifier: "plan-addin-tip-\(addIn.rawValue)")
+                .padding(.leading, 8)
+        }
+        .swipeActions {
+            Button("Entfernen", role: .destructive) { model.addIns.remove(addIn) }
+                .accessibilityIdentifier("plan-addin-remove-\(addIn.rawValue)")
         }
     }
 
     private func flourRow(_ flour: Flour) -> some View {
         HStack {
+            CustomIcon(name: IngredientIcon.name(flour))
+                .padding(.trailing, 4)
             VStack(alignment: .leading, spacing: 2) {
                 Text(flour.germanName)
                 if let limit = model.limits[flour] {
@@ -178,7 +250,7 @@ struct FlourEditView: View {
         let range = model.range(of: flour)
         let share = model.effectiveMix.share(of: flour)
         NavigationStack {
-            Form {
+            NumberForm(fields: ["flour-limit"]) { focus in
                 Section("Mehlsorte") {
                     Picker("Mehl", selection: Binding(
                         get: { flour },
@@ -186,7 +258,9 @@ struct FlourEditView: View {
                             model.replace(flour, with: new)
                             flour = new
                         })) {
-                        ForEach(Flour.allCases, id: \.self) { Text($0.germanName).tag($0) }
+                        ForEach(Flour.allCases, id: \.self) {
+                            Label($0.germanName, image: IngredientIcon.name($0)).tag($0)
+                        }
                     }
                     .pickerStyle(.menu)
                     .accessibilityIdentifier("flour-kind")
@@ -217,7 +291,7 @@ struct FlourEditView: View {
                 Section {
                     NumberField(title: "Höchstens (g)", text: Binding(
                         get: { model.limitText(flour) },
-                        set: { model.setLimitText(flour, $0) }), id: "flour-limit")
+                        set: { model.setLimitText(flour, $0) }), id: "flour-limit", focus: focus)
                 } header: {
                     Text("Grenze")
                 } footer: {
@@ -235,6 +309,9 @@ struct FlourEditView: View {
             .navigationTitle(flour.germanName)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    TipsButton(topic: TipsTopic.id(for: flour.grain), identifier: "flour-tips")
+                }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Fertig") { dismiss() }
                         .accessibilityIdentifier("flour-done")

@@ -14,7 +14,7 @@ enum EquipmentDemo {
     static func items() -> [EquipmentItem] {
         [
             EquipmentItem(kind: .kneader, name: kneaderName),
-            EquipmentItem(kind: .pot, name: potName, hasSiliconeLiner: true,
+            EquipmentItem(kind: .pot, name: potName, hasLid: true, hasSiliconeLiner: true,
                           dimensions: Dimensions(shape: .oval, lengthCm: 30, widthCm: 20, heightCm: 12)),
             EquipmentItem(kind: .pan, name: ironPanName, material: .castIron, hasLid: true,
                           hasSiliconeLiner: true,

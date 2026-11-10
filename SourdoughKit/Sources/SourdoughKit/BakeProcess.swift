@@ -28,10 +28,10 @@ public enum BakeProcess {
     public enum Text: String, CaseIterable, Sendable {
         case checkStarter, mixSourdough, checkSourdough
         case kneadFold, kneadRye
-        case shapePan, shapeBasket, shapeBowl
+        case shapePan, shapeBasketRound, shapeBasketLong, shapeBowl
         case checkProofRim, checkProofRipe
-        case preheatPot, preheatTray, preheatPan
-        case bakePot, bakeTray, bakePanLid, bakePanOpen
+        case preheatPot, preheatPotOpen, preheatTray, preheatPan
+        case bakePot, bakePotOpen, bakeTray, bakePanLid, bakePanOpen
         case cool
         case waitStarter, waitSourdough, waitProof
     }
@@ -56,6 +56,10 @@ public enum BakeProcess {
         /// The temperature of the water for the main dough.
         case waterCelsius
         case salt
+        /// What soaks ahead, with its water: a paragraph and a list, or nothing.
+        case soaker
+        /// When the add-ins go into the dough: a paragraph, or nothing.
+        case addIns
         /// Where the rest after this step takes place: "bei Raumtemperatur (22 °C)".
         case restPlace
         /// How long that rest takes, and until when.
@@ -74,6 +78,11 @@ public enum BakeProcess {
 
     /// Only a loaf pan with a lid asks whether the dough rose over the rim:
     /// then it bakes without the lid, with steam.
+    /// A pot bakes with its lid unless it is known to have none.
+    static func potHasLid(_ setup: BakeSetup) -> Bool {
+        setup.pot?.hasLid != false
+    }
+
     static func hasLidDecision(_ setup: BakeSetup) -> Bool {
         setup.vessel == .loafPan && setup.pan?.hasLid == true
     }
@@ -91,19 +100,19 @@ public enum BakeProcess {
         case .shape:
             switch setup.vessel {
             case .loafPan: .shapePan
-            case .pot, .tray: setup.basket == nil ? .shapeBowl : .shapeBasket
+            case .pot, .tray: setup.basket.map { $0.isLong ? .shapeBasketLong : .shapeBasketRound } ?? .shapeBowl
             }
         case .checkProof: hasLidDecision(setup) ? .checkProofRim : .checkProofRipe
         case .preheat:
             switch setup.vessel {
             case .loafPan: .preheatPan
-            case .pot: .preheatPot
+            case .pot: potHasLid(setup) ? .preheatPot : .preheatPotOpen
             case .tray: .preheatTray
             }
         case .bake:
             switch setup.vessel {
             case .loafPan: hasLidDecision(setup) && answers[.checkProof] != .overRim ? .bakePanLid : .bakePanOpen
-            case .pot: .bakePot
+            case .pot: potHasLid(setup) ? .bakePot : .bakePotOpen
             case .tray: .bakeTray
             }
         case .cool: .cool
@@ -195,7 +204,12 @@ public enum BakeProcess {
         let setups: [(String, BakeSetup)] = [
             ("Kastenform mit Deckel", BakeSetup(vessel: .loafPan, pan: EquipmentItem(kind: .pan, name: "", hasLid: true))),
             ("Kastenform ohne Deckel", BakeSetup(vessel: .loafPan, pan: EquipmentItem(kind: .pan, name: ""))),
-            ("Bräter mit Gärkörbchen", BakeSetup(vessel: .pot, basket: EquipmentItem(kind: .basket, name: ""))),
+            ("Bräter mit rundem Gärkörbchen", BakeSetup(vessel: .pot, basket: EquipmentItem(kind: .basket, name: ""))),
+            ("Bräter ohne Deckel mit rundem Gärkörbchen",
+             BakeSetup(vessel: .pot, pot: EquipmentItem(kind: .pot, name: ""),
+                       basket: EquipmentItem(kind: .basket, name: ""))),
+            ("Bräter mit länglichem Gärkörbchen",
+             BakeSetup(vessel: .pot, basket: EquipmentItem(kind: .basket, name: "", shape: .rectangular))),
             ("Blech, Gare in der Schüssel", BakeSetup(vessel: .tray)),
         ]
         var nodes = Set<String>()

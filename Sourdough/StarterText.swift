@@ -7,6 +7,7 @@ extension FlourType {
         case .rye: "Roggen"
         case .wheat: "Weizen"
         case .spelt: "Dinkel"
+        case .buckwheat: "Buchweizen"
         }
     }
 
@@ -16,6 +17,7 @@ extension FlourType {
         case .rye: "Roggensauerteig"
         case .wheat: "Weizensauerteig"
         case .spelt: "Dinkelsauerteig"
+        case .buckwheat: "Buchweizensauerteig"
         }
     }
 }

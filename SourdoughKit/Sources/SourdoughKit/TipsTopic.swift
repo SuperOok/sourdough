@@ -4,15 +4,20 @@ import Foundation
 public struct TipsTopic: Equatable, Sendable, Identifiable {
     /// Every topic. The raw value is the file name in `Tips/` and the target
     /// of `tip:` links. The utensil topics use the ids of the equipment lines.
-    public enum ID: String, CaseIterable, Sendable {
+    public enum ID: String, CaseIterable, Identifiable, Sendable {
         case kneader, pot, pan, basket
         case starter, starterStates
-        case flours, schedule
+        case flours, wheat, rye, spelt, buckwheat
+        case seeds, nuts, driedFruit, roastedOnions, herbs
+        case kneading, proofing, freeStanding, schedule
+
+        public var id: String { rawValue }
     }
 
     public enum Category: String, CaseIterable, Sendable {
         case utensils
         case starters
+        case ingredients
         case baking
     }
 
@@ -30,11 +35,18 @@ public struct TipsTopic: Equatable, Sendable, Identifiable {
         return id.rawValue
     }
 
+    /// The page about a grain: the ids are those of `FlourType`.
+    public static func id(for grain: FlourType) -> ID { ID(rawValue: grain.rawValue)! }
+
+    /// The page about an add-in: the ids are those of `AddIn`.
+    public static func id(for addIn: AddIn) -> ID { ID(rawValue: addIn.rawValue)! }
+
     public var category: Category {
         switch id {
         case .kneader, .pot, .pan, .basket: .utensils
         case .starter, .starterStates: .starters
-        case .flours, .schedule: .baking
+        case .flours, .wheat, .rye, .spelt, .buckwheat, .seeds, .nuts, .driedFruit, .roastedOnions, .herbs: .ingredients
+        case .kneading, .proofing, .freeStanding, .schedule: .baking
         }
     }
 }

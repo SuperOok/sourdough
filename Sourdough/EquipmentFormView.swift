@@ -35,20 +35,18 @@ struct EquipmentFormView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                if let error = model.errorText {
-                    Section {
-                        Text(error).foregroundStyle(.red)
-                            .accessibilityIdentifier("item-error")
+            NumberForm(fields: model.sizeFields) { focus in
+                Section("Name") {
+                    HStack(spacing: 12) {
+                        CustomIcon(name: model.iconName)
+                            .accessibilityHidden(true)
+                        TextField(model.kind.germanName, text: $model.name)
+                            .accessibilityIdentifier("item-name")
                     }
                 }
-                Section("Name") {
-                    TextField(model.kind.germanName, text: $model.name)
-                        .accessibilityIdentifier("item-name")
-                }
-                if model.kind.hasMaterialAndLid || model.kind.hasLiner {
+                if model.kind.hasMaterial || model.kind.hasLid || model.kind.hasLiner {
                     Section("Ausführung") {
-                        if model.kind.hasMaterialAndLid {
+                        if model.kind.hasMaterial {
                             Picker("Material", selection: $model.material) {
                                 ForEach(EquipmentItem.Material.allCases, id: \.self) { material in
                                     Text(material.germanName).tag(material)
@@ -56,6 +54,8 @@ struct EquipmentFormView: View {
                             }
                             .pickerStyle(.segmented)
                             .accessibilityIdentifier("item-material")
+                        }
+                        if model.kind.hasLid {
                             Toggle("Mit Deckel", isOn: $model.hasLid)
                                 .accessibilityIdentifier("item-lid")
                         }
@@ -65,7 +65,22 @@ struct EquipmentFormView: View {
                         }
                     }
                 }
-                if model.kind.hasDimensions { sizeSection }
+                if model.kind.hasDimensions { sizeSection(focus) }
+                if model.kind.hasShape {
+                    Section {
+                        Picker("Form", selection: $model.basketShape) {
+                            ForEach(Dimensions.Shape.allCases, id: \.self) { shape in
+                                Text(shape.germanName).tag(shape)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                        .accessibilityIdentifier("item-basket-shape")
+                    } header: {
+                        Text("Form")
+                    } footer: {
+                        Text("In ein rundes Körbchen kommt ein runder Laib, in ein ovales oder rechteckiges ein länglicher.")
+                    }
+                }
                 if onDelete != nil {
                     Section {
                         Button("Utensil löschen", role: .destructive) { confirmDelete = true }
@@ -104,7 +119,7 @@ struct EquipmentFormView: View {
         }
     }
 
-    private var sizeSection: some View {
+    private func sizeSection(_ focus: FocusState<String?>.Binding) -> some View {
         Section {
             Picker("Form", selection: $model.shape) {
                 ForEach(Dimensions.Shape.allCases, id: \.self) { shape in
@@ -115,22 +130,33 @@ struct EquipmentFormView: View {
             .accessibilityIdentifier("item-shape")
             let isRound = model.shape == .round
             NumberField(title: isRound ? "Durchmesser (cm)" : "Länge (cm)",
-                        text: $model.lengthText, id: "item-length")
+                        text: $model.lengthText, id: "item-length", focus: focus)
             if !isRound {
-                NumberField(title: "Breite (cm)", text: $model.widthText, id: "item-width")
+                NumberField(title: "Breite (cm)", text: $model.widthText, id: "item-width", focus: focus)
             }
-            NumberField(title: "Höhe (cm)", text: $model.heightText, id: "item-height")
+            NumberField(title: "Höhe (cm)", text: $model.heightText, id: "item-height", focus: focus)
             if let volume = model.volumeText {
                 HStack {
                     Text("Volumen")
                     Spacer()
-                    Text(volume).accessibilityIdentifier("item-volume")
+                    Text(volume).foregroundStyle(.secondary)
+                        .accessibilityIdentifier("item-volume")
                 }
             }
         } header: {
             Text("Innenmaße (optional)")
         } footer: {
-            Text("Mit den Maßen rechnet die App das Volumen aus.")
+            // Messages stand below the fields: a section appearing above them
+            // while typing moved the form and took the focus away.
+            VStack(alignment: .leading, spacing: 4) {
+                if let error = model.errorText {
+                    Text(error).foregroundStyle(.red)
+                        .accessibilityIdentifier("item-error")
+                } else if let hint = model.hintText {
+                    Text(hint).accessibilityIdentifier("item-error")
+                }
+                Text("Mit allen Maßen rechnet die App das Volumen aus.")
+            }
         }
     }
 }

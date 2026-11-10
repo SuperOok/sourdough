@@ -7,6 +7,7 @@ flowchart TD
     bakePanLid["Backen mit Deckel"]
     bakePanOpen["Backen ohne Deckel, mit Dampf"]
     bakePot["Backen im Bräter"]
+    bakePotOpen["Backen im offenen Bräter"]
     bakeTray["Backen auf dem Blech"]
     checkProofRim{"Wie hoch ist der Teig?"}
     checkProofRipe{"Ist die Gare reif?"}
@@ -18,8 +19,10 @@ flowchart TD
     mixSourdough["Sauerteigstufe ansetzen"]
     preheatPan["Ofen vorheizen"]
     preheatPot["Ofen und Bräter vorheizen"]
+    preheatPotOpen["Ofen und offenen Bräter vorheizen"]
     preheatTray["Ofen vorheizen"]
-    shapeBasket["Teig formen"]
+    shapeBasketLong["Teig lang formen"]
+    shapeBasketRound["Teig rund formen"]
     shapeBowl["Teig formen"]
     shapePan["Teig in die Form geben"]
     waitProof["Noch etwas gehen lassen"]
@@ -47,12 +50,18 @@ flowchart TD
     waitProof --> checkProofRipe
     checkProofRipe -->|yes| preheatPan
     preheatPan --> bakePanOpen
-    kneadFold --> shapeBasket
-    shapeBasket --> checkProofRipe
+    kneadFold --> shapeBasketRound
+    shapeBasketRound --> checkProofRipe
     checkProofRipe -->|yes| preheatPot
     preheatPot --> bakePot
     bakePot --> cool
-    kneadRye --> shapeBasket
+    kneadRye --> shapeBasketRound
+    checkProofRipe -->|yes| preheatPotOpen
+    preheatPotOpen --> bakePotOpen
+    bakePotOpen --> cool
+    kneadFold --> shapeBasketLong
+    shapeBasketLong --> checkProofRipe
+    kneadRye --> shapeBasketLong
     kneadFold --> shapeBowl
     shapeBowl --> checkProofRipe
     checkProofRipe -->|yes| preheatTray

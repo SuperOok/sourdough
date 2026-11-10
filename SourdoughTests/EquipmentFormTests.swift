@@ -66,13 +66,25 @@ struct EquipmentFormTests {
         model.shape = .oval
         #expect(model.volumeText == "5,7 l")
         model.widthText = ""
-        #expect(model.size == .invalid(EquipmentFormModel.incompleteSize))
+        #expect(model.size == .incomplete(missing: ["Breite"]))
+        #expect(model.hintText == "Noch fehlt: Breite. Gib alle Maße an oder keines.")
+    }
+
+    @Test func aRoundShapeMissesItsDiameter() {
+        let model = EquipmentFormModel(kind: .pot)
+        model.heightText = "10"
+        #expect(model.hintText == "Noch fehlt: Durchmesser. Gib alle Maße an oder keines.")
     }
 
     @Test func partialSizesAreRejected() {
-        #expect(pan(length: "30").errorText == EquipmentFormModel.incompleteSize)
-        #expect(pan(length: "30", width: "0", height: "8").errorText == EquipmentFormModel.incompleteSize)
+        // Missing measures are a hint while typing, not an error.
+        #expect(pan(length: "30").errorText == nil)
+        #expect(pan(length: "30").hintText == "Noch fehlen: Breite und Höhe. Gib alle Maße an oder keines.")
+        #expect(pan(length: "30", width: "0", height: "8").hintText
+                == "Noch fehlt: Breite. Gib alle Maße an oder keines.")
+        #expect(pan(length: "30", width: "10", height: "8").hintText == nil)
         #expect(!pan(length: "30").isValid)
+        #expect(pan(length: "30").makeItem() == nil)
         #expect(pan(length: "30").volumeText == nil)
     }
 
@@ -120,7 +132,7 @@ struct EquipmentFormTests {
         pot.hasLiner = true
         let potItem = pot.makeItem()
         #expect(potItem?.material == .sheetMetal)
-        #expect(potItem?.hasLid == false)
+        #expect(potItem?.hasLid == true)
         #expect(potItem?.hasSiliconeLiner == true)
 
         let kneader = EquipmentFormModel(kind: .kneader)
@@ -128,6 +140,45 @@ struct EquipmentFormTests {
         kneader.hasLid = true
         kneader.hasLiner = true
         #expect(kneader.makeItem() == EquipmentItem(id: kneader.id, kind: .kneader, name: "Küchenmaschine"))
+    }
+
+    @Test func aNewPotHasALidAndCanLoseIt() {
+        let pot = EquipmentFormModel(kind: .pot)
+        #expect(pot.hasLid && pot.makeItem()?.hasLid == true)
+        pot.hasLid = false
+        #expect(pot.makeItem()?.hasLid == false)
+        #expect(!EquipmentFormModel(kind: .pan).hasLid)
+    }
+
+    @Test func theIconFollowsTheLidAndTheShape() {
+        let pot = EquipmentFormModel(kind: .pot)
+        #expect(pot.iconName == "PotIcon")
+        pot.hasLid = false
+        #expect(pot.iconName == "PotOpenIcon")
+        let pan = EquipmentFormModel(kind: .pan)
+        #expect(pan.iconName == "PanOpenIcon")
+        pan.hasLid = true
+        #expect(pan.iconName == "PanLidIcon")
+        let basket = EquipmentFormModel(kind: .basket)
+        #expect(basket.iconName == "BasketRoundIcon")
+        basket.basketShape = .rectangular
+        #expect(basket.iconName == "BasketLongIcon")
+        // A lid on a kneader means nothing.
+        let kneader = EquipmentFormModel(kind: .kneader)
+        kneader.hasLid = true
+        #expect(kneader.iconName == "KneaderIcon")
+    }
+
+    @Test func aBannetonKeepsItsShapeOthersStayRound() {
+        let basket = EquipmentFormModel(kind: .basket)
+        #expect(basket.basketShape == .round)
+        basket.basketShape = .rectangular
+        #expect(basket.makeItem()?.shape == .rectangular)
+        #expect(EquipmentFormModel(editing: EquipmentItem(kind: .basket, name: "O", shape: .oval)).basketShape
+                == .oval)
+        let pan = EquipmentFormModel(kind: .pan)
+        pan.basketShape = .oval
+        #expect(pan.makeItem()?.shape == .round)
     }
 
     @Test func makeItemRefusesAnInvalidForm() {

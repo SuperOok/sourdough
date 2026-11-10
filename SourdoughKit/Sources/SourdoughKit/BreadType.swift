@@ -2,17 +2,30 @@ import Foundation
 
 /// The kinds of bread a bake can start from, each with a preset flour mix.
 /// The presets follow the table of the baking notes (`docs/`); "light" rye
-/// and spelt are Rye 1150 and Spelt 1050 there.
+/// and spelt are Rye 1150 and Spelt 1050 there. The wheat breads follow the
+/// usual German names: a wheat bread is at least 90 % wheat, a wheat mixed
+/// bread more than half wheat and the rest rye.
 public enum BreadType: String, Codable, CaseIterable, Sendable {
+    case wheatBread
+    case wheatWholeGrainBread
+    case wheatMixedBread
     case speltBread
     case speltMixedBread
     case ryeMixedBread50
     case ryeMixedBread70
     case ryeBread80
     case ryeWholeGrainBread
+    case buckwheatRyeBread
+    case buckwheatSpeltBread
 
     public var preset: FlourMix {
         switch self {
+        case .wheatBread:
+            FlourMix([.wheat550: 80, .wheat1050: 20])
+        case .wheatWholeGrainBread:
+            FlourMix([.wheatWholeGrain: 100])
+        case .wheatMixedBread:
+            FlourMix([.wheat550: 50, .wheat1050: 20, .rye1150: 30])
         case .speltBread:
             FlourMix([.spelt1050: 70, .speltWholeGrain: 30])
         case .speltMixedBread:
@@ -25,6 +38,12 @@ public enum BreadType: String, Codable, CaseIterable, Sendable {
             FlourMix([.rye1150: 40, .ryeWholeGrain: 40, .spelt1050: 20])
         case .ryeWholeGrainBread:
             FlourMix([.rye1150: 20, .ryeWholeGrain: 80])
+        case .buckwheatRyeBread:
+            // Rye and buckwheat both have no gluten: a little spelt for structure.
+            FlourMix([.rye1150: 45, .ryeWholeGrain: 25, .buckwheat: 20, .spelt1050: 10])
+        case .buckwheatSpeltBread:
+            // A quarter buckwheat in a dough that still has its gluten.
+            FlourMix([.spelt1050: 50, .spelt630: 25, .buckwheat: 25])
         }
     }
 
@@ -47,6 +66,9 @@ public enum BakeRules {
     /// A free-standing loaf (banneton, bowl) holds its shape up to this rye
     /// share; above it, the dough belongs in a loaf pan.
     public static let freeStandingRyeMax = 50.0
+    /// Buckwheat has no gluten and swells: above this share the crumb turns
+    /// dense and gummy and the loaf loses volume.
+    public static let buckwheatMax = 30.0
 
     /// Something about a planned bake that does not fit.
     public enum Issue: Equatable, Sendable {
@@ -56,6 +78,8 @@ public enum BakeRules {
         case tooMuchRye(maximum: Double)
         /// The rye share needs a rye starter, and the chosen one is not.
         case needsRyeStarter
+        /// More buckwheat than `buckwheatMax`.
+        case tooMuchBuckwheat(maximum: Double)
         /// The flour is above its limit in grams and nothing could take its share.
         case overLimit(Flour)
         /// A free-standing loaf with more rye than `freeStandingRyeMax`.
@@ -69,7 +93,7 @@ public enum BakeRules {
     /// flour with limits in grams per flour.
     public static func issues(mix: FlourMix, bread: BreadType, starterFlour: FlourType?,
                               totalGrams: Double, limits: [Flour: Double]) -> [Issue] {
-        var issues = ryeIssues(mix: mix, bread: bread)
+        var issues = ryeIssues(mix: mix, bread: bread) + buckwheatIssues(mix: mix)
         if let starterFlour, !suits(starterFlour, mix: mix) {
             issues.append(.needsRyeStarter)
         }
@@ -83,6 +107,10 @@ public enum BakeRules {
         if rye < range.lowerBound - FlourMix.tolerance { return [.tooLittleRye(minimum: range.lowerBound)] }
         if rye > range.upperBound + FlourMix.tolerance { return [.tooMuchRye(maximum: range.upperBound)] }
         return []
+    }
+
+    static func buckwheatIssues(mix: FlourMix) -> [Issue] {
+        mix.share(of: Flour.buckwheat) > buckwheatMax + FlourMix.tolerance ? [.tooMuchBuckwheat(maximum: buckwheatMax)] : []
     }
 
     /// Whether a starter of `starterFlour` suits `mix`.
@@ -100,6 +128,7 @@ public enum BakeRules {
             let candidate = mix.setting(flour, to: percent).limited(totalGrams: totalGrams, limits: limits)
             return abs(candidate.share(of: flour) - percent) < 1e-6
                 && ryeIssues(mix: candidate, bread: bread).isEmpty
+                && buckwheatIssues(mix: candidate).isEmpty
                 && candidate.floursOverLimit(totalGrams: totalGrams, limits: limits).isEmpty
         }
         guard let low = allowed.first, let high = allowed.last else { return nil }

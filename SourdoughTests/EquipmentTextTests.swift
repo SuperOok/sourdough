@@ -38,14 +38,17 @@ struct EquipmentTextTests {
 
     @Test func kneadingMachineAndBasketHaveFixedDescriptions() {
         #expect(EquipmentItem(kind: .kneader, name: "x").detailText == "Küchenmaschine mit Knetfunktion")
-        #expect(EquipmentItem(kind: .basket, name: "x").detailText == "Gärkörbchen")
+        #expect(EquipmentItem(kind: .basket, name: "x").detailText == "Gärkörbchen, rund")
+        #expect(EquipmentItem(kind: .basket, name: "x", shape: .oval).detailText == "Gärkörbchen, oval")
+        #expect(EquipmentItem(kind: .basket, name: "x", shape: .rectangular).detailText
+                == "Gärkörbchen, rechteckig")
     }
 
-    @Test func potWithAndWithoutLiner() {
-        #expect(EquipmentItem(kind: .pot, name: "x", hasSiliconeLiner: true).detailText ==
-                "Bräter/Römertopf mit Silikoneinlage")
+    @Test func potWithAndWithoutLidAndLiner() {
+        #expect(EquipmentItem(kind: .pot, name: "x", hasLid: true, hasSiliconeLiner: true).detailText ==
+                "Bräter/Römertopf, mit Deckel, mit Silikoneinlage")
         #expect(EquipmentItem(kind: .pot, name: "x").detailText ==
-                "Bräter/Römertopf ohne Silikoneinlage")
+                "Bräter/Römertopf, ohne Deckel, ohne Silikoneinlage")
     }
 
     @Test func loafPanDescribesMaterialLidAndLiner() {
@@ -57,9 +60,10 @@ struct EquipmentTextTests {
 
     @Test func aGivenSizeAndItsVolumeFollowTheDescription() {
         let pot = EquipmentItem(
-            kind: .pot, name: "x", hasSiliconeLiner: true,
+            kind: .pot, name: "x", hasLid: true, hasSiliconeLiner: true,
             dimensions: Dimensions(shape: .oval, lengthCm: 30, widthCm: 20, heightCm: 12))
-        #expect(pot.detailText == "Bräter/Römertopf mit Silikoneinlage · oval 30 × 20 × 12 cm · 5,7 l")
+        #expect(pot.detailText
+                == "Bräter/Römertopf, mit Deckel, mit Silikoneinlage · oval 30 × 20 × 12 cm · 5,7 l")
         let pan = EquipmentItem(
             kind: .pan, name: "x", material: .castIron, hasLid: true, hasSiliconeLiner: true,
             dimensions: Dimensions(shape: .rectangular, lengthCm: 30, widthCm: 10, heightCm: 8))

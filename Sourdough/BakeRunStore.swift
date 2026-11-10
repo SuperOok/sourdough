@@ -44,6 +44,13 @@ final class BakeRunStore {
         change(id) { $0.answer(answer, at: date) }
     }
 
+    /// Opens the last done step of `id` again. A finished bake runs again
+    /// only while no other bake is in progress.
+    func undo(_ id: BakeRun.ID) {
+        if let other = active, other.id != id { return }
+        change(id) { $0.undo() }
+    }
+
     func cancel(_ id: BakeRun.ID, at date: Date) {
         change(id) { $0.cancel(at: date) }
     }

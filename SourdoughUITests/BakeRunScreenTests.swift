@@ -50,7 +50,7 @@ final class BakeRunScreenTests: SourdoughUITestCase {
         // 16 g starter; ripening at room temperature until Saturday 08:04.
         assertLabel("run-text", contains: "Sauerteigstufe ansetzen")
         assertLabel("run-text", contains: "78 g Roggenvollkorn")
-        assertLabel("run-text", contains: "16 g Anstellgut von „Roggensauerteig“")
+        assertLabel("run-text", contains: "16 g Anstellgut – nimm dafür „Roggensauerteig“")
         assertLabel("run-text", contains: "bei Raumtemperatur (22 °C) etwa 11 Std. 4 Min. reifen, bis Sa 08:04")
         assertLabel("run-step-0", contains: "erledigt")
         done()
@@ -64,6 +64,36 @@ final class BakeRunScreenTests: SourdoughUITestCase {
         assertLabel("run-text", contains: "Hauptteig mischen")
         done()
         assertLabel("run-text", contains: "das Gärkörbchen „Gärkörbchen“")
+    }
+
+    func testTheKneadingStepLinksToTheKneadingPage() {
+        launchWithRun()
+        answer("yes")
+        done()
+        answer("yes")
+        assertLabel("run-text", contains: "Hauptteig mischen")
+        element(app.links, "Kneten").tap()
+        assertTitle("Kneten")
+        // The page opens over the bake; "Fertig" returns to the same step.
+        tapButton("tips-topic-close")
+        assertLabel("run-text", contains: "Hauptteig mischen")
+    }
+
+    func testAStepTappedByMistakeCanBeOpenedAgain() {
+        launchWithRun()
+        XCTAssertFalse(app.buttons["run-undo"].exists)
+        answer("yes")
+        done()
+        assertLabel("run-text", contains: "Ist der Sauerteig reif?")
+        assertLabel("run-undo", contains: "Zurück zu „Sauerteigstufe ansetzen“")
+        tapButton("run-undo")
+        assertLabel("run-text", contains: "Sauerteigstufe ansetzen")
+        assertLabel("run-step-1", contains: "geplant")
+        assertLabel("run-step-0", contains: "erledigt")
+        // Back to the first decision, which asks again.
+        tapButton("run-undo")
+        _ = element(app.buttons, "run-answer-notYet")
+        XCTAssertFalse(app.buttons["run-undo"].exists)
     }
 
     func testFinishingABakeLeadsBackToTheStartScreen() {
@@ -86,6 +116,11 @@ final class BakeRunScreenTests: SourdoughUITestCase {
         assertText("run-finished", "Dein Brot ist anschnittfertig. Guten Appetit!")
         assertText("run-status", "Durchgang fertig.")
         XCTAssertFalse(app.buttons["run-cancel"].exists)
+        // The last "Erledigt" by mistake: the bake runs again.
+        tapButton("run-undo")
+        assertLabel("run-text", contains: "bis Sa 18:00")
+        done()
+        assertText("run-finished", "Dein Brot ist anschnittfertig. Guten Appetit!")
         tapButton("run-close")
         assertLabel("start-log", contains: "1 Durchgang")
         assertLabel("start-bake", contains: "Brot planen")

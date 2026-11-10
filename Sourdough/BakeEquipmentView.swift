@@ -11,6 +11,8 @@ struct BakeEquipmentView: View {
     let now: Date
     let onStart: (BakeRun) -> Void
 
+    @State private var linkedTip: TipsTopic.ID?
+
     private var items: [EquipmentItem] { equipmentStore.items }
 
     var body: some View {
@@ -19,9 +21,15 @@ struct BakeEquipmentView: View {
             if !issues.isEmpty {
                 Section {
                     ForEach(Array(issues.enumerated()), id: \.offset) { index, issue in
-                        Text(BakeText.issue(issue, bread: model.bread))
-                            .foregroundStyle(.red)
-                            .accessibilityIdentifier("setup-issue-\(index)")
+                        HStack {
+                            Text(BakeText.issue(issue, bread: model.bread))
+                                .foregroundStyle(.red)
+                                .accessibilityIdentifier("setup-issue-\(index)")
+                            if issue == .tooMuchRyeToStandFree {
+                                TipsIconButton(topic: .freeStanding, identifier: "setup-issue-tip-\(index)")
+                                    .padding(.leading, 8)
+                            }
+                        }
                     }
                 }
             }
@@ -43,6 +51,9 @@ struct BakeEquipmentView: View {
         .navigationTitle("Utensilien und Menge")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar { TipsButton(topic: model.setup?.vessel == .loafPan ? .pan : .pot) }
+        // The links of the footer open their page over this screen.
+        .environment(\.openURL, OpenURLAction { TipsText.open($0) { linkedTip = $0 } })
+        .sheet(item: $linkedTip) { TipsView(initial: $0) }
         .onAppear { model.proposeSetup(from: items) }
     }
 
@@ -91,9 +102,9 @@ struct BakeEquipmentView: View {
         } header: {
             Text("Backweg")
         } footer: {
-            Text(setup.vessel.isFreeStanding
-                 ? "Freigeschoben hält ein Brot bis etwa \(BakeText.percent(BakeRules.freeStandingRyeMax)) Roggen seine Form."
-                 : "In der Kastenform gärt und backt der Teig.")
+            Text(TipsText.attributed(setup.vessel.isFreeStanding
+                 ? "[Freigeschoben](tip:freeStanding) hält ein Brot bis etwa \(BakeText.percent(BakeRules.freeStandingRyeMax)) Roggen seine Form."
+                 : "In der Kastenform gärt und backt der Teig."))
         }
     }
 
@@ -149,12 +160,30 @@ struct BakeEquipmentView: View {
             Text("Zusammen \(BakeText.grams(recipe.sourdoughGrams)).")
                 .accessibilityIdentifier("recipe-sourdough")
         }
+        if !recipe.soaked.isEmpty {
+            Section {
+                ForEach(recipe.soaked, id: \.addIn) { portion in
+                    LabeledContent(portion.addIn.germanName) {
+                        Text(BakeText.soakAmount(portion))
+                    }
+                    .accessibilityElement(children: .combine)
+                    .accessibilityIdentifier("recipe-soak-\(portion.addIn.rawValue)")
+                }
+            } header: {
+                Text("Einweichen")
+            } footer: {
+                Text("Zusammen mit der Sauerteigstufe ansetzen.")
+            }
+        }
         Section("Hauptteig") {
             ForEach(recipe.mainFlour, id: \.flour) { portion in
                 amountRow(portion.flour.germanName, portion.grams, id: "recipe-main-\(portion.flour.rawValue)")
             }
             amountRow("Wasser", recipe.mainWater, id: "recipe-main-water")
             amountRow("Salz", recipe.salt, id: "recipe-salt")
+            ForEach(recipe.addIns, id: \.addIn) { portion in
+                amountRow(portion.addIn.germanName, portion.grams, id: "recipe-addin-\(portion.addIn.rawValue)")
+            }
         }
     }
 

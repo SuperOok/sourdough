@@ -1,0 +1,12 @@
+{
+  "images" : [
+    {
+      "filename" : "ryebread.jpg",
+      "idiom" : "universal"
+    }
+  ],
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  }
+}

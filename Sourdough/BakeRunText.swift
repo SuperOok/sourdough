@@ -21,6 +21,8 @@ enum BakeRunText {
             .mainWater: BakeText.grams(recipe.mainWater),
             .salt: BakeText.grams(recipe.salt),
             .waterCelsius: waterCelsius(run),
+            .soaker: soaker(recipe),
+            .addIns: addIns(recipe),
         ]
         if let rest = BakeProcess.followingRest(step), let resting = schedule.rest(rest) {
             values[.restPlace] = resting.place.map { placePhrase($0, run.temperatures) }
@@ -47,6 +49,11 @@ enum BakeRunText {
         BakeProcess.title(run.text(step))
     }
 
+    /// "Zurück zu „Sauerteigstufe ansetzen“": the button that opens `step` again.
+    static func undoLabel(_ run: BakeRun, _ step: BakeProcess.StepID) -> String {
+        "Zurück zu „\(title(run, step))“"
+    }
+
     static func answer(_ answer: BakeProcess.Answer) -> String {
         switch answer {
         case .yes: "Ja"
@@ -71,6 +78,36 @@ enum BakeRunText {
         let warm = run.schedule.rest(.bulk)?.kind == .rest(.bulk, .warm)
         let target = warm ? Temperatures.warmCelsius : Temperatures.doughTargetCelsius
         return "\(StarterText.number(run.temperatures.waterCelsius(target: target))) °C"
+    }
+
+    /// What soaks along with the sourdough, as a paragraph and a list; empty
+    /// without anything to soak.
+    static func soaker(_ recipe: Recipe) -> String {
+        guard !recipe.soaked.isEmpty else { return "" }
+        let lines = recipe.soaked.map { "- \(BakeText.grams($0.grams)) \($0.addIn.germanName) "
+            + "in \(BakeText.grams($0.waterGrams)) Wasser" }
+        return (["Weiche gleichzeitig in einer zweiten Schüssel ein und decke sie ab:", ""] + lines)
+            .joined(separator: "\n")
+    }
+
+    /// When the add-ins go into the dough; empty without add-ins.
+    static func addIns(_ recipe: Recipe) -> String {
+        func amount(_ portion: Recipe.AddInPortion) -> String {
+            let soaked = portion.addIn.soaks ? " (eingeweicht)" : ""
+            return "\(BakeText.grams(portion.grams)) \(portion.addIn.germanName)\(soaked)"
+        }
+        let first = recipe.addIns.filter(\.addIn.goesInFirst).map(amount)
+        let last = recipe.addIns.filter { !$0.addIn.goesInFirst }.map(amount)
+        var sentences: [String] = []
+        if !first.isEmpty { sentences.append("Gib gleich \(list(first)) mit dazu.") }
+        if !last.isEmpty { sentences.append("Arbeite am Ende des Knetens \(list(last)) kurz unter.") }
+        return sentences.joined(separator: " ")
+    }
+
+    /// "a", "a und b", "a, b und c"
+    static func list(_ items: [String]) -> String {
+        guard items.count > 1 else { return items.first ?? "" }
+        return items.dropLast().joined(separator: ", ") + " und " + items.last!
     }
 
     /// "112 g Roggen 1150, 134 g Dinkel 1050"

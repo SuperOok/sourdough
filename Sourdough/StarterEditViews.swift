@@ -1,40 +1,5 @@
 import SwiftUI
 import SourdoughKit
-// UIKit only for `UITextField`: SwiftUI cannot select a field's text.
-import UIKit
-
-/// A labelled field for a number of grams or degrees.
-struct NumberField: View {
-    let title: String
-    @Binding var text: String
-    let id: String
-    @FocusState private var focused: Bool
-
-    var body: some View {
-        LabeledContent(title) {
-            TextField("0", text: $text)
-                .keyboardType(.decimalPad)
-                .multilineTextAlignment(.trailing)
-                .focused($focused)
-                .accessibilityIdentifier(id)
-                // Tapping a number selects all of it, so typing replaces it.
-                .onReceive(NotificationCenter.default.publisher(
-                    for: UITextField.textDidBeginEditingNotification)) { note in
-                    DispatchQueue.main.async { (note.object as? UITextField)?.selectAll(nil) }
-                }
-        }
-        // The decimal pad has no return key and covers the fields below.
-        .toolbar {
-            ToolbarItemGroup(placement: .keyboard) {
-                if focused {
-                    Spacer()
-                    Button("Fertig") { focused = false }
-                        .accessibilityIdentifier("keyboard-done")
-                }
-            }
-        }
-    }
-}
 
 /// The sheet for a new starter.
 struct AddStarterView: View {
@@ -49,18 +14,13 @@ struct AddStarterView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                if let error = model.errorText {
-                    Section {
-                        Text(error).foregroundStyle(.red)
-                            .accessibilityIdentifier("add-error")
-                    }
-                }
+            NumberForm(fields: ["add-flour-grams", "add-water-grams",
+                                model.inFridge ? "add-fridge-temp" : "add-room-temp"]) { focus in
                 Section("Sauerteig") {
                     TextField(model.flour.starterName, text: $model.name)
                         .accessibilityIdentifier("add-name")
                     Picker("Mehl", selection: $model.flour) {
-                        ForEach(FlourType.allCases, id: \.self) { flour in
+                        ForEach(FlourType.starterGrains, id: \.self) { flour in
                             Text(flour.germanName).tag(flour)
                         }
                     }
@@ -70,11 +30,15 @@ struct AddStarterView: View {
                                displayedComponents: [.date, .hourAndMinute])
                         .accessibilityIdentifier("add-date")
                 }
-                Section("Erste Fütterung") {
-                    NumberField(title: "Mehl (g)", text: $model.flourText, id: "add-flour-grams")
-                    NumberField(title: "Wasser (g)", text: $model.waterText, id: "add-water-grams")
+                Section {
+                    NumberField(title: "Mehl (g)", text: $model.flourText, id: "add-flour-grams", focus: focus)
+                    NumberField(title: "Wasser (g)", text: $model.waterText, id: "add-water-grams", focus: focus)
+                } header: {
+                    Text("Erste Fütterung")
+                } footer: {
+                    errorFooter(model.foodError)
                 }
-                Section("Aufbewahrung") {
+                Section {
                     Picker("Ort", selection: $model.inFridge) {
                         Text("Raumtemperatur").tag(false)
                         Text("Kühlschrank").tag(true)
@@ -83,11 +47,15 @@ struct AddStarterView: View {
                     .accessibilityIdentifier("add-storage")
                     if model.inFridge {
                         NumberField(title: "Kühlschranktemperatur (°C)", text: $model.fridgeText,
-                                    id: "add-fridge-temp")
+                                    id: "add-fridge-temp", focus: focus)
                     } else {
                         NumberField(title: "Raumtemperatur (°C)", text: $model.roomText,
-                                    id: "add-room-temp")
+                                    id: "add-room-temp", focus: focus)
                     }
+                } header: {
+                    Text("Aufbewahrung")
+                } footer: {
+                    errorFooter(model.storageError)
                 }
             }
             .navigationTitle("Neuer Starter")
@@ -110,6 +78,18 @@ struct AddStarterView: View {
     }
 }
 
+extension AddStarterView {
+    /// A message below the fields it is about. Above the form it would move
+    /// the fields while typing and take the focus away.
+    @ViewBuilder
+    func errorFooter(_ error: String?) -> some View {
+        if let error {
+            Text(error).foregroundStyle(.red)
+                .accessibilityIdentifier("add-error")
+        }
+    }
+}
+
 /// The sheet for a feeding.
 struct FeedView: View {
     @State private var model: FeedFormModel
@@ -123,21 +103,22 @@ struct FeedView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                if let error = model.errorText {
-                    Section {
-                        Text(error).foregroundStyle(.red)
-                            .accessibilityIdentifier("feed-error")
-                    }
-                }
-                Section("Was du zugibst") {
+            NumberForm(fields: ["feed-starter", "feed-flour", "feed-water"]) { focus in
+                Section {
                     NumberField(title: "Behaltener Starter (g)", text: $model.starterText,
-                                id: "feed-starter")
-                    NumberField(title: "Mehl (g)", text: $model.flourText, id: "feed-flour")
-                    NumberField(title: "Wasser (g)", text: $model.waterText, id: "feed-water")
+                                id: "feed-starter", focus: focus)
+                    NumberField(title: "Mehl (g)", text: $model.flourText, id: "feed-flour", focus: focus)
+                    NumberField(title: "Wasser (g)", text: $model.waterText, id: "feed-water", focus: focus)
                     DatePicker("Gefüttert am", selection: $model.date, in: ...Date(),
                                displayedComponents: [.date, .hourAndMinute])
                         .accessibilityIdentifier("feed-date")
+                } header: {
+                    Text("Was du zugibst")
+                } footer: {
+                    if let error = model.errorText {
+                        Text(error).foregroundStyle(.red)
+                            .accessibilityIdentifier("feed-error")
+                    }
                 }
             }
             .navigationTitle("Füttern")

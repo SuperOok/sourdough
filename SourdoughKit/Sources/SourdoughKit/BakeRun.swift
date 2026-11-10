@@ -24,6 +24,8 @@ public struct BakeRun: Codable, Equatable, Identifiable, Sendable {
     public let choices: [RestKind: RestChoice]
     /// The time zone the plan was made in, so the schedule comes out the same.
     public let timeZone: TimeZone
+    /// Optional, so that bakes saved before add-ins existed still load.
+    private let addInShares: AddIns?
 
     public private(set) var status: Status = .active
     public private(set) var endedAt: Date?
@@ -34,7 +36,8 @@ public struct BakeRun: Codable, Equatable, Identifiable, Sendable {
 
     public init(id: UUID = UUID(), startedAt: Date, bread: BreadType, mix: FlourMix, totalGrams: Double,
                 limits: [Flour: Double], starter: Starter?, setup: BakeSetup, temperatures: Temperatures,
-                window: InteractionWindow, target: Date, choices: [RestKind: RestChoice], timeZone: TimeZone) {
+                window: InteractionWindow, target: Date, choices: [RestKind: RestChoice], timeZone: TimeZone,
+                addIns: AddIns = AddIns()) {
         self.id = id
         self.startedAt = startedAt
         self.bread = bread
@@ -48,7 +51,11 @@ public struct BakeRun: Codable, Equatable, Identifiable, Sendable {
         self.target = target
         self.choices = choices
         self.timeZone = timeZone
+        addInShares = addIns
     }
+
+    /// The add-ins of the plan; none for a bake saved before there were any.
+    public var addIns: AddIns { addInShares ?? AddIns() }
 
     public var calendar: Calendar {
         var calendar = Calendar(identifier: .gregorian)
@@ -62,7 +69,7 @@ public struct BakeRun: Codable, Equatable, Identifiable, Sendable {
     }
 
     public var recipe: Recipe {
-        Recipe(mix: mix, totalGrams: totalGrams, starterFlour: starter?.flour)
+        Recipe(mix: mix, totalGrams: totalGrams, starterFlour: starter?.flour, addIns: addIns)
     }
 
     /// The text each step shows, given the answers so far.
@@ -99,6 +106,25 @@ public struct BakeRun: Codable, Equatable, Identifiable, Sendable {
     /// Whether the current decision was last answered "not yet".
     public var isWaiting: Bool {
         current.flatMap { answers[$0] }?.waits == true
+    }
+
+    /// The step `undo` opens again: the last one done. `nil` before the
+    /// first step and for a cancelled bake.
+    public var previous: BakeProcess.StepID? {
+        guard status != .cancelled else { return nil }
+        return BakeProcess.StepID.allCases.last { done[$0] != nil }
+    }
+
+    /// Opens the last done step again, for a step tapped by mistake: it
+    /// forgets when it was done and, for a decision, its answer. Answers of
+    /// open steps after it ("not yet") go as well, and a finished bake runs
+    /// again.
+    public mutating func undo() {
+        guard let step = previous else { return }
+        done[step] = nil
+        answers = answers.filter { done[$0.key] != nil }
+        status = .active
+        endedAt = nil
     }
 
     public mutating func cancel(at date: Date) {

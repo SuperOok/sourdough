@@ -1,8 +1,14 @@
 import Foundation
 
-/// The flour a starter is based on.
+/// The grain (or pseudo-grain) a flour is made of. A starter is based on rye,
+/// wheat or spelt (`starterGrains`); buckwheat is only a flour for the dough.
 public enum FlourType: String, Codable, CaseIterable, Sendable {
     case rye, wheat, spelt
+    /// A seed of the knotweed family, not a grain: it has no gluten.
+    case buckwheat
+
+    /// The grains a starter can be based on.
+    public static let starterGrains: [FlourType] = [.rye, .wheat, .spelt]
 
     /// Relative fermentation time; 1 is wheat. These are rules of thumb, see
     /// `StarterModel`.
@@ -11,6 +17,8 @@ public enum FlourType: String, Codable, CaseIterable, Sendable {
         case .rye: 0.8
         case .wheat: 1.0
         case .spelt: 0.9
+        // Not offered for a starter, so this is only for completeness.
+        case .buckwheat: 1.0
         }
     }
 }

@@ -23,6 +23,12 @@ private let potAndBasket = BakeSetup(vessel: .pot, basket: basket)
 private let trayAndBowl = BakeSetup(vessel: .tray)
 
 struct BakeProcessTextTests {
+    @Test func bothKneadingStepsLinkToTheKneadingPage() {
+        for text in [BakeProcess.Text.kneadFold, .kneadRye] {
+            #expect(BakeProcess.markdown(text).contains("[Kneten](tip:kneading)"))
+        }
+    }
+
     @Test func everyTextHasAFileWithATitleAndContent() {
         for text in BakeProcess.Text.allCases {
             let blocks = TipsParser.parse(BakeProcess.markdown(text))
@@ -89,10 +95,16 @@ struct BakeProcessTests {
 
     @Test func shapingFollowsTheVessel() {
         #expect(BakeProcess.text(.shape, setup: panWithLid, ryeShare: 0, answers: [:]) == .shapePan)
-        #expect(BakeProcess.text(.shape, setup: potAndBasket, ryeShare: 0, answers: [:]) == .shapeBasket)
+        #expect(BakeProcess.text(.shape, setup: potAndBasket, ryeShare: 0, answers: [:]) == .shapeBasketRound)
         #expect(BakeProcess.text(.shape, setup: trayAndBowl, ryeShare: 0, answers: [:]) == .shapeBowl)
         #expect(BakeProcess.text(.shape, setup: BakeSetup(vessel: .tray, basket: basket), ryeShare: 0,
-                                 answers: [:]) == .shapeBasket)
+                                 answers: [:]) == .shapeBasketRound)
+        // An oval or rectangular banneton takes a long loaf.
+        for shape in [Dimensions.Shape.oval, .rectangular] {
+            let long = EquipmentItem(kind: .basket, name: "Lang", shape: shape)
+            #expect(BakeProcess.text(.shape, setup: BakeSetup(vessel: .pot, basket: long), ryeShare: 0,
+                                     answers: [:]) == .shapeBasketLong)
+        }
     }
 
     @Test func theProofCheckAsksAboutTheRimOnlyWithALid() {
@@ -105,6 +117,15 @@ struct BakeProcessTests {
         #expect(BakeProcess.text(.preheat, setup: panWithLid, ryeShare: 0, answers: [:]) == .preheatPan)
         #expect(BakeProcess.text(.preheat, setup: potAndBasket, ryeShare: 0, answers: [:]) == .preheatPot)
         #expect(BakeProcess.text(.preheat, setup: trayAndBowl, ryeShare: 0, answers: [:]) == .preheatTray)
+    }
+
+    @Test func aPotWithoutALidBakesOpenWithSteam() {
+        let closed = BakeSetup(vessel: .pot, pot: EquipmentItem(kind: .pot, name: "", hasLid: true), basket: basket)
+        let open = BakeSetup(vessel: .pot, pot: EquipmentItem(kind: .pot, name: "", hasLid: false), basket: basket)
+        #expect(BakeProcess.text(.preheat, setup: closed, ryeShare: 0, answers: [:]) == .preheatPot)
+        #expect(BakeProcess.text(.bake, setup: closed, ryeShare: 0, answers: [:]) == .bakePot)
+        #expect(BakeProcess.text(.preheat, setup: open, ryeShare: 0, answers: [:]) == .preheatPotOpen)
+        #expect(BakeProcess.text(.bake, setup: open, ryeShare: 0, answers: [:]) == .bakePotOpen)
     }
 
     @Test func aDoughOverTheRimBakesWithoutTheLid() {
@@ -253,10 +274,85 @@ struct BakeRunTests {
         #expect(bake.endedAt == nov(14, 10))
     }
 
+    @Test func undoOpensTheLastDoneStepAgain() {
+        var bake = run()
+        #expect(bake.previous == nil)
+        bake.undo()
+        #expect(bake.current == .checkStarter)
+        bake.answer(.yes, at: nov(14, 8))
+        bake.complete(at: nov(14, 9))
+        #expect(bake.current == .checkSourdough)
+        #expect(bake.previous == .mixSourdough)
+        // "Erledigt" on the sourdough by mistake: it is open again.
+        bake.undo()
+        #expect(bake.current == .mixSourdough)
+        #expect(bake.done[.mixSourdough] == nil)
+        #expect(bake.done[.checkStarter] == nov(14, 8))
+        #expect(bake.answers[.checkStarter] == .yes)
+        // Back once more: the decision forgets its answer.
+        bake.undo()
+        #expect(bake.current == .checkStarter)
+        #expect(bake.answers.isEmpty)
+        #expect(bake.done.isEmpty)
+    }
+
+    @Test func undoForgetsAWaitingAnswerAfterTheStep() {
+        var bake = run()
+        bake.answer(.yes, at: nov(14, 8))
+        bake.complete(at: nov(14, 9))
+        bake.answer(.notYet, at: nov(14, 20))
+        #expect(bake.isWaiting)
+        bake.undo()
+        #expect(bake.current == .mixSourdough)
+        #expect(bake.answers == [.checkStarter: .yes])
+    }
+
+    @Test func undoReopensAFinishedBakeButNotACancelledOne() {
+        var bake = run(potAndBasket)
+        for step in BakeProcess.StepID.allCases {
+            if BakeProcess.answers(step, setup: potAndBasket).isEmpty {
+                bake.complete(at: nov(15, 12))
+            } else {
+                bake.answer(.yes, at: nov(15, 12))
+            }
+        }
+        #expect(bake.status == .finished)
+        #expect(bake.previous == .cool)
+        bake.undo()
+        #expect(bake.status == .active)
+        #expect(bake.endedAt == nil)
+        #expect(bake.current == .cool)
+        #expect(bake.done.count == 8)
+
+        bake.cancel(at: nov(15, 13))
+        #expect(bake.previous == nil)
+        bake.undo()
+        #expect(bake.status == .cancelled)
+        #expect(bake.done.count == 8)
+    }
+
     @Test func survivesAJSONRoundTrip() throws {
         var bake = run()
         bake.answer(.yes, at: nov(14, 8))
         let data = try JSONEncoder().encode(bake)
         #expect(try JSONDecoder().decode(BakeRun.self, from: data) == bake)
+    }
+
+    @Test func theAddInsGoIntoTheRecipe() {
+        let bake = BakeRun(startedAt: nov(13, 9), bread: .ryeMixedBread50, mix: BreadType.ryeMixedBread50.preset,
+                           totalGrams: 800, limits: [:], starter: nil, setup: potAndBasket,
+                           temperatures: Temperatures(), window: InteractionWindow(), target: nov(15, 12),
+                           choices: [:], timeZone: TimeZone(identifier: "UTC")!, addIns: AddIns([.nuts: 10]))
+        #expect(bake.addIns == AddIns([.nuts: 10]))
+        // 10 % of 800 g.
+        #expect(bake.recipe.addIns == [Recipe.AddInPortion(addIn: .nuts, grams: 80, waterGrams: 0)])
+    }
+
+    @Test func aBakeSavedBeforeAddInsHasNone() throws {
+        let data = try JSONEncoder().encode(run())
+        var object = try #require(try JSONSerialization.jsonObject(with: data) as? [String: Any])
+        object["addInShares"] = nil
+        let old = try JSONDecoder().decode(BakeRun.self, from: JSONSerialization.data(withJSONObject: object))
+        #expect(old.addIns.isEmpty)
     }
 }

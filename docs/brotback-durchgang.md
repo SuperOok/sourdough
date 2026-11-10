@@ -108,7 +108,6 @@ Abschnitt „Brot backen“ in `AGENTS.md`, der Ablauf steht in `docs/ablauf.md`
 - Weitere Zweige im Ablauf: Quellstück bei Vollkorn, „übergar, sofort backen“,
   Kerntemperatur als Garprobe.
 - Mitteilungen zu den Handgriffen.
-- Saaten und Nüsse in der Mehlmischung.
 - Durchgang wiederholen, bewerten, Fotos, Teilen.
 - Randzeiten 8 und 21 Uhr einstellbar; Tage in der Übersichtsleiste
   deutlicher.

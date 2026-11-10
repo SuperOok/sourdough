@@ -116,6 +116,17 @@ class SourdoughUITestCase: XCTestCase {
         if app.buttons["keyboard-done"].exists { app.buttons["keyboard-done"].tap() }
     }
 
+    /// Types digits on the on-screen keypad, as a finger does. `typeText`
+    /// types as from a hardware keyboard, which hides the keypad, so it
+    /// cannot show what covers the fields while the keypad is up.
+    func typeOnKeypad(_ digits: String) {
+        for digit in digits {
+            let key = app.keys[String(digit)]
+            XCTAssertTrue(key.waitForExistence(timeout: 5), "Keine Taste \(digit).")
+            key.tap()
+        }
+    }
+
     /// Any element with this identifier, whatever its type.
     func any(_ id: String, file: StaticString = #filePath, line: UInt = #line) -> XCUIElement {
         element(app.descendants(matching: .any), id, file: file, line: line)

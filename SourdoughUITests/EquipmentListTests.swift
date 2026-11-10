@@ -27,12 +27,44 @@ final class EquipmentListTests: SourdoughUITestCase {
         openEquipment()
     }
 
-    func testTheListIsEmptyAtFirstAndNothingIsKnownToBeMissing() {
+    func testTheListIsEmptyAtFirstAndEveryKindIsMissing() {
         launch()
         XCTAssertTrue(app.staticTexts["Noch nichts angelegt"].exists)
         openEquipment()
         XCTAssertEqual(text("equipment-empty").label, "Noch keine Utensilien angelegt.")
-        XCTAssertFalse(app.staticTexts["missing-pot"].exists)
+        XCTAssertEqual(text("missing-kneader").label, "Küchenmaschine")
+        XCTAssertEqual(text("missing-pot").label, "Bräter/Römertopf")
+        XCTAssertEqual(text("missing-pan").label, "Kastenform")
+        XCTAssertEqual(text("missing-basket").label, "Gärkörbchen")
+    }
+
+    func testABannetonIsRoundOrLong() {
+        start()
+        add("basket")
+        element(app.segmentedControls, "item-basket-shape").buttons["Rechteckig"].tap()
+        typeName("Lang")
+        tapButton("item-save")
+        XCTAssertTrue(row("Lang").label.contains("Gärkörbchen, rechteckig"), row("Lang").label)
+        // Open again: the shape is kept.
+        tapButton("equipment-row-Lang")
+        XCTAssertTrue(element(app.segmentedControls, "item-basket-shape").buttons["Rechteckig"].isSelected)
+    }
+
+    /// The "+" of a missing kind opens the form for that kind; the "+" of a
+    /// piece adds another one of its kind.
+    func testThePlusOfAKindAddsAPieceOfIt() {
+        start()
+        tapButton("missing-add-basket")
+        XCTAssertEqual(element(app.textFields, "item-name").placeholderValue, "Gärkörbchen")
+        typeName("Oval")
+        tapButton("item-save")
+        XCTAssertFalse(app.staticTexts["missing-basket"].exists)
+        tapButton("equipment-plus-Oval")
+        XCTAssertEqual(element(app.textFields, "item-name").placeholderValue, "Gärkörbchen")
+        typeName("Rund")
+        tapButton("item-save")
+        XCTAssertTrue(row("Rund").label.contains("Gärkörbchen"))
+        XCTAssertTrue(row("Oval").label.contains("Gärkörbchen"))
     }
 
     /// The whole journey: add a pan with size, see it, restart the app.
@@ -58,6 +90,18 @@ final class EquipmentListTests: SourdoughUITestCase {
         XCTAssertTrue(app.staticTexts["1 angelegt"].waitForExistence(timeout: 10))
         openEquipment()
         XCTAssertTrue(row("Opas Form").label.contains("2,4 l"))
+    }
+
+    func testAPotCanBeWithoutALid() {
+        start()
+        add("pot")
+        flip("item-lid", to: false)
+        typeName("Offener Topf")
+        tapButton("item-save")
+        XCTAssertTrue(row("Offener Topf").label.contains("Bräter/Römertopf, ohne Deckel"), row("Offener Topf").label)
+        // Opening it again shows the setting as it was saved.
+        tapButton("equipment-row-Offener Topf")
+        XCTAssertEqual(element(app.switches, "item-lid").value as? String, "0")
     }
 
     func testTheNameDefaultsToTheKind() {
@@ -88,7 +132,7 @@ final class EquipmentListTests: SourdoughUITestCase {
         start(seed: true)
         XCTAssertTrue(row("Thermomix").label.contains("Küchenmaschine mit Knetfunktion"))
         XCTAssertTrue(row("Römertopf").label.contains(
-            "Bräter/Römertopf mit Silikoneinlage · oval 30 × 20 × 12 cm · 5,7 l"), row("Römertopf").label)
+            "Bräter/Römertopf, mit Deckel, mit Silikoneinlage · oval 30 × 20 × 12 cm · 5,7 l"), row("Römertopf").label)
         XCTAssertTrue(row("Gusseisenform").label.contains(
             "Kastenform aus Gusseisen, mit Deckel, mit Silikoneinlage · 30 × 10 × 8 cm · 2,4 l"))
         XCTAssertTrue(row("Kastenform").label.contains(
@@ -121,7 +165,7 @@ final class EquipmentListTests: SourdoughUITestCase {
 
         XCTAssertTrue(app.buttons["equipment-row-Römertopf"].waitForNonExistence(timeout: 5))
         let label = row("Bräter").label
-        XCTAssertTrue(label.contains("Bräter/Römertopf ohne Silikoneinlage"), label)
+        XCTAssertTrue(label.contains("Bräter/Römertopf, mit Deckel, ohne Silikoneinlage"), label)
         XCTAssertTrue(label.contains("oval 40 × 20 × 12 cm · 7,5 l"), label)
     }
 
@@ -180,7 +224,8 @@ final class EquipmentListTests: SourdoughUITestCase {
         element(app.switches, "item-liner")
         element(app.segmentedControls, "item-shape")
         XCTAssertFalse(app.segmentedControls["item-material"].exists)
-        XCTAssertFalse(app.switches["item-lid"].exists)
+        // A pot may have a lid; a new one has.
+        XCTAssertEqual(element(app.switches, "item-lid").value as? String, "1")
         // A pot starts round, which has no width; oval and rectangle do.
         XCTAssertFalse(app.textFields["item-width"].exists)
         element(app.segmentedControls, "item-shape").buttons["Oval"].tap()
@@ -204,7 +249,7 @@ final class EquipmentListTests: SourdoughUITestCase {
         XCTAssertFalse(app.staticTexts["item-volume"].exists)
 
         replaceText("item-length", with: "30")
-        assertText("item-error", "Gib alle Maße an oder keines.")
+        assertText("item-error", "Noch fehlen: Breite und Höhe. Gib alle Maße an oder keines.")
         XCTAssertFalse(save.isEnabled)
         XCTAssertFalse(app.staticTexts["item-volume"].exists)
 
@@ -217,6 +262,30 @@ final class EquipmentListTests: SourdoughUITestCase {
         // A round shape needs no width: π/4 × 30² × 8 ≈ 5654,9 ml.
         element(app.segmentedControls, "item-shape").buttons["Rund"].tap()
         assertText("item-volume", "5,7 l")
+    }
+
+    /// Typing one measure after the other with the keypad up: the next
+    /// field is tapped directly, the last one reached with "Weiter".
+    func testTheMeasuresCanBeTypedOneAfterTheOther() {
+        start()
+        add("pan")
+        let length = element(app.textFields, "item-length")
+        length.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5)).tap()
+        typeOnKeypad("30")
+        // Not under the keypad: the field with the focus sits in the middle.
+        let width = element(app.textFields, "item-width")
+        XCTAssertTrue(width.isHittable)
+        width.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5)).tap()
+        typeOnKeypad("10")
+        tapButton("keyboard-next")
+        typeOnKeypad("8")
+        // The last field has no next one.
+        XCTAssertFalse(app.buttons["keyboard-next"].isEnabled)
+        tapButton("keyboard-done")
+        XCTAssertEqual(length.value as? String, "30")
+        XCTAssertEqual(width.value as? String, "10")
+        // 30 × 10 × 8 cm = 2400 ml.
+        assertText("item-volume", "2,4 l")
     }
 
     func testTheTipsOfTheKindOpenFromTheFormAndLeaveItUnchanged() {

@@ -18,8 +18,12 @@ struct TipsView: View {
                 ForEach(TipsTopic.Category.allCases, id: \.self) { category in
                     Section(category.germanTitle) {
                         ForEach(TipsCatalog.topics(in: category)) { topic in
-                            NavigationLink(topic.title, value: topic.id)
-                                .accessibilityIdentifier("tips-topic-\(topic.id.rawValue)")
+                            NavigationLink(value: topic.id) {
+                                Label { Text(topic.title) } icon: {
+                                    CustomIcon(name: TipsIcon.name(topic.id))
+                                }
+                            }
+                            .accessibilityIdentifier("tips-topic-\(topic.id.rawValue)")
                         }
                     }
                 }
@@ -52,7 +56,7 @@ struct TipsTopicView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
                 ForEach(Array(topic.blocks.enumerated()), id: \.offset) { _, block in
-                    view(for: block)
+                    TipsBlockView(block: block)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -60,11 +64,7 @@ struct TipsTopicView: View {
         }
         .navigationBarTitleDisplayMode(.inline)
         // Set here and not on the stack: the links live in this page.
-        .environment(\.openURL, OpenURLAction { url in
-            guard let id = TipsText.topicID(from: url) else { return .systemAction }
-            onOpen(id)
-            return .handled
-        })
+        .environment(\.openURL, OpenURLAction { TipsText.open($0, show: onOpen) })
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
                 Button("Fertig", action: onClose)
@@ -72,27 +72,67 @@ struct TipsTopicView: View {
             }
         }
     }
+}
 
-    @ViewBuilder
-    private func view(for block: TipsBlock) -> some View {
+/// One block of Markdown, for a tips page or, `compact`, for the
+/// instructions of a bake: there titles are headlines and lists are tighter.
+struct TipsBlockView: View {
+    let block: TipsBlock
+    var compact = false
+
+    var body: some View {
         switch block {
         case .title(let text):
-            Text(text).font(.largeTitle.bold())
-                .accessibilityIdentifier("tips-title")
+            if compact {
+                Text(text).font(.headline)
+            } else {
+                Text(text).font(.largeTitle.bold())
+                    .accessibilityIdentifier("tips-title")
+            }
         case .heading(let text):
+            // Only tips pages have sections; the steps of a bake have none.
             Text(text).font(.title3.bold()).padding(.top, 8)
         case .paragraph(let text):
             Text(TipsText.attributed(text))
         case .bullets(let items):
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: compact ? 4 : 6) {
                 ForEach(items, id: \.self) { item in
-                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    HStack(alignment: .firstTextBaseline, spacing: compact ? 4 : 8) {
                         Text("•")
+                        // In a list row the text beside the bullet got one
+                        // line and an ellipsis; it may grow as tall as it needs.
                         Text(TipsText.attributed(item))
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
             }
+        case .image(let name, let caption):
+            TipsPicture(name: name, caption: caption)
+        case .animation(let animation, let caption):
+            TipsAnimationView(animation: animation, caption: caption)
         }
+    }
+}
+
+/// A photo of a tips page with its caption.
+struct TipsPicture: View {
+    let name: String
+    let caption: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Image(uiImage: TipsText.picture(named: name))
+                .resizable()
+                .scaledToFit()
+                .frame(maxWidth: .infinity, maxHeight: 280)
+                .clipShape(.rect(cornerRadius: 12))
+            Text(caption)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(caption)
+        .accessibilityIdentifier("tips-image-\(name)")
     }
 }
 

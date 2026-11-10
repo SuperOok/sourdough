@@ -14,7 +14,10 @@ struct StarterTests {
         #expect(FlourType.rye.timeFactor == 0.8)
         #expect(FlourType.wheat.timeFactor == 1.0)
         #expect(FlourType.spelt.timeFactor == 0.9)
-        #expect(FlourType.allCases == [.rye, .wheat, .spelt])
+        #expect(FlourType.buckwheat.timeFactor == 1.0)
+        #expect(FlourType.allCases == [.rye, .wheat, .spelt, .buckwheat])
+        // A starter is made of one of the grains, not of buckwheat.
+        #expect(FlourType.starterGrains == [.rye, .wheat, .spelt])
     }
 
     @Test func hydrationOfAFeeding() {

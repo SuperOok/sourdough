@@ -8,3 +8,4 @@ Eine Küchenmaschine mit Knetfunktion übernimmt das Kneten. Das hilft vor allem
 
 - Bei langer Knetzeit erwärmt sich der Teig; das beschleunigt die Gare.
 - Eine niedrige Stufe schont Motor und Teigstruktur.
+- Wann sich die Maschine lohnt und wie lange du welchen Teig knetest, steht unter [Kneten](tip:kneading).

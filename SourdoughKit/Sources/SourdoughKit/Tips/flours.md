@@ -13,6 +13,7 @@ Die Typenzahl auf der Packung gibt an, wie viel Mineralstoffe das Mehl enthält.
 - Gleiches Getreide, benachbarte Typenzahl: Tausch 1 zu 1, je Stufe Richtung Vollkorn etwas mehr Wasser.
 - Weizen und Dinkel gleicher Typenzahl lassen sich 1 zu 1 tauschen. Dinkel braucht etwas weniger Wasser und verträgt kürzeres Kneten.
 - Roggen lässt sich nicht einfach durch Weizen oder Dinkel ersetzen und umgekehrt. Roggen hat kein Klebergerüst, der Teig verhält sich anders.
+- [Buchweizen](tip:buckwheat) hat gar kein Gluten und ersetzt weder Weizen noch Dinkel noch Roggen. Er ergänzt sie als Anteil bis etwa 30 %.
 
 ## So passt die App die Mischung an
 
@@ -28,8 +29,12 @@ Gibst du für ein Mehl eine Grenze in Gramm an, etwa weil nur noch 235 g da sind
 
 - Jede Brotart erlaubt einen Roggenanteil von etwa 10 Prozentpunkten um ihre Vorgabe.
 - Ab etwa 30 % Roggen braucht der Teig einen Roggensauerteig. Erst dessen Säure macht Roggenteig backfähig.
-- Freigeschoben, also aus dem Gärkörbchen oder der Schüssel, hält ein Brot bis etwa 50 % Roggen seine Form. Mehr Roggen gehört in die [Kastenform](tip:pan).
+- [Freigeschoben](tip:freeStanding), also aus dem Gärkörbchen oder der Schüssel, hält ein Brot bis etwa 50 % Roggen seine Form. Mehr Roggen gehört in die [Kastenform](tip:pan).
 
 ## Etwas Hefe als Sicherheit
 
 Ist dein Starter schwach oder gärt der Teig lange im Kühlschrank, gibt etwas Hefe Sicherheit: etwa 1 g Trockenhefe oder 3 g frische Hefe auf ein Brot. Das Brot bleibt ein Sauerteigbrot, geht aber verlässlicher auf.
+
+## Die Getreide
+
+Was jedes Getreide im Teig ausmacht, steht unter [Weizen](tip:wheat), [Roggen](tip:rye), [Dinkel](tip:spelt) und [Buchweizen](tip:buckwheat). Wie lange du welchen Teig knetest, steht unter [Kneten](tip:kneading).

@@ -4,6 +4,7 @@ import SourdoughKit
 extension Flour {
     /// "Roggen 1150", "Dinkelvollkorn"
     var germanName: String {
+        if self == .buckwheat { return "Buchweizenmehl" }
         guard let number = typeNumber else {
             return grain.germanName + "vollkorn"
         }
@@ -14,24 +15,46 @@ extension Flour {
 extension BreadType {
     var germanName: String {
         switch self {
+        case .wheatBread: "Weizenbrot"
+        case .wheatWholeGrainBread: "Weizenvollkornbrot"
+        case .wheatMixedBread: "Weizenmischbrot"
         case .speltBread: "Dinkelbrot"
         case .speltMixedBread: "Dinkel-Mischbrot"
         case .ryeMixedBread50: "Roggenmischbrot 50"
         case .ryeMixedBread70: "Roggenmischbrot 70"
         case .ryeBread80: "Roggenbrot 80"
         case .ryeWholeGrainBread: "Roggenvollkornbrot"
+        case .buckwheatRyeBread: "Buchweizen-Roggenbrot"
+        case .buckwheatSpeltBread: "Buchweizen-Dinkelbrot"
         }
     }
 
     /// Crumb and taste, in a few words.
     var character: String {
         switch self {
+        case .wheatBread: "Locker, mild, mit knuspriger Kruste."
+        case .wheatWholeGrainBread: "Saftig, kräftig, leicht nussig."
+        case .wheatMixedBread: "Locker mit Roggenwürze, bleibt länger frisch."
         case .speltBread: "Luftig, mild-nussig, schnittfest."
         case .speltMixedBread: "Locker bis mittel, leicht säuerlich."
         case .ryeMixedBread50: "Mitteldicht und würzig."
         case .ryeMixedBread70: "Dicht, feucht, kräftig-säuerlich."
         case .ryeBread80: "Dicht, saftig, aromatisch."
         case .ryeWholeGrainBread: "Sehr dicht, feucht und herb."
+        case .buckwheatRyeBread: "Dicht, feucht, nussig-herb."
+        case .buckwheatSpeltBread: "Mitteldicht, feucht, mild-nussig."
+        }
+    }
+}
+
+extension AddIn {
+    var germanName: String {
+        switch self {
+        case .seeds: "Saaten"
+        case .nuts: "Nüsse"
+        case .driedFruit: "Trockenfrüchte"
+        case .roastedOnions: "Röstzwiebeln"
+        case .herbs: "Kräuter"
         }
     }
 }
@@ -48,6 +71,17 @@ extension BakeSetup.Vessel {
 
 /// German texts for planning a bake.
 enum BakeText {
+    /// "67 g in 67 g Wasser"
+    static func soakAmount(_ portion: Recipe.AddInPortion) -> String {
+        "\(grams(portion.grams)) in \(grams(portion.waterGrams)) Wasser"
+    }
+
+    /// "15 % · 67 g", or only "15 %" without a flour total.
+    static func addInAmount(share: Double, totalGrams: Double?) -> String {
+        guard let totalGrams else { return percent(share) }
+        return "\(percent(share)) · \(grams(totalGrams * share / 100))"
+    }
+
     /// Where the amount of dough comes from.
     static func doughSource(_ setup: BakeSetup) -> String {
         guard let item = setup.vesselItem, let size = item.dimensions else {
@@ -80,6 +114,9 @@ enum BakeText {
             "Zu wenig Roggen: Ein \(bread.germanName) braucht mindestens \(percent(minimum)) Roggen."
         case .tooMuchRye(let maximum):
             "Zu viel Roggen: Ein \(bread.germanName) verträgt höchstens \(percent(maximum)) Roggen."
+        case .tooMuchBuckwheat(let maximum):
+            "Zu viel Buchweizen: Ohne Gluten wird das Brot ab \(percent(maximum)) dicht und schwer. "
+                + "Nimm höchstens \(percent(maximum))."
         case .needsRyeStarter:
             "Ab \(percent(BakeRules.ryeStarterFrom)) Roggen braucht der Teig einen Roggensauerteig. "
                 + "Wähle einen Roggenstarter oder nimm weniger Roggen."

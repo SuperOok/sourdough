@@ -19,6 +19,17 @@ final class BakeScheduleScreenTests: SourdoughUITestCase {
         _ = element(app.buttons, "schedule-target")
     }
 
+    func testTheRestsLinkToTheProofingPage() {
+        openSchedule()
+        XCTAssertFalse(app.buttons["schedule-tip-sourdough"].exists)
+        tapButton("schedule-tip-bulk")
+        assertTitle("Gare: Stockgare und Stückgare")
+        tapButton("tips-topic-close")
+        tapButton("schedule-tip-proof")
+        assertTitle("Gare: Stockgare und Stückgare")
+        tapButton("tips-topic-close")
+    }
+
     func testTheProposalStartsOnFridayEveningForSaturdayEvening() {
         openSchedule()
         assertLabel("schedule-target", contains: "Sa 14.11. 18:00")
@@ -60,8 +71,14 @@ final class BakeScheduleScreenTests: SourdoughUITestCase {
         // In the fridge at 5 °C: 1.5 h × 3^1.7 = 9.71 h = 9 h 43 min, from Saturday
         // 01:27, shaping 01:12. The bulk rest before it fits nowhere: at room
         // temperature (1.75 h) kneading is at Friday 23:07.
+        // The warning must not move what is above it: the control stays where it was.
+        let before = element(app.buttons, "schedule-place-proof").frame.minY
         choose("schedule-place-proof", "Kühlschrank (5 °C)")
+        XCTAssertEqual(element(app.buttons, "schedule-place-proof").frame.minY, before, accuracy: 0.5)
         assertLabel("schedule-step-5", contains: "9 Std. 43 Min.")
+        // The rows outside the window say so (colour for the eye, a value for VoiceOver).
+        XCTAssertEqual(any("schedule-step-2").value as? String, "außerhalb des Zeitfensters")
+        XCTAssertEqual(any("schedule-step-8").value as? String, "")
         assertText("schedule-conflict-0", "Hauptteig kneten um Fr 23:07 liegt außerhalb von 8 bis 21 Uhr.")
         assertText("schedule-conflict-1", "Teig formen um Sa 01:12 liegt außerhalb von 8 bis 21 Uhr.")
     }

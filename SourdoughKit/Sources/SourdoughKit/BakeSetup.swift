@@ -105,8 +105,8 @@ public enum DoughAmount {
     }
 
     /// Grams of flour for `doughGrams` of dough at `hydration` percent water:
-    /// dough = flour × (1 + water + salt).
-    public static func flourGrams(doughGrams: Double, hydration: Double) -> Double {
-        doughGrams / (1 + hydration / 100 + saltPercent / 100)
+    /// dough = flour × (1 + water + salt + add-ins with their water).
+    public static func flourGrams(doughGrams: Double, hydration: Double, addIns: AddIns = AddIns()) -> Double {
+        doughGrams / (1 + hydration / 100 + saltPercent / 100 + addIns.gramsPerFlourGram)
     }
 }
