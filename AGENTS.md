@@ -395,8 +395,23 @@ Rechnungen liegen im Package, jede Konstante als Richtwert an einer Stelle:
 3. **Zeitplan** (`BakeScheduleView`): rückwärts von „anschnittfertig“;
    Ruhezeiten bei 22 °C (Sauerteig 8 h, Stockgare 3 − 2,5 × Roggenanteil h,
    Stückgare 1,5 h), je 10 °C kälter dreimal so lang; jede Ruhe mit Ort
-   (warm 27 °C, Raum, Kühlschrank) und Spanne (Faktor 0,7–1,5, Sauerteig
-   0,6–1,6). Handgriffe liegen zwischen 8 und 21 Uhr; sonst wählt der Plan
+   (warm 27 °C, Raum, **kühler Ort** 8–18 °C, Kühlschrank) und Spanne.
+   **Die Spanne bei gleicher Temperatur ist eng** (`RestKind.factorRange(at:)`:
+   Faktor 0,85–1,2, Sauerteig 0,8–1,25; nur im Kühlschrank 0,7–1,5, weil der
+   Teig dort so langsam ist): Eine deutlich andere Dauer kommt aus einer
+   anderen Temperatur, nicht aus einer weiten Spanne. Der Vorschlag wählt je
+   Ruhe den ersten Ort in der Reihenfolge Raum, kühl, (Kühlschrank), warm,
+   dessen Spanne den Handgriff davor ins Zeitfenster bringt.
+   „+“ und „−“ (`BakePlanModel.stepHours`) gehen von der zuletzt gewünschten
+   Zeit aus und wechseln den Ort, dessen Spanne sie trifft
+   (`ScheduleRules.place(forHours:…)`; im Zwischenraum der Ort mit der
+   nächsten Nennzeit nach Verhältnis); trifft keiner, steht darunter die
+   Temperatur, die nötig wäre (`ScheduleRules.celsius`, die Regel umgekehrt,
+   Bezeichner `schedule-needed-<ruhe>`). Der kühle Ort ist optional
+   (`Temperatures.usesCoolPlace`, Schalter `schedule-cool-toggle`, Feld
+   `schedule-cool`, 16 °C voreingestellt, nur wirksam, wenn kühler als der
+   Raum); ältere gespeicherte Temperaturen ohne ihn bekommen die Voreinstellung.
+   Handgriffe liegen zwischen 8 und 21 Uhr; sonst wählt der Plan
    einen anderen Ort oder meldet einen Konflikt. Auskühlen 2 h, ab 50 %
    Roggen 6 h, ab 80 % einen Tag. Der Vorschlag ist der erste Mittag oder
    Abend, dessen Plan nach „jetzt“ beginnt und ohne Konflikt ist.

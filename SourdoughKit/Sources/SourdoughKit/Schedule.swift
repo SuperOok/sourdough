@@ -5,6 +5,9 @@ public enum Place: String, Codable, CaseIterable, Sendable {
     /// About 27 °C: the oven with only its lamp on, or a warm corner.
     case warm
     case room
+    /// A cool spot between room and fridge: cellar, hallway, a windowsill in
+    /// winter. Where it is and how cool is up to the user.
+    case cool
     case fridge
 }
 
@@ -13,19 +16,45 @@ public struct Temperatures: Codable, Equatable, Sendable {
     public static let warmCelsius = 27.0
     /// The dough should come out of kneading at about this temperature.
     public static let doughTargetCelsius = 26.0
+    public static let defaultCoolCelsius = 16.0
 
     public var roomCelsius: Double
     public var fridgeCelsius: Double
+    /// Temperature of the cool spot, if the user has one (`usesCoolPlace`).
+    public var coolCelsius: Double
+    /// Whether the plan may use a cool spot at all.
+    public var usesCoolPlace: Bool
 
-    public init(roomCelsius: Double = Starter.defaultRoomCelsius, fridgeCelsius: Double = 5) {
+    public init(roomCelsius: Double = Starter.defaultRoomCelsius, fridgeCelsius: Double = 5,
+                coolCelsius: Double = defaultCoolCelsius, usesCoolPlace: Bool = true) {
         self.roomCelsius = roomCelsius
         self.fridgeCelsius = fridgeCelsius
+        self.coolCelsius = coolCelsius
+        self.usesCoolPlace = usesCoolPlace
     }
+
+    private enum CodingKeys: String, CodingKey {
+        case roomCelsius, fridgeCelsius, coolCelsius, usesCoolPlace
+    }
+
+    /// Temperatures saved before there was a cool spot have none of its keys
+    /// and get the defaults.
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        roomCelsius = try container.decode(Double.self, forKey: .roomCelsius)
+        fridgeCelsius = try container.decode(Double.self, forKey: .fridgeCelsius)
+        coolCelsius = try container.decodeIfPresent(Double.self, forKey: .coolCelsius) ?? Self.defaultCoolCelsius
+        usesCoolPlace = try container.decodeIfPresent(Bool.self, forKey: .usesCoolPlace) ?? true
+    }
+
+    /// A cool spot only makes sense if it is cooler than the room.
+    public var hasCoolPlace: Bool { usesCoolPlace && coolCelsius < roomCelsius }
 
     public func celsius(_ place: Place) -> Double {
         switch place {
         case .warm: Self.warmCelsius
         case .room: roomCelsius
+        case .cool: coolCelsius
         case .fridge: fridgeCelsius
         }
     }
@@ -48,20 +77,26 @@ public enum RestKind: String, Codable, CaseIterable, Sendable {
     /// The shaped loaf rises ("Stückgare").
     case proof
 
-    /// The places this rest can take, the usual one first.
-    public var places: [Place] {
-        switch self {
-        case .sourdough, .bulk: [.room, .warm]
-        case .proof: [.room, .fridge, .warm]
+    /// The places this rest can take, the usual one first; the cool spot
+    /// only if the kitchen has one.
+    public func places(for temperatures: Temperatures) -> [Place] {
+        let all: [Place] = switch self {
+        case .sourdough, .bulk: [.room, .cool, .warm]
+        case .proof: [.room, .cool, .fridge, .warm]
         }
+        return all.filter { $0 != .cool || temperatures.hasCoolPlace }
     }
 
-    /// Shortest and longest sensible time, as factors of the nominal time.
-    public var factorRange: ClosedRange<Double> {
-        switch self {
-        case .sourdough: 0.6...1.6
-        case .bulk, .proof: 0.7...1.5
-        }
+    /// Shortest and longest sensible time at `place`, as factors of the
+    /// nominal time. Narrow on purpose: at the same temperature the dough
+    /// ripens by the clock, so a much longer or shorter rest should come from
+    /// another place (`ScheduleRules.place`), not from a wide range. The
+    /// fridge is the exception: at 5 °C the dough is so slow that anything
+    /// from about 7 to 15 hours does the same, which is how a proof is led
+    /// over night.
+    public func factorRange(at place: Place) -> ClosedRange<Double> {
+        if place == .fridge { return 0.7...1.5 }
+        return self == .sourdough ? 0.8...1.25 : 0.85...1.2
     }
 }
 
@@ -91,6 +126,38 @@ public enum ScheduleRules {
     /// Hours of `rest` at `celsius`.
     public static func hours(_ rest: RestKind, ryeShare: Double, celsius: Double) -> Double {
         referenceHours(rest, ryeShare: ryeShare) * pow(StarterModel.q10, (referenceCelsius - celsius) / 10)
+    }
+
+    /// Shortest and longest sensible hours of `rest` at `place`.
+    public static func range(_ rest: RestKind, ryeShare: Double, place: Place,
+                             temperatures: Temperatures) -> ClosedRange<Double> {
+        let nominal = hours(rest, ryeShare: ryeShare, celsius: temperatures.celsius(place))
+        let factors = rest.factorRange(at: place)
+        return nominal * factors.lowerBound...nominal * factors.upperBound
+    }
+
+    /// The temperature at which `rest` takes `hours`: the rule above turned
+    /// around, `22 °C − 10 °C × log₃(hours / hours at 22 °C)`.
+    public static func celsius(_ rest: RestKind, ryeShare: Double, hours: Double) -> Double {
+        referenceCelsius - 10 * log(hours / referenceHours(rest, ryeShare: ryeShare)) / log(StarterModel.q10)
+    }
+
+    /// The place at which `hours` of `rest` is sensible: `current` if its
+    /// range holds them, else the first place whose range does. If none does
+    /// (the hours are shorter or longer than any place gives), the place whose
+    /// nominal time is closest, measured as a ratio.
+    public static func place(forHours hours: Double, rest: RestKind, ryeShare: Double,
+                             temperatures: Temperatures, current: Place) -> Place {
+        let places = rest.places(for: temperatures)
+        func holds(_ place: Place) -> Bool {
+            range(rest, ryeShare: ryeShare, place: place, temperatures: temperatures).contains(hours)
+        }
+        if places.contains(current), holds(current) { return current }
+        if let fitting = places.first(where: holds) { return fitting }
+        func distance(_ place: Place) -> Double {
+            abs(log(hours / self.hours(rest, ryeShare: ryeShare, celsius: temperatures.celsius(place))))
+        }
+        return places.min { distance($0) < distance($1) }!
     }
 
     /// Minutes the user is busy.
@@ -235,19 +302,19 @@ public struct Schedule: Equatable, Sendable {
         for (rest, action) in pairs {
             let length = minutes(action)
             func range(_ place: Place) -> ClosedRange<Double> {
-                let nominal = ScheduleRules.hours(rest, ryeShare: ryeShare, celsius: temperatures.celsius(place))
-                return nominal * rest.factorRange.lowerBound...nominal * rest.factorRange.upperBound
+                ScheduleRules.range(rest, ryeShare: ryeShare, place: place, temperatures: temperatures)
             }
             func nominal(_ place: Place) -> Double {
                 ScheduleRules.hours(rest, ryeShare: ryeShare, celsius: temperatures.celsius(place))
             }
             var chosen: (place: Place, start: Date, outside: Bool)?
-            if let choice = choices[rest] {
+            let places = rest.places(for: temperatures)
+            if let choice = choices[rest], places.contains(choice.place) {
                 let hours = min(max(choice.hours, range(choice.place).lowerBound), range(choice.place).upperBound)
                 let start = end - hours * 3600
                 chosen = (choice.place, start, !window.contains(start - length, start, calendar: calendar))
             } else {
-                for place in rest.places {
+                for place in places {
                     let span = range(place)
                     if let start = window.closestEnd(to: end - nominal(place) * 3600, length: length,
                                                      in: end - span.upperBound * 3600, end - span.lowerBound * 3600,
@@ -257,7 +324,7 @@ public struct Schedule: Equatable, Sendable {
                     }
                 }
             }
-            let place = chosen?.place ?? rest.places[0]
+            let place = chosen?.place ?? places[0]
             let start = chosen?.start ?? end - nominal(place) * 3600
             let outside = chosen?.outside ?? true
             reversed.append(ScheduleStep(kind: .rest(rest, place), start: start, end: end,

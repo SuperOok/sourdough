@@ -4,7 +4,7 @@ Freigeschoben heißt: Der Teigling bekommt beim Backen keine Form. Er steht frei
 
 ## Was dafür nötig ist
 
-- Ein tragendes Klebergerüst. Weizen und Dinkel bilden es, Roggen und [Buchweizen](tip:buckwheat) nicht.
+- Ein tragendes Klebergerüst. [Weizen](tip:wheat) und [Dinkel](tip:spelt) bilden es, [Roggen](tip:rye) und [Buchweizen](tip:buckwheat) nicht.
 - Straff geformter Teig: Beim Formen wird die Oberfläche gespannt, sodass der Laib nach oben statt in die Breite geht.
 - Eine Form für die [Stückgare](tip:proofing): ein bemehltes [Gärkörbchen](tip:basket) oder eine Schüssel mit Tuch. Ein rundes Körbchen passt zu einem runden, ein ovales oder eckiges zu einem länglichen Laib.
 - Zum Backen ein Blech oder ein [Bräter](tip:pot). Der Teigling wird aus der Form gestürzt und eingeschnitten.

@@ -377,6 +377,30 @@ struct BakePlanScheduleTests {
         #expect(model.temperatures.fridgeCelsius == 6)
     }
 
+    @Test func theCoolPlaceIsRememberedAndChecked() {
+        let model = BakePlanModel()
+        model.useTemperatures(Temperatures(roomCelsius: 21, fridgeCelsius: 4, coolCelsius: 13.5, usesCoolPlace: true))
+        #expect(model.coolText == "13,5")
+        #expect(model.usesCoolPlace)
+        #expect(model.temperatures.coolCelsius == 13.5 && model.temperatures.usesCoolPlace)
+        // Only 8 to 18 °C are taken.
+        model.coolText = "20"
+        #expect(model.temperatureError == StarterFormModel.coolRange)
+        #expect(model.temperatures.coolCelsius == 13.5)
+        model.coolText = "7"
+        #expect(model.temperatureError == StarterFormModel.coolRange)
+        model.coolText = "12"
+        #expect(model.temperatureError == nil)
+        #expect(model.temperatures.coolCelsius == 12)
+        // Without a cool place its field does not matter.
+        model.coolText = "kalt"
+        model.usesCoolPlace = false
+        #expect(model.temperatureError == nil)
+        #expect(!model.temperatures.usesCoolPlace)
+        model.usesCoolPlace = true
+        #expect(model.temperatureError == StarterFormModel.coolRange)
+    }
+
     @Test func noScheduleWithoutEquipmentAndTarget() {
         let model = BakePlanModel()
         model.proposeTarget(now: nov(13, 9), calendar: utc)
@@ -387,7 +411,9 @@ struct BakePlanScheduleTests {
         model.target = nil
         #expect(model.schedule(calendar: utc) == nil)
         model.setHours(2, of: .proof, calendar: utc)
+        model.stepHours(0.5, of: .proof, calendar: utc)
         #expect(model.choices.isEmpty)
+        #expect(model.wishes.isEmpty)
     }
 
     @Test func theTargetIsProposedOnce() {
@@ -418,6 +444,64 @@ struct BakePlanScheduleTests {
         model.resetChoices()
         #expect(model.choices.isEmpty)
     }
+
+    @Test func aTimeBeyondTheRangeMovesTheRestToAnotherPlace() {
+        // The proof at room temperature takes 1.275 to 1.8 h, at the cool place
+        // (16 °C) 2.46 to 3.48 h. 2.5 h is in the second range.
+        let model = BakePlanModel()
+        model.proposeSetup(from: [pot])
+        model.proposeTarget(now: nov(13, 9), calendar: utc)
+        model.setHours(2.5, of: .proof, calendar: utc)
+        #expect(model.choices == [.proof: RestChoice(place: .cool, hours: 2.5)])
+        #expect(model.schedule(calendar: utc)?.rest(.proof)?.kind == .rest(.proof, .cool))
+        #expect(model.needed(for: .proof, in: model.schedule(calendar: utc)!) == nil)
+    }
+
+    @Test func plusAndMinusStepFromTheTimeAsked() {
+        let model = BakePlanModel()
+        model.proposeSetup(from: [pot])
+        model.proposeTarget(now: nov(13, 9), calendar: utc)
+        // 1.5 h + 0.5 h = 2 h: no place gives that (room up to 1.8 h, cool from
+        // 2.46 h), the closest is the room. The plan keeps 1.8 h and says that
+        // 2 h would take 22 − 10 × log₃(2 / 1.5) = 19.4 °C.
+        model.stepHours(0.5, of: .proof, calendar: utc)
+        #expect(model.choices == [.proof: RestChoice(place: .room, hours: 2)])
+        var schedule = model.schedule(calendar: utc)!
+        #expect(abs(schedule.rest(.proof)!.hours - 1.8) < 1e-9)
+        var needed = model.needed(for: .proof, in: schedule)!
+        #expect(needed.hours == 2)
+        #expect(abs(needed.celsius - (22 - 10 * log(4.0 / 3) / log(3))) < 1e-9)
+        // Another half hour is asked from the 2 h, not from the 1.8 h: 2.5 h
+        // are in the cool range.
+        model.stepHours(0.5, of: .proof, calendar: utc)
+        #expect(model.choices == [.proof: RestChoice(place: .cool, hours: 2.5)])
+        schedule = model.schedule(calendar: utc)!
+        #expect(model.needed(for: .proof, in: schedule) == nil)
+        // And back again.
+        model.stepHours(-0.5, of: .proof, calendar: utc)
+        #expect(model.choices[.proof]?.place == .room)
+        // Never shorter than a quarter of an hour; the warm place is closest
+        // and the plan says what that would take: 22 + 10 × log₃(6) = 38.3 °C.
+        model.stepHours(-10, of: .proof, calendar: utc)
+        #expect(model.choices == [.proof: RestChoice(place: .warm, hours: 0.25)])
+        needed = model.needed(for: .proof, in: model.schedule(calendar: utc)!)!
+        #expect(needed.hours == 0.25)
+        #expect(abs(needed.celsius - (22 + 10 * log(6) / log(3))) < 1e-9)
+    }
+
+    @Test func choosingAPlaceOrResettingForgetsTheWish() {
+        let model = BakePlanModel()
+        model.proposeSetup(from: [pot])
+        model.proposeTarget(now: nov(13, 9), calendar: utc)
+        model.setHours(2, of: .proof, calendar: utc)
+        #expect(model.wishes == [.proof: 2])
+        model.setPlace(.fridge, of: .proof)
+        #expect(model.wishes.isEmpty)
+        #expect(model.needed(for: .proof, in: model.schedule(calendar: utc)!) == nil)
+        model.setHours(2, of: .bulk, calendar: utc)
+        model.resetChoices()
+        #expect(model.wishes.isEmpty && model.choices.isEmpty)
+    }
 }
 
 struct ScheduleTextTests {
@@ -445,7 +529,12 @@ struct ScheduleTextTests {
     @Test func places() {
         let temperatures = Temperatures(roomCelsius: 19.5, fridgeCelsius: 4)
         #expect(Place.allCases.map { $0.germanName(temperatures) }
-                == ["Warm (27 °C)", "Raumtemperatur (19,5 °C)", "Kühlschrank (4 °C)"])
+                == ["Warm (27 °C)", "Raumtemperatur (19,5 °C)", "Kühl (16 °C)", "Kühlschrank (4 °C)"])
+    }
+
+    @Test func theTemperatureANeededPlaceWouldHave() {
+        #expect(ScheduleText.needed(hours: 2, celsius: 19.38) == "Für 2 Std. 0 Min. wären etwa 19 °C nötig.")
+        #expect(ScheduleText.needed(hours: 0.25, celsius: 38.3) == "Für 15 Min. wären etwa 38 °C nötig.")
     }
 
     @Test func rangesAndConflicts() {
@@ -454,9 +543,10 @@ struct ScheduleTextTests {
         #expect(ScheduleText.range((0.7 * 1.5)...2.25) == "1 Std. 3 Min. bis 2 Std. 15 Min.")
         #expect(ScheduleText.duration(hours: 9.7095) == "9 Std. 43 Min.")
         let schedule = Schedule(target: nov(15, 12), ryeShare: 50, vessel: .pot, temperatures: Temperatures(),
-                                choices: [.sourdough: RestChoice(place: .room, hours: 12)], calendar: utc)
+                                choices: [.sourdough: RestChoice(place: .room, hours: 10)], calendar: utc)
+        // 10 h before 16:20 is 06:20, the mixing 06:10.
         let late = schedule.steps[0]
         #expect(ScheduleText.conflict(late, vessel: .pot, window: InteractionWindow(), calendar: utc)
-                == "Sauerteig ansetzen um Sa 04:10 liegt außerhalb von 8 bis 21 Uhr.")
+                == "Sauerteig ansetzen um Sa 06:10 liegt außerhalb von 8 bis 21 Uhr.")
     }
 }

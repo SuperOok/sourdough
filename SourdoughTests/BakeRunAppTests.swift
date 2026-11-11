@@ -58,15 +58,15 @@ struct BakeRunDemoTests {
 struct BakeRunTextTests {
     @Test func theSourdoughStageNamesAmountsPlaceAndTime() {
         // 448 g, rye 224 g, 35 % soured: 78.4 g rye whole grain, as much water,
-        // starter 15.7 g. The sourdough ripens at room temperature from
-        // Friday 21:00 to Saturday 08:04 (11 h 4 min).
+        // starter 15.7 g. The sourdough ripens at the cool place (16 °C) for
+        // 8 × 3^0.6 = 15.465 h = 15 h 28 min, until Saturday 08:04.
         let values = BakeRunText.values(for: demo(), step: .mixSourdough)
         #expect(values[.starter] == "„Roggensauerteig“")
         #expect(values[.sourdoughFlour] == "78 g Roggenvollkorn")
         #expect(values[.sourdoughWater] == "78 g")
         #expect(values[.starterGrams] == "16 g")
-        #expect(values[.restPlace] == "bei Raumtemperatur (22 °C)")
-        #expect(values[.restDuration] == "11 Std. 4 Min.")
+        #expect(values[.restPlace] == "an einem kühlen Ort (16 °C)")
+        #expect(values[.restDuration] == "15 Std. 28 Min.")
         #expect(values[.restUntil] == "Sa 08:04")
     }
 
@@ -127,7 +127,8 @@ struct BakeRunTextTests {
                 == ["Ja", "Noch nicht", "Unter dem Rand", "Am Deckel oder darüber"])
         let temperatures = Temperatures(roomCelsius: 20, fridgeCelsius: 4)
         #expect(Place.allCases.map { BakeRunText.placePhrase($0, temperatures) }
-                == ["an einem warmen Ort (27 °C)", "bei Raumtemperatur (20 °C)", "im Kühlschrank (4 °C)"])
+                == ["an einem warmen Ort (27 °C)", "bei Raumtemperatur (20 °C)", "an einem kühlen Ort (16 °C)",
+                    "im Kühlschrank (4 °C)"])
         #expect(BakeRunText.portions([], separator: ", ") == "")
         #expect([BakeRun.Status.active, .finished, .cancelled].map(BakeRunText.status)
                 == ["läuft", "fertig", "abgebrochen"])
@@ -195,10 +196,11 @@ struct BakeLogTextTests {
         #expect(BakeLogText.temperatures(Temperatures(roomCelsius: 19.5, fridgeCelsius: 4))
                 == "Raum 19,5 °C, Kühlschrank 4 °C")
         var bake = demo()
-        // The sourdough is mixed at 20:50 on Friday.
-        #expect(BakeLogText.times(bake, .checkStarter) == "geplant Fr 20:50")
+        // The sourdough rests until 08:04:23 on Saturday, 15 h 27 min 56 s: it
+        // starts at 16:36:27 on Friday and is mixed 10 min before, at 16:26.
+        #expect(BakeLogText.times(bake, .checkStarter) == "geplant Fr 16:26")
         bake.answer(.yes, at: nov(13, 21))
-        #expect(BakeLogText.times(bake, .checkStarter) == "geplant Fr 20:50 · erledigt Fr 21:00 · Ja")
+        #expect(BakeLogText.times(bake, .checkStarter) == "geplant Fr 16:26 · erledigt Fr 21:00 · Ja")
     }
 }
 

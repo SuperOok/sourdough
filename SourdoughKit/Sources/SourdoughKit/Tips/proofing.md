@@ -14,6 +14,7 @@ Gare nennt man die Ruhezeit, in der der Teig aufgeht. Hefen und Milchsäurebakte
 - Der **geformte Teigling** ruht noch einmal, bevor er in den Ofen kommt: im [Gärkörbchen](tip:basket), in einer Schüssel mit Tuch oder in der [Kastenform](tip:pan).
 - Bei 22 °C rechnet die App mit etwa anderthalb Stunden. Im Kühlschrank kann daraus eine Nacht werden.
 - Fingerprobe: Drück mit einem bemehlten Finger leicht in den Teig. Federt die Delle langsam und nicht ganz zurück, ist er reif. Springt sie sofort zurück, braucht er noch Zeit. Bleibt sie stehen, ist er schon zu weit.
+- Die Fingerprobe funktioniert vor allem bei Weizenteig verlässlich. Bei Dinkel, Roggen und Buchweizen gilt sie nur eingeschränkt: Der Teig hat weniger Gerüst und federt kaum, deshalb zählen hier Volumen, Blasen und Risse an der Oberfläche mehr.
 - In der Kastenform zählt auch die Höhe: Der Teig soll nicht über den Rand stehen, weil er im Ofen noch weiter aufgeht.
 
 ## Wärme und Zeit

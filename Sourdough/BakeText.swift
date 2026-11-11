@@ -143,6 +143,7 @@ extension Place {
         return switch self {
         case .warm: "Warm (\(celsius))"
         case .room: "Raumtemperatur (\(celsius))"
+        case .cool: "Kühl (\(celsius))"
         case .fridge: "Kühlschrank (\(celsius))"
         }
     }
@@ -200,6 +201,11 @@ enum ScheduleText {
     /// "1 Std. 3 Min. bis 2 Std. 15 Min."
     static func range(_ hours: ClosedRange<Double>) -> String {
         "\(duration(hours: hours.lowerBound)) bis \(duration(hours: hours.upperBound))"
+    }
+
+    /// "Für 7 Std. 30 Min. wären etwa 14 °C nötig."
+    static func needed(hours: Double, celsius: Double) -> String {
+        "Für \(duration(hours: hours)) wären etwa \(StarterText.number(celsius.rounded())) °C nötig."
     }
 
     static func conflict(_ step: ScheduleStep, vessel: BakeSetup.Vessel, window: InteractionWindow,

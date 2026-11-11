@@ -8,7 +8,9 @@ import XCTest
 /// - proof at room temperature 1.5 h from 09:40, shaping 09:25;
 /// - the bulk rest at room temperature would need kneading before 08:00, so
 ///   it goes warm (27 °C): 1.75 h × 3^−0.5 = 1 h 0.6 min, kneading 08:04;
-/// - the sourdough ripens overnight from Friday 21:00, mixed at 20:50.
+/// - the sourdough ripens overnight at the cool place (16 °C): at room
+///   temperature (6.4 to 10 h) no start fits the window, at 16 °C it takes
+///   8 × 3^0.6 = 15 h 28 min, from Friday 16:36, mixed at 16:26.
 @MainActor
 final class BakeScheduleScreenTests: SourdoughUITestCase {
     private func openSchedule() {
@@ -35,7 +37,7 @@ final class BakeScheduleScreenTests: SourdoughUITestCase {
         assertLabel("schedule-target", contains: "Sa 14.11. 18:00")
         XCTAssertTrue(any("schedule-chart").exists)
         let expected = [
-            ("Fr 20:50", "Sauerteig ansetzen"), ("Fr 21:00", "Sauerteig reift"),
+            ("Fr 16:26", "Sauerteig ansetzen"), ("Fr 16:36", "Sauerteig reift"),
             ("Sa 08:04", "Hauptteig kneten"), ("Sa 08:24", "Stockgare"),
             ("Sa 09:25", "Teig formen"), ("Sa 09:40", "Stückgare"),
             ("Sa 10:25", "Ofen vorheizen"), ("Sa 11:10", "Backen"), ("Sa 12:00", "Auskühlen"),
@@ -44,26 +46,64 @@ final class BakeScheduleScreenTests: SourdoughUITestCase {
             assertLabel("schedule-step-\(index)", contains: time)
             assertLabel("schedule-step-\(index)", contains: title)
         }
-        // 21:00 to 08:04:22 is 11 h 4 min; warm bulk 1 h 0 min; proof 1.5 h.
-        assertLabel("schedule-step-1", contains: "11 Std. 4 Min.")
+        // 8 × 3^0.6 h = 15 h 28 min; warm bulk 1 h 0 min; proof 1.5 h.
+        assertLabel("schedule-step-1", contains: "15 Std. 28 Min.")
         assertLabel("schedule-step-5", contains: "1 Std. 30 Min.")
+        assertLabel("schedule-place-sourdough", contains: "Kühl (16 °C)")
         assertLabel("schedule-place-bulk", contains: "Warm (27 °C)")
-        // Proof at 22 °C: 0.7 × 1.5 h = 1 h 3 min to 1.5 × 1.5 h = 2 h 15 min.
-        assertText("schedule-range-proof", "Sinnvoll: 1 Std. 3 Min. bis 2 Std. 15 Min.")
+        // The range at the same temperature is narrow: 0.8 × 15.465 h = 12 h
+        // 22 min to 1.25 × 15.465 h = 19 h 20 min.
+        assertText("schedule-range-sourdough", "Sinnvoll: 12 Std. 22 Min. bis 19 Std. 20 Min.")
         XCTAssertFalse(app.staticTexts["schedule-conflict-0"].exists)
         XCTAssertFalse(element(app.buttons, "schedule-reset").isEnabled)
     }
 
     func testARestCanBeLengthenedAndTheProposalRestored() {
         openSchedule()
-        element(app.steppers, "schedule-stepper-proof").buttons.element(boundBy: 1).tap()
-        assertLabel("schedule-step-5", contains: "2 Std. 0 Min.")
-        // Shaping half an hour earlier.
-        assertLabel("schedule-step-4", contains: "Sa 08:55")
+        let more = element(app.steppers, "schedule-stepper-proof").buttons.element(boundBy: 1)
+        more.tap()
+        // 2 h are more than the room allows (1 h 48 min) and less than the
+        // cool place (from 2 h 28 min): the proof keeps the 1 h 48 min, shaping
+        // starts at 09:07, and the hint names the temperature that 2 h would
+        // take, 22 − 10 × log₃(2 / 1.5) = 19.4 °C.
+        assertLabel("schedule-step-5", contains: "1 Std. 48 Min.")
+        assertLabel("schedule-step-4", contains: "Sa 09:07")
+        assertText("schedule-needed-proof", "Für 2 Std. 0 Min. wären etwa 19 °C nötig.")
+        // Another half hour: 2 h 30 min are in the range of the cool place, the
+        // proof moves there, and the hint is gone.
+        more.tap()
+        assertLabel("schedule-step-5", contains: "2 Std. 30 Min.")
+        assertLabel("schedule-step-4", contains: "Sa 08:25")
+        assertLabel("schedule-place-proof", contains: "Kühl (16 °C)")
+        XCTAssertFalse(app.staticTexts["schedule-needed-proof"].exists)
         tapButton("schedule-reset")
         assertLabel("schedule-step-5", contains: "1 Std. 30 Min.")
+        // A shorter proof moves to the warm place: 1 h at 27 °C is in its range.
         element(app.steppers, "schedule-stepper-proof").buttons.element(boundBy: 0).tap()
-        assertLabel("schedule-step-5", contains: "1 Std. 3 Min.")
+        assertLabel("schedule-step-5", contains: "1 Std. 0 Min.")
+        assertLabel("schedule-place-proof", contains: "Warm (27 °C)")
+    }
+
+    func testTheCoolPlaceCanBeSetSwitchedOffAndIsRemembered() {
+        openSchedule()
+        replaceText("schedule-cool", with: "20")
+        assertText("schedule-error", "Ein kühler Ort liegt meist zwischen 8 und 18 °C.")
+        replaceText("schedule-cool", with: "14")
+        XCTAssertTrue(app.staticTexts["schedule-error"].waitForNonExistence(timeout: 5))
+        assertLabel("schedule-place-sourdough", contains: "Kühl (14 °C)")
+        // Without a cool place the field is gone and no rest can take it.
+        flip("schedule-cool-toggle", to: false)
+        XCTAssertTrue(app.textFields["schedule-cool"].waitForNonExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["schedule-place-sourdough"].label.contains("Kühl ("))
+        // The kitchen is remembered, cool place included.
+        relaunch()
+        openBake()
+        tapButton("plan-next")
+        tapButton("setup-next")
+        _ = element(app.buttons, "schedule-target")
+        XCTAssertEqual(element(app.switches, "schedule-cool-toggle").value as? String, "0")
+        flip("schedule-cool-toggle", to: true)
+        XCTAssertEqual(element(app.textFields, "schedule-cool").value as? String, "14")
     }
 
     func testTheFridgeLengthensTheProofIntoTheNight() {

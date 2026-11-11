@@ -167,10 +167,20 @@ final class BakePlanModel {
     var fridgeText = "" {
         didSet { if let fridge = StarterFormModel.parseFridge(fridgeText) { temperatures.fridgeCelsius = fridge } }
     }
+    var coolText = "" {
+        didSet { if let cool = StarterFormModel.parseCool(coolText) { temperatures.coolCelsius = cool } }
+    }
+    /// Whether the kitchen has a cool place the plan may use.
+    var usesCoolPlace = true {
+        didSet { temperatures.usesCoolPlace = usesCoolPlace }
+    }
     var window = InteractionWindow()
     /// When the bread is ready to cut; `nil` until step three proposes one.
     var target: Date?
     private(set) var choices: [RestKind: RestChoice] = [:]
+    /// The time the user asked for with plus and minus, where it differs from
+    /// what the places allow: the plan shows the temperature it would need.
+    private(set) var wishes: [RestKind: Double] = [:]
 
     /// The target for the date picker, which only shows once there is one.
     var chosenTarget: Date {
@@ -182,12 +192,15 @@ final class BakePlanModel {
     func useTemperatures(_ remembered: Temperatures) {
         roomText = StarterText.number(remembered.roomCelsius)
         fridgeText = StarterText.number(remembered.fridgeCelsius)
+        coolText = StarterText.number(remembered.coolCelsius)
+        usesCoolPlace = remembered.usesCoolPlace
         temperatures = remembered
     }
 
     var temperatureError: String? {
         if StarterFormModel.parseRoom(roomText) == nil { return StarterFormModel.roomRange }
         if StarterFormModel.parseFridge(fridgeText) == nil { return StarterFormModel.fridgeRange }
+        if usesCoolPlace, StarterFormModel.parseCool(coolText) == nil { return StarterFormModel.coolRange }
         return nil
     }
 
@@ -204,22 +217,47 @@ final class BakePlanModel {
                         temperatures: temperatures, window: window, choices: choices, calendar: calendar)
     }
 
-    /// Fixes `rest` at `hours`, at the place it has now.
+    /// Fixes `rest` at `hours`. The time stays at the place it has if the
+    /// range there holds it; otherwise the rest moves to the place that does
+    /// (`ScheduleRules.place`), so the time comes from another temperature and
+    /// not from a stretched range. If no place gives that long or short a
+    /// rest, the closest one does, and the wish is kept for the hint.
     func setHours(_ hours: Double, of rest: RestKind, calendar: Calendar) {
         guard let step = schedule(calendar: calendar)?.rest(rest),
-              case .rest(_, let place) = step.kind else { return }
+              case .rest(_, let current) = step.kind else { return }
+        let place = ScheduleRules.place(forHours: hours, rest: rest, ryeShare: effectiveMix.ryeShare,
+                                        temperatures: temperatures, current: current)
         choices[rest] = RestChoice(place: place, hours: hours)
+        wishes[rest] = hours
+    }
+
+    /// Changes `rest` by `hours` from what was asked for last, or from the
+    /// time it has.
+    func stepHours(_ hours: Double, of rest: RestKind, calendar: Calendar) {
+        guard let step = schedule(calendar: calendar)?.rest(rest) else { return }
+        setHours(max((wishes[rest] ?? step.hours) + hours, 0.25), of: rest, calendar: calendar)
+    }
+
+    /// What it would take for `rest` to last as long as the user asked:
+    /// `nil` unless the plan could not give that time.
+    func needed(for rest: RestKind, in schedule: Schedule) -> (hours: Double, celsius: Double)? {
+        guard let wish = wishes[rest], let step = schedule.rest(rest), abs(step.hours - wish) > 0.01 else {
+            return nil
+        }
+        return (wish, ScheduleRules.celsius(rest, ryeShare: effectiveMix.ryeShare, hours: wish))
     }
 
     /// Moves `rest` to `place`, at its nominal time there.
     func setPlace(_ place: Place, of rest: RestKind) {
         let hours = ScheduleRules.hours(rest, ryeShare: effectiveMix.ryeShare, celsius: temperatures.celsius(place))
         choices[rest] = RestChoice(place: place, hours: hours)
+        wishes[rest] = nil
     }
 
     /// Back to the proposal: no rest fixed.
     func resetChoices() {
         choices = [:]
+        wishes = [:]
     }
 
     /// The bake to start; `nil` while something is missing or does not fit.

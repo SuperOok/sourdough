@@ -4,7 +4,7 @@ import XCTest
 /// after a restart, cancelling and finishing.
 /// The demo bake (`-seedRun active`) is the proposal for Friday 13 November
 /// 2026, 09:00: Roggenmischbrot 50 in the Römertopf, 448 g flour, ready on
-/// Saturday 18:00, sourdough mixed on Friday 20:50.
+/// Saturday 18:00, sourdough mixed on Friday 16:26.
 @MainActor
 final class BakeRunScreenTests: SourdoughUITestCase {
     private func launchWithRun() {
@@ -28,12 +28,12 @@ final class BakeRunScreenTests: SourdoughUITestCase {
         tapButton("setup-next")
         tapButton("schedule-start")
         assertExact("run-target", "Anschnittfertig, Sa 14.11. 18:00")
-        assertText("run-planned", "Geplant: Fr 20:50")
+        assertText("run-planned", "Geplant: Fr 16:26")
         assertLabel("run-text", contains: "Ist dein Starter aktiv?")
         assertLabel("run-text", contains: "„Roggensauerteig“")
         // The app opens the bake again after a restart.
         relaunch()
-        assertText("run-planned", "Geplant: Fr 20:50")
+        assertText("run-planned", "Geplant: Fr 16:26")
         app.navigationBars.buttons.element(boundBy: 0).tap()
         assertLabel("start-bake", contains: "Läuft: Roggenmischbrot 50")
         tapButton("start-bake")
@@ -44,14 +44,14 @@ final class BakeRunScreenTests: SourdoughUITestCase {
         launchWithRun()
         answer("notYet")
         assertLabel("run-hint", contains: "Erst auffrischen")
-        assertLabel("run-step-0", contains: "geplant Fr 20:50")
+        assertLabel("run-step-0", contains: "geplant Fr 16:26")
         answer("yes")
         // 35 % of the 224 g rye soured: 78 g rye whole grain, 78 g water,
-        // 16 g starter; ripening at room temperature until Saturday 08:04.
+        // 16 g starter; ripening at the cool place until Saturday 08:04.
         assertLabel("run-text", contains: "Sauerteigstufe ansetzen")
         assertLabel("run-text", contains: "78 g Roggenvollkorn")
         assertLabel("run-text", contains: "16 g Anstellgut – nimm dafür „Roggensauerteig“")
-        assertLabel("run-text", contains: "bei Raumtemperatur (22 °C) etwa 11 Std. 4 Min. reifen, bis Sa 08:04")
+        assertLabel("run-text", contains: "an einem kühlen Ort (16 °C) etwa 15 Std. 28 Min. reifen, bis Sa 08:04")
         assertLabel("run-step-0", contains: "erledigt")
         done()
         answer("yes")
@@ -192,7 +192,7 @@ final class BakeLogScreenTests: SourdoughUITestCase {
         assertExact("log-flour-rye1150", "Roggen 1150, 25 % · 112 g")
         assertExact("log-hydration", "Hydration, 81,6 %")
         assertExact("log-sourdough", "Sauerteigstufe, 172 g")
-        assertLabel("log-step-0", contains: "geplant Fr 20:50 · erledigt Fr 09:00 · Ja")
+        assertLabel("log-step-0", contains: "geplant Fr 16:26 · erledigt Fr 09:00 · Ja")
         tapButton("log-delete")
         app.alerts.buttons["Abbrechen"].tap()
         tapButton("log-delete")

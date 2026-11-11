@@ -11,7 +11,13 @@ Die App plant rückwärts: vom Zeitpunkt, an dem du das Brot anschneiden willst,
 
 ## Was sich verschieben lässt
 
-Jede Ruhezeit lässt sich etwa um ein Drittel verkürzen und um die Hälfte verlängern, die Sauerteigstufe noch etwas mehr. Reicht das nicht, wechselt die App den Ort: in den Kühlschrank zum Verlängern, ins Warme zum Verkürzen.
+Bei gleicher Temperatur reift der Teig nach der Uhr, deshalb ist die Spanne klein: Jede Ruhezeit lässt sich nur um etwa ein Sechstel verkürzen oder verlängern, die Sauerteigstufe um ein Fünftel. Im Kühlschrank ist die Spanne größer, weil der Teig dort so langsam ist.
+
+Soll eine Ruhe deutlich länger oder kürzer dauern, ändert sich die Temperatur und nicht nur die Uhrzeit. Mit „+“ und „−“ wechselt die App dazu den Ort: ins Warme zum Verkürzen, an einen kühlen Ort oder in den Kühlschrank zum Verlängern. Gibt es keinen Ort, der die gewünschte Zeit trifft, steht darunter, welche Temperatur dafür nötig wäre.
+
+## Der kühle Ort
+
+Zwischen Raumtemperatur und Kühlschrank liegt ein Bereich von etwa 10 bis 18 °C: der Keller, der Flur, die Fensterbank im Winter. Dort lässt sich die Sauerteigstufe über Nacht führen, ohne dass sie überreift. Wie kühl dieser Ort bei dir ist, trägst du im Zeitplan ein, oder du schaltest ihn ab, wenn es ihn nicht gibt.
 
 ## Wann du am Teig bist
 

@@ -20,9 +20,32 @@ private func close(_ a: Date, _ b: Date) -> Bool { abs(a.timeIntervalSince(b)) <
 struct TemperaturesTests {
     @Test func placesHaveTheirTemperatures() {
         let temperatures = Temperatures(roomCelsius: 20, fridgeCelsius: 6)
-        #expect(Place.allCases.map(temperatures.celsius) == [27, 20, 6])
+        #expect(Place.allCases == [.warm, .room, .cool, .fridge])
+        #expect(Place.allCases.map(temperatures.celsius) == [27, 20, 16, 6])
         #expect(Temperatures().roomCelsius == 22)
         #expect(Temperatures().fridgeCelsius == 5)
+        #expect(Temperatures().coolCelsius == 16)
+        #expect(Temperatures().usesCoolPlace)
+    }
+
+    @Test func aCoolPlaceNeedsToBeCoolerThanTheRoomAndWanted() {
+        #expect(Temperatures().hasCoolPlace)
+        #expect(!Temperatures(usesCoolPlace: false).hasCoolPlace)
+        #expect(!Temperatures(roomCelsius: 15).hasCoolPlace)
+        #expect(!Temperatures(roomCelsius: 16).hasCoolPlace)
+        #expect(Temperatures(roomCelsius: 17).hasCoolPlace)
+    }
+
+    @Test func temperaturesSavedBeforeTheCoolPlaceGetItsDefaults() throws {
+        let old = Data(#"{"roomCelsius":21,"fridgeCelsius":4}"#.utf8)
+        let decoded = try JSONDecoder().decode(Temperatures.self, from: old)
+        #expect(decoded == Temperatures(roomCelsius: 21, fridgeCelsius: 4, coolCelsius: 16, usesCoolPlace: true))
+    }
+
+    @Test func theCoolPlaceSurvivesEncoding() throws {
+        let temperatures = Temperatures(roomCelsius: 20, fridgeCelsius: 4, coolCelsius: 13, usesCoolPlace: false)
+        let decoded = try JSONDecoder().decode(Temperatures.self, from: JSONEncoder().encode(temperatures))
+        #expect(decoded == temperatures)
     }
 
     @Test func warmWaterBringsTheDoughToItsTarget() {
@@ -36,8 +59,77 @@ struct TemperaturesTests {
 struct ScheduleRulesTests {
     @Test func restsAndTheirPlaces() {
         #expect(RestKind.allCases == [.sourdough, .bulk, .proof])
-        #expect(RestKind.allCases.map(\.places) == [[.room, .warm], [.room, .warm], [.room, .fridge, .warm]])
-        #expect(RestKind.allCases.map(\.factorRange) == [0.6...1.6, 0.7...1.5, 0.7...1.5])
+        let kitchen = Temperatures()
+        #expect(RestKind.allCases.map { $0.places(for: kitchen) }
+                == [[.room, .cool, .warm], [.room, .cool, .warm], [.room, .cool, .fridge, .warm]])
+        // Without a cool place the rests have the old places.
+        let noCool = Temperatures(usesCoolPlace: false)
+        #expect(RestKind.allCases.map { $0.places(for: noCool) }
+                == [[.room, .warm], [.room, .warm], [.room, .fridge, .warm]])
+    }
+
+    @Test func atTheSameTemperatureTheRangeIsNarrowExceptInTheFridge() {
+        #expect(RestKind.sourdough.factorRange(at: .room) == 0.8...1.25)
+        #expect(RestKind.bulk.factorRange(at: .cool) == 0.85...1.2)
+        #expect(RestKind.proof.factorRange(at: .warm) == 0.85...1.2)
+        #expect(RestKind.proof.factorRange(at: .fridge) == 0.7...1.5)
+    }
+
+    @Test func theRangeIsTheNominalTimeTimesTheFactors() {
+        let kitchen = Temperatures()
+        // Sourdough at 22 °C: 8 h, 0.8 × = 6.4 h to 1.25 × = 10 h.
+        let sourdough = ScheduleRules.range(.sourdough, ryeShare: 0, place: .room, temperatures: kitchen)
+        #expect(abs(sourdough.lowerBound - 6.4) < 1e-9 && abs(sourdough.upperBound - 10) < 1e-9)
+        // Proof at 22 °C: 1.5 h, 1.275 h to 1.8 h.
+        let proof = ScheduleRules.range(.proof, ryeShare: 0, place: .room, temperatures: kitchen)
+        #expect(abs(proof.lowerBound - 1.275) < 1e-9 && abs(proof.upperBound - 1.8) < 1e-9)
+        // Proof in the fridge at 5 °C: 1.5 × 3^1.7 h, 0.7 × to 1.5 ×.
+        let nominal = 1.5 * pow(3.0, 1.7)
+        let fridge = ScheduleRules.range(.proof, ryeShare: 0, place: .fridge, temperatures: kitchen)
+        #expect(abs(fridge.lowerBound - 0.7 * nominal) < 1e-9 && abs(fridge.upperBound - 1.5 * nominal) < 1e-9)
+    }
+
+    @Test func theTemperatureForAGivenTimeIsTheRuleTurnedAround() {
+        // Proof, 1.5 h at 22 °C: three times as long is 10 °C colder, nine
+        // times 20 °C, a third of the time 10 °C warmer.
+        #expect(abs(ScheduleRules.celsius(.proof, ryeShare: 0, hours: 1.5) - 22) < 1e-9)
+        #expect(abs(ScheduleRules.celsius(.proof, ryeShare: 0, hours: 4.5) - 12) < 1e-9)
+        #expect(abs(ScheduleRules.celsius(.proof, ryeShare: 0, hours: 13.5) - 2) < 1e-9)
+        #expect(abs(ScheduleRules.celsius(.proof, ryeShare: 0, hours: 0.5) - 32) < 1e-9)
+        // Sourdough at 22 °C takes 8 h, so 24 h are 12 °C.
+        #expect(abs(ScheduleRules.celsius(.sourdough, ryeShare: 0, hours: 24) - 12) < 1e-9)
+    }
+
+    @Test func theRightPlaceForAGivenTime() {
+        // Proof, ranges: room 1.275–1.8 h, cool (3^0.6 × 1.5 = 2.90 h) 2.46–3.48 h,
+        // fridge 6.80–14.56 h, warm (1.5 / √3 = 0.87 h) 0.74–1.04 h.
+        let kitchen = Temperatures()
+        func place(_ hours: Double, current: Place = .room, _ temperatures: Temperatures = kitchen) -> Place {
+            ScheduleRules.place(forHours: hours, rest: .proof, ryeShare: 0, temperatures: temperatures,
+                                current: current)
+        }
+        // The current place stays while it holds the time.
+        #expect(place(1.5) == .room)
+        #expect(place(0.9, current: .warm) == .warm)
+        // Otherwise the first place that does.
+        #expect(place(1.5, current: .warm) == .room)
+        #expect(place(3) == .cool)
+        #expect(place(10) == .fridge)
+        #expect(place(0.9) == .warm)
+        // In a gap the closest nominal time wins, by ratio: 2.0 h is closer to
+        // 1.5 h (ln 1.33 = 0.29) than to 2.90 h (ln 1.45 = 0.37); 2.3 h is
+        // closer to 2.90 h (0.23) than to 1.5 h (0.43).
+        #expect(place(2.0) == .room)
+        #expect(place(2.3) == .cool)
+        // Beyond every range the extreme place gives the most.
+        #expect(place(40) == .fridge)
+        #expect(place(0.3) == .warm)
+        // Without a cool place: 3 h are closest to the room (ln 2 = 0.69),
+        // the fridge is at 1.17 and the warm place at 1.24.
+        let noCool = Temperatures(usesCoolPlace: false)
+        #expect(place(3, noCool) == .room)
+        // A current place that is not offered is not kept.
+        #expect(place(1.5, current: .cool, noCool) == .room)
     }
 
     @Test func referenceHoursAt22Degrees() {
@@ -110,18 +202,19 @@ struct ScheduleTests {
     }
 
     @Test func restsKnowTheirRange() {
-        // Proof at 22 °C: 1.5 h, 0.7 × = 1.05 h to 1.5 × = 2.25 h.
+        // Proof at 22 °C: 1.5 h, 0.85 × = 1.275 h to 1.2 × = 1.8 h.
         let schedule = Schedule(target: nov(15, 12), ryeShare: 50, vessel: .pot, temperatures: kitchen, calendar: utc)
         let proof = schedule.rest(.proof)!
-        #expect(abs(proof.hourRange!.lowerBound - 1.05) < 1e-9)
-        #expect(abs(proof.hourRange!.upperBound - 2.25) < 1e-9)
+        #expect(abs(proof.hourRange!.lowerBound - 1.275) < 1e-9)
+        #expect(abs(proof.hourRange!.upperBound - 1.8) < 1e-9)
         #expect(schedule.steps.first?.hourRange == nil)
     }
 
     @Test func aMorningBakeSendsTheProofIntoTheFridge() {
         // 30 % rye: cooling 2 h, so the bake ends Sunday 10:00, starts 09:10.
-        // A room proof (1.05–2.25 h) would need shaping before 08:15. In the
-        // fridge at 5 °C the proof takes 1.5 × 3^1.7 = 9.71 h, 6.80 to 14.56 h:
+        // A room proof (1.275–1.8 h) would need shaping before 08:15, a cool
+        // one (2.46–3.48 h) even earlier. In the fridge at 5 °C the proof takes
+        // 1.5 × 3^1.7 = 9.71 h, 6.80 to 14.56 h:
         // shaping between Saturday 18:36 and Sunday 02:22, closest to 23:27
         // within the window is Saturday 21:00. Proof 21:00 – 09:10 = 12 h 10 min.
         // Bulk 3 − 0.75 = 2.25 h from 18:30, kneading 18:10, sourdough 8 h
@@ -139,21 +232,48 @@ struct ScheduleTests {
     }
 
     @Test func aChosenRestIsKeptAndMayLeaveTheWindow() {
-        // As in the first case, but the sourdough ripens 12 h: from 04:20,
-        // mixed at 04:10 — outside the window.
+        // As in the first case, but the sourdough ripens 10 h, the most it may
+        // at 22 °C: from 06:20, mixed at 06:10 — outside the window.
         let schedule = Schedule(target: nov(15, 12), ryeShare: 50, vessel: .pot, temperatures: kitchen,
-                                choices: [.sourdough: RestChoice(place: .room, hours: 12)], calendar: utc)
-        #expect(close(schedule.start, nov(14, 4, 10)))
+                                choices: [.sourdough: RestChoice(place: .room, hours: 10)], calendar: utc)
+        #expect(close(schedule.start, nov(14, 6, 10)))
         #expect(schedule.conflicts == [.mixSourdough])
     }
 
     @Test func aChosenRestIsClampedToItsRange() {
-        // Sourdough at 22 °C: at most 1.6 × 8 = 12.8 h, so 20 h become 12.8 h:
-        // 16:20 − 12 h 48 min = 03:32, mixed 03:22.
+        // Sourdough at 22 °C: at most 1.25 × 8 = 10 h, so 20 h become 10 h:
+        // 16:20 − 10 h = 06:20, mixed 06:10. At least 0.8 × 8 = 6.4 h, so 2 h
+        // become 6 h 24 min: from 09:56.
+        let long = Schedule(target: nov(15, 12), ryeShare: 50, vessel: .pot, temperatures: kitchen,
+                            choices: [.sourdough: RestChoice(place: .room, hours: 20)], calendar: utc)
+        #expect(close(long.rest(.sourdough)!.start, nov(14, 6, 20)))
+        #expect(close(long.start, nov(14, 6, 10)))
+        let short = Schedule(target: nov(15, 12), ryeShare: 50, vessel: .pot, temperatures: kitchen,
+                             choices: [.sourdough: RestChoice(place: .room, hours: 2)], calendar: utc)
+        #expect(close(short.rest(.sourdough)!.start, nov(14, 9, 56)))
+    }
+
+    @Test func aCoolPlaceTakesItsOwnTemperature() {
+        // Sourdough at 16 °C: 8 × 3^0.6 = 15.47 h, range 12.37 to 19.33 h; 15 h
+        // are in it, so 16:20 − 15 h = 01:20, mixed 01:10 (outside the window).
         let schedule = Schedule(target: nov(15, 12), ryeShare: 50, vessel: .pot, temperatures: kitchen,
-                                choices: [.sourdough: RestChoice(place: .room, hours: 20)], calendar: utc)
-        #expect(close(schedule.rest(.sourdough)!.start, nov(14, 3, 32)))
-        #expect(close(schedule.start, nov(14, 3, 22)))
+                                choices: [.sourdough: RestChoice(place: .cool, hours: 15)], calendar: utc)
+        let sourdough = schedule.rest(.sourdough)!
+        #expect(sourdough.kind == .rest(.sourdough, .cool))
+        #expect(close(sourdough.start, nov(14, 1, 20)))
+        #expect(close(schedule.start, nov(14, 1, 10)))
+        #expect(schedule.conflicts == [.mixSourdough])
+    }
+
+    @Test func aChosenCoolPlaceIsIgnoredWhenTheKitchenHasNone() {
+        // Without a cool place the choice is void and the sourdough is
+        // planned as in the first case: room, 08:20 to 16:20.
+        let schedule = Schedule(target: nov(15, 12), ryeShare: 50, vessel: .pot,
+                                temperatures: Temperatures(usesCoolPlace: false),
+                                choices: [.sourdough: RestChoice(place: .cool, hours: 15)], calendar: utc)
+        #expect(schedule.rest(.sourdough)!.kind == .rest(.sourdough, .room))
+        #expect(close(schedule.rest(.sourdough)!.start, nov(14, 8, 20)))
+        #expect(schedule.conflicts.isEmpty)
     }
 
     @Test func aWarmPlaceShortensTheRest() {
@@ -180,19 +300,31 @@ struct ScheduleTests {
 
     @Test func theProposedTargetIsTheFirstThatStartsLaterWithoutConflicts() {
         // Now: Friday 09:00, Roggenmischbrot 50 in the pot.
-        // - Friday 12:00 and Saturday 12:00 need the sourdough mixed at 08:10
-        //   of the day before: too early.
+        // - Friday 12:00: the bake ends Thursday 21:00, long before now.
         // - Friday 18:00: the bake ends 12:00, the proof (room, 1.5 h) starts
-        //   09:40, the bulk at room would need kneading before 08:00, warm
-        //   (27 °C, 1.75 × 3^−0.5 = 1.01 h) works: kneading ends 08:24. The
-        //   sourdough then needs mixing on Thursday evening: too early.
-        // - Saturday 18:00 is the same a day later: mixed Friday 20:50.
+        //   09:40, the bulk rest at room (1.49–2.1 h) would need kneading before
+        //   08:00, warm (27 °C, 1.75 × 3^−0.5 = 1.01 h) works: kneading ends
+        //   08:24. The sourdough then ripens at the cool place (room: 6.4 to
+        //   10 h, no start in the window) for 8 × 3^0.6 = 15.47 h: mixed on
+        //   Thursday afternoon, before now.
+        // - Saturday 12:00: the bake ends Friday 21:00, proof 17:55, bulk 15:55
+        //   at room, then the sourdough at room needs mixing at 08:00 on
+        //   Friday: before now.
+        // - Saturday 18:00 is Friday 18:00 a day later: the sourdough mixed
+        //   Friday afternoon, 8:04 + 20 min kneading.
         let target = Schedule.proposedTarget(after: nov(13, 9), ryeShare: 50, vessel: .pot,
                                              temperatures: kitchen, calendar: utc)
         #expect(target == nov(14, 18))
         let schedule = Schedule(target: target, ryeShare: 50, vessel: .pot, temperatures: kitchen, calendar: utc)
-        #expect(close(schedule.start, nov(13, 20, 50)))
         #expect(schedule.rest(.bulk)!.kind == .rest(.bulk, .warm))
+        #expect(schedule.rest(.sourdough)!.kind == .rest(.sourdough, .cool))
+        // Warm bulk ends at shaping, 09:25; it takes 1.75 / √3 h; kneading
+        // 20 min; the sourdough 8 × 3^0.6 h and the mixing 10 min before it.
+        let knead = nov(14, 9, 25) - (1.75 / 3.0.squareRoot() + 1.0 / 3) * 3600
+        let mixing = knead - 8 * pow(3.0, 0.6) * 3600 - 600
+        #expect(close(schedule.start, mixing))
+        #expect(schedule.conflicts.isEmpty)
+        #expect(schedule.start > nov(13, 9))
     }
 
     @Test func withoutAFittingTargetItIsNoonAWeekLater() {
@@ -209,8 +341,9 @@ struct ScheduleDaysTests {
     /// the interface tests use). Cooling 6 h (rye ≥ 50 %): baking 11:10 to 12:00
     /// (pot, 50 min), preheating 10:25 to 11:10, proof 1.5 h at room temperature
     /// 09:40 to 11:10, shaping 09:25 to 09:40, warm bulk rest 1.75 h × 3^−0.5 =
-    /// 1.01036 h, kneading 20 min, then the sourdough rest overnight from Friday
-    /// 21:00 with the mixing before it, 20:50 to 21:00.
+    /// 1.01036 h, kneading 20 min, then the sourdough rest at the cool place
+    /// (16 °C): 8 × 3^0.6 = 15.465 h overnight from Friday 16:36, with the
+    /// mixing before it, 16:26 to 16:36.
     private func schedule(choices: [RestKind: RestChoice] = [:]) -> Schedule {
         Schedule(target: nov(14, 18), ryeShare: 50, vessel: .pot, temperatures: Temperatures(),
                  choices: choices, calendar: utc)
@@ -223,18 +356,22 @@ struct ScheduleDaysTests {
         #expect(ScheduleDays.firstHour == 7 && ScheduleDays.lastHour == 22)
     }
 
-    @Test func theEveningOfFridayHoldsTheMixAndTheStartOfTheOvernightRest() {
+    @Test func theAfternoonOfFridayHoldsTheMixAndTheStartOfTheOvernightRest() {
         let friday = ScheduleDays(schedule(), calendar: utc).days[0]
         #expect(friday.segments.count == 2)
-        // Mixing 20:50 to 21:00 is 13 h 50 min and 14 h of 15 h into the row.
+        // The rest starts where kneading on Saturday (8.07297 h) lies 15.465 h
+        // earlier: 24 + 8.07297 − 8 × 3^0.6 h on Friday, the mixing 10 min
+        // before it. In the row, 7 h are cut off and 15 h remain.
+        let kneadStart = 9.0 + 25.0 / 60 - 1.75 / 3.0.squareRoot() - 20.0 / 60
+        let restStart = 24 + kneadStart - 8 * pow(3.0, 0.6)
         let mix = friday.segments[0]
         #expect(mix.kind == .action(.mixSourdough))
-        #expect(close(mix.from, 13.0 / 15 + 50.0 / 60 / 15) && close(mix.to, 14.0 / 15))
+        #expect(close(mix.from, (restStart - 10.0 / 60 - 7) / 15) && close(mix.to, (restStart - 7) / 15))
         #expect(!mix.continuesBefore && !mix.continuesAfter && !mix.inTheNight)
-        // The rest from 21:00 runs out of the row at 22:00 into the night.
+        // The rest runs out of the row at 22:00 into the night.
         let rest = friday.segments[1]
-        #expect(rest.kind == .rest(.sourdough, .room))
-        #expect(close(rest.from, 14.0 / 15) && close(rest.to, 1))
+        #expect(rest.kind == .rest(.sourdough, .cool))
+        #expect(close(rest.from, (restStart - 7) / 15) && close(rest.to, 1))
         #expect(!rest.continuesBefore && rest.continuesAfter)
         #expect(friday.target == nil)
     }
@@ -242,7 +379,7 @@ struct ScheduleDaysTests {
     @Test func theNightRestComesBackInTheMorningOfSaturday() {
         let saturday = ScheduleDays(schedule(), calendar: utc).days[1]
         let rest = saturday.segments[0]
-        #expect(rest.kind == .rest(.sourdough, .room))
+        #expect(rest.kind == .rest(.sourdough, .cool))
         // It ends where kneading starts: 9:25 − 1.75/√3 h − 20 min = 8.07297 h,
         // 1.07297 h after 07:00.
         let kneadStart = 9.0 + 25.0 / 60 - 1.75 / 3.0.squareRoot() - 20.0 / 60

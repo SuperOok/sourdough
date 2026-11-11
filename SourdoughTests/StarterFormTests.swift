@@ -100,6 +100,15 @@ struct StarterFormModelTests {
         #expect(model.errorText == StarterFormModel.fridgeRange)
     }
 
+    @Test func aCoolPlaceNeedsToBeFromEightToEighteen() {
+        #expect(StarterFormModel.parseCool("8") == 8)
+        #expect(StarterFormModel.parseCool("18") == 18)
+        #expect(StarterFormModel.parseCool("12,5") == 12.5)
+        #expect(StarterFormModel.parseCool("7.9") == nil)
+        #expect(StarterFormModel.parseCool("18.1") == nil)
+        #expect(StarterFormModel.parseCool("kühl") == nil)
+    }
+
     @Test func roomTemperatureNeedsToBeFromTenToThirtyFive() {
         #expect(StarterFormModel.parseRoom("10") == 10)
         #expect(StarterFormModel.parseRoom("35") == 35)

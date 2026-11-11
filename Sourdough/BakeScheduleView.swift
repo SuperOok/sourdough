@@ -15,7 +15,7 @@ struct BakeScheduleView: View {
 
     var body: some View {
         let schedule = model.schedule(calendar: calendar)
-        NumberForm(fields: ["schedule-room", "schedule-fridge"]) { focus in
+        NumberForm(fields: ["schedule-room", "schedule-fridge"] + (model.usesCoolPlace ? ["schedule-cool"] : [])) { focus in
             Section {
                 Button { pickingTarget = true } label: {
                     LabeledContent("Anschnittfertig") {
@@ -28,6 +28,13 @@ struct BakeScheduleView: View {
                     get: { model.roomText }, set: { model.roomText = $0 }), id: "schedule-room", focus: focus)
                 NumberField(title: "Kühlschrank (°C)", text: Binding(
                     get: { model.fridgeText }, set: { model.fridgeText = $0 }), id: "schedule-fridge", focus: focus)
+                Toggle("Kühler Ort (Keller, Flur)", isOn: Binding(
+                    get: { model.usesCoolPlace }, set: { model.usesCoolPlace = $0 }))
+                    .accessibilityIdentifier("schedule-cool-toggle")
+                if model.usesCoolPlace {
+                    NumberField(title: "Kühler Ort (°C)", text: Binding(
+                        get: { model.coolText }, set: { model.coolText = $0 }), id: "schedule-cool", focus: focus)
+                }
             } footer: {
                 // Below the fields, so that it does not move them while typing.
                 VStack(alignment: .leading, spacing: 4) {
@@ -36,6 +43,8 @@ struct BakeScheduleView: View {
                             .foregroundStyle(.red)
                             .accessibilityIdentifier("schedule-error")
                     }
+                    Text("Ein kühler Ort erlaubt längere Ruhezeiten, ohne dass der Teig überreift. "
+                         + "Ohne ihn plant die App nur mit Raum, Wärme und Kühlschrank.")
                     Text("Handgriffe liegen zwischen \(model.window.startHour) und \(model.window.endHour) Uhr.")
                 }
             }
@@ -46,7 +55,7 @@ struct BakeScheduleView: View {
                 }
                 Section {
                     ForEach(Array(schedule.steps.enumerated()), id: \.offset) { index, step in
-                        stepRow(step, index: index, vessel: schedule.vessel)
+                        stepRow(step, index: index, schedule: schedule)
                     }
                     Button("Vorschlag wiederherstellen") { model.resetChoices() }
                         .disabled(model.choices.isEmpty)
@@ -87,7 +96,7 @@ struct BakeScheduleView: View {
     }
 
     @ViewBuilder
-    private func stepRow(_ step: ScheduleStep, index: Int, vessel: BakeSetup.Vessel) -> some View {
+    private func stepRow(_ step: ScheduleStep, index: Int, schedule: Schedule) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .firstTextBaseline) {
                 HStack(alignment: .firstTextBaseline) {
@@ -95,7 +104,7 @@ struct BakeScheduleView: View {
                         .monospacedDigit()
                         .foregroundStyle(step.outsideWindow ? Color.orange : Color.primary)
                         .frame(width: 76, alignment: .leading)
-                    Text(ScheduleText.title(step.kind, vessel: vessel))
+                    Text(ScheduleText.title(step.kind, vessel: schedule.vessel))
                         .fontWeight(step.isAction ? .semibold : .regular)
                     Spacer()
                     if !step.isAction {
@@ -114,30 +123,37 @@ struct BakeScheduleView: View {
                 }
             }
             if case .rest(let rest, let place) = step.kind, let range = step.hourRange {
-                restControls(rest, place: place, step: step, range: range)
+                restControls(rest, place: place, step: step, range: range, schedule: schedule)
             }
         }
     }
 
     @ViewBuilder
-    private func restControls(_ rest: RestKind, place: Place, step: ScheduleStep, range: ClosedRange<Double>) -> some View {
+    private func restControls(_ rest: RestKind, place: Place, step: ScheduleStep, range: ClosedRange<Double>,
+                              schedule: Schedule) -> some View {
         RangeBar(range: range, value: step.hours, color: ScheduleStrip.color(step.kind))
             .frame(height: 6)
         Text("Sinnvoll: \(ScheduleText.range(range))")
             .font(.footnote)
             .foregroundStyle(.secondary)
             .accessibilityIdentifier("schedule-range-\(rest.rawValue)")
+        if let needed = model.needed(for: rest, in: schedule) {
+            Text(ScheduleText.needed(hours: needed.hours, celsius: needed.celsius))
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .accessibilityIdentifier("schedule-needed-\(rest.rawValue)")
+        }
         HStack {
             Picker("Ort", selection: Binding(get: { place }, set: { model.setPlace($0, of: rest) })) {
-                ForEach(rest.places, id: \.self) { Text($0.germanName(model.temperatures)).tag($0) }
+                ForEach(rest.places(for: model.temperatures), id: \.self) { Text($0.germanName(model.temperatures)).tag($0) }
             }
             .pickerStyle(.menu)
             .labelsHidden()
             .accessibilityIdentifier("schedule-place-\(rest.rawValue)")
             Spacer()
             Stepper("Dauer",
-                    onIncrement: { model.setHours(step.hours + 0.5, of: rest, calendar: calendar) },
-                    onDecrement: { model.setHours(step.hours - 0.5, of: rest, calendar: calendar) })
+                    onIncrement: { model.stepHours(0.5, of: rest, calendar: calendar) },
+                    onDecrement: { model.stepHours(-0.5, of: rest, calendar: calendar) })
                 .labelsHidden()
                 .accessibilityIdentifier("schedule-stepper-\(rest.rawValue)")
         }
@@ -185,6 +201,7 @@ struct ScheduleStrip: View {
         case .action: .red
         case .rest(_, .warm): .orange
         case .rest(_, .room): .teal
+        case .rest(_, .cool): .cyan
         case .rest(_, .fridge): .blue
         case .cooling: .gray
         }
@@ -299,10 +316,12 @@ struct ScheduleStrip: View {
         ], startPoint: .leading, endPoint: .trailing)
     }
 
+    /// Six entries do not fit in one line on a small phone: two rows of three.
     private var legend: some View {
-        HStack(spacing: 8) {
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), alignment: .leading), count: 3), spacing: 4) {
             legendItem(.red, "Handgriff")
             legendItem(.teal, "Raum")
+            legendItem(.cyan, "Kühl")
             legendItem(.orange, "Warm")
             legendItem(.blue, "Kühlschrank")
             legendItem(.gray, "Auskühlen")
@@ -310,7 +329,6 @@ struct ScheduleStrip: View {
         .font(.caption2)
         .foregroundStyle(.secondary)
         .lineLimit(1)
-        .minimumScaleFactor(0.8)
         .padding(.top, 2)
     }
 

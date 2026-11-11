@@ -21,6 +21,7 @@ final class StarterFormModel {
     static let needsFood = "Mehl und Wasser dürfen nicht beide 0 sein."
     static let fridgeRange = "Die Kühlschranktemperatur liegt meist zwischen 0 und 15 °C."
     static let roomRange = "Die Raumtemperatur liegt meist zwischen 10 und 35 °C."
+    static let coolRange = "Ein kühler Ort liegt meist zwischen 8 und 18 °C."
 
     var name = ""
     var flour: FlourType = .rye
@@ -52,6 +53,12 @@ final class StarterFormModel {
     /// A room temperature from a field; `nil` unless it is a number from 10 to 35.
     static func parseRoom(_ text: String) -> Double? {
         NumberInput.parse(text).flatMap { (10...35).contains($0) ? $0 : nil }
+    }
+
+    /// The temperature of a cool place from a field; `nil` unless it is a
+    /// number from 8 to 18.
+    static func parseCool(_ text: String) -> Double? {
+        NumberInput.parse(text).flatMap { (8...18).contains($0) ? $0 : nil }
     }
 
     /// What is wrong with the first feeding (flour and water).

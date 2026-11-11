@@ -69,6 +69,7 @@ enum BakeRunText {
         return switch place {
         case .warm: "an einem warmen Ort (\(celsius))"
         case .room: "bei Raumtemperatur (\(celsius))"
+        case .cool: "an einem kühlen Ort (\(celsius))"
         case .fridge: "im Kühlschrank (\(celsius))"
         }
     }
