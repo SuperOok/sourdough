@@ -425,6 +425,17 @@ Schritt 2 `setup-vessel`, `setup-pan`, `setup-pot`, `setup-basket`,
 `Flour` (`rye1150`, `speltWholeGrain` …), `<ruhe>` der von `RestKind`
 (`sourdough`, `bulk`, `proof`).
 
+**Zeitleiste** (`ScheduleStrip`, Modell `ScheduleDays` im Package): eine Zeile je
+Kalendertag, jede von 7 bis 22 Uhr; die Nacht dazwischen fehlt. Oben die
+Handgriffe, darunter Ruhen (Farbe nach Ort) und Auskühlen; eine senkrechte Linie
+markiert „Anschnittfertig“. Ein Schritt, der in die Nacht läuft, blendet am
+Rand aus und erscheint in der Zeile des nächsten Tages wieder; ein Schritt
+ganz in der Nacht (Handgriff um 23:07) ist eine schwarze Marke am Rand seines
+Tages. Die Länge eines Balkens ist über die Nacht hinweg nicht die Dauer: die
+Dauern stehen im Ablauf darunter. Schritte außerhalb des Zeitfensters sind dort
+mit orangener Uhrzeit markiert, die Erklärung steht unter der Liste, nicht
+darüber (sonst springt die Sicht).
+
 Ein Werte-Paar aus Titel und Wert (`LabeledContent`) fasst VoiceOver zu
 einem Element zusammen; UI-Tests prüfen dort das ganze Label („Hydration,
 81,6 %“). Menü-Picker wählen Tests mit `choose(_:_:)`, das den tippbaren

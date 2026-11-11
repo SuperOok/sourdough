@@ -158,6 +158,17 @@ enum ScheduleText {
         return String(format: "%@ %02d:%02d", weekdays[parts.weekday! - 1], parts.hour!, parts.minute!)
     }
 
+    /// "Sa"
+    static func weekday(_ date: Date, calendar: Calendar) -> String {
+        weekdays[calendar.component(.weekday, from: date) - 1]
+    }
+
+    /// "14.11."
+    static func dayMonth(_ date: Date, calendar: Calendar) -> String {
+        let parts = calendar.dateComponents([.day, .month], from: date)
+        return String(format: "%02d.%02d.", parts.day!, parts.month!)
+    }
+
     /// "Sa 14.11. 18:00"
     static func day(_ date: Date, calendar: Calendar) -> String {
         let parts = calendar.dateComponents([.weekday, .day, .month, .hour, .minute], from: date)

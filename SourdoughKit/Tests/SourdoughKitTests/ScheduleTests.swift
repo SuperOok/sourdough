@@ -201,3 +201,107 @@ struct ScheduleTests {
         #expect(target == nov(20, 12))
     }
 }
+
+struct ScheduleDaysTests {
+    private func close(_ a: Double, _ b: Double) -> Bool { abs(a - b) < 1e-9 }
+
+    /// Roggenmischbrot 50 in the pot for Saturday 14th, 18:00, at 22 °C (the plan
+    /// the interface tests use). Cooling 6 h (rye ≥ 50 %): baking 11:10 to 12:00
+    /// (pot, 50 min), preheating 10:25 to 11:10, proof 1.5 h at room temperature
+    /// 09:40 to 11:10, shaping 09:25 to 09:40, warm bulk rest 1.75 h × 3^−0.5 =
+    /// 1.01036 h, kneading 20 min, then the sourdough rest overnight from Friday
+    /// 21:00 with the mixing before it, 20:50 to 21:00.
+    private func schedule(choices: [RestKind: RestChoice] = [:]) -> Schedule {
+        Schedule(target: nov(14, 18), ryeShare: 50, vessel: .pot, temperatures: Temperatures(),
+                 choices: choices, calendar: utc)
+    }
+
+    @Test func oneRowPerCalendarDay() {
+        let strip = ScheduleDays(schedule(), calendar: utc)
+        #expect(strip.days.map(\.start) == [nov(13, 0), nov(14, 0)])
+        #expect(strip.days.map(\.id) == [nov(13, 0), nov(14, 0)])
+        #expect(ScheduleDays.firstHour == 7 && ScheduleDays.lastHour == 22)
+    }
+
+    @Test func theEveningOfFridayHoldsTheMixAndTheStartOfTheOvernightRest() {
+        let friday = ScheduleDays(schedule(), calendar: utc).days[0]
+        #expect(friday.segments.count == 2)
+        // Mixing 20:50 to 21:00 is 13 h 50 min and 14 h of 15 h into the row.
+        let mix = friday.segments[0]
+        #expect(mix.kind == .action(.mixSourdough))
+        #expect(close(mix.from, 13.0 / 15 + 50.0 / 60 / 15) && close(mix.to, 14.0 / 15))
+        #expect(!mix.continuesBefore && !mix.continuesAfter && !mix.inTheNight)
+        // The rest from 21:00 runs out of the row at 22:00 into the night.
+        let rest = friday.segments[1]
+        #expect(rest.kind == .rest(.sourdough, .room))
+        #expect(close(rest.from, 14.0 / 15) && close(rest.to, 1))
+        #expect(!rest.continuesBefore && rest.continuesAfter)
+        #expect(friday.target == nil)
+    }
+
+    @Test func theNightRestComesBackInTheMorningOfSaturday() {
+        let saturday = ScheduleDays(schedule(), calendar: utc).days[1]
+        let rest = saturday.segments[0]
+        #expect(rest.kind == .rest(.sourdough, .room))
+        // It ends where kneading starts: 9:25 − 1.75/√3 h − 20 min = 8.07297 h,
+        // 1.07297 h after 07:00.
+        let kneadStart = 9.0 + 25.0 / 60 - 1.75 / 3.0.squareRoot() - 20.0 / 60
+        #expect(close(rest.from, 0) && close(rest.to, (kneadStart - 7) / 15))
+        #expect(rest.continuesBefore && !rest.continuesAfter)
+    }
+
+    @Test func daytimeStepsStandWhereTheirTimesPutThem() {
+        let saturday = ScheduleDays(schedule(), calendar: utc).days[1]
+        func segment(_ kind: ScheduleStep.Kind) -> ScheduleDays.Segment {
+            saturday.segments.first { $0.kind == kind }!
+        }
+        // Baking 11:10 to 12:00: 4 h 10 min to 5 h of 15 h.
+        let bake = segment(.action(.bake))
+        #expect(close(bake.from, (4.0 + 10.0 / 60) / 15) && close(bake.to, 5.0 / 15))
+        // Preheating 10:25 to 11:10.
+        let preheat = segment(.action(.preheat))
+        #expect(close(preheat.from, (3.0 + 25.0 / 60) / 15) && close(preheat.to, (4.0 + 10.0 / 60) / 15))
+        // Proof 09:40 to 11:10.
+        let proof = segment(.rest(.proof, .room))
+        #expect(close(proof.from, (2.0 + 40.0 / 60) / 15) && close(proof.to, (4.0 + 10.0 / 60) / 15))
+        // Cooling 12:00 to 18:00, which is also where the bread can be cut.
+        let cooling = segment(.cooling)
+        #expect(close(cooling.from, 5.0 / 15) && close(cooling.to, 11.0 / 15))
+        #expect(saturday.target.map { close($0, 11.0 / 15) } == true)
+        // Preheating and the proof overlap in time, so they stay separate segments.
+        #expect(saturday.segments.map(\.stepIndex) == saturday.segments.map(\.stepIndex).sorted())
+    }
+
+    @Test func aStepCompletelyInTheNightIsAMarkAtTheEdgeOfItsDay() {
+        // The proof in the fridge at 5 °C, 1.5 h × 3^1.7 = 9.71 h, starts at about
+        // 01:27 on Saturday; shaping 01:12 to 01:27 and, before the warm bulk
+        // rest, kneading fall into the night: kneading on Friday 23:07 to
+        // 23:27, shaping on Saturday 01:12.
+        let hours = 1.5 * pow(3.0, 1.7)
+        let strip = ScheduleDays(schedule(choices: [.proof: RestChoice(place: .fridge, hours: hours)]),
+                                 calendar: utc)
+        let knead = strip.days[0].segments.first { $0.kind == .action(.knead) }!
+        #expect(knead.inTheNight && knead.from == 1 && knead.to == 1)
+        #expect(knead.outsideWindow)
+        let shape = strip.days[1].segments.first { $0.kind == .action(.shape) }!
+        #expect(shape.inTheNight && shape.from == 0 && shape.to == 0)
+        // A step with a visible part is no mark.
+        #expect(strip.days[0].segments.contains { !$0.inTheNight })
+    }
+
+    @Test func theTargetSitsInTheLastRowAndTheRowsFollowEachOther() {
+        // Rye 100 %: cooling a day (24 h) puts the target a day after baking, so
+        // the rows are the days between, one each.
+        let schedule = Schedule(target: nov(16, 18), ryeShare: 100, vessel: .pot, temperatures: Temperatures(),
+                                calendar: utc)
+        let strip = ScheduleDays(schedule, calendar: utc)
+        #expect(strip.days.last!.start == nov(16, 0))
+        #expect(strip.days.last!.target.map { close($0, 11.0 / 15) } == true)
+        #expect(strip.days.dropLast().allSatisfy { $0.target == nil })
+        #expect(strip.days.count >= 2)
+        // The days are consecutive.
+        #expect(zip(strip.days, strip.days.dropFirst()).allSatisfy {
+            utc.date(byAdding: .day, value: 1, to: $0.start) == $1.start
+        })
+    }
+}

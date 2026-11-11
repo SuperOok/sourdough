@@ -1,4 +1,3 @@
-import Charts
 import SwiftUI
 import SourdoughKit
 
@@ -43,7 +42,6 @@ struct BakeScheduleView: View {
             if let schedule {
                 Section {
                     ScheduleStrip(schedule: schedule, calendar: calendar)
-                        .frame(height: 64)
                         .accessibilityIdentifier("schedule-chart")
                 }
                 Section {
@@ -173,8 +171,11 @@ extension ScheduleStep {
     }
 }
 
-/// The overview: one bar from the first action to the target, rests in the
-/// colour of their place, actions on top, midnight as a line with the day.
+/// The overview: one row per day, from `ScheduleDays.firstHour` to
+/// `lastHour`; the night between the rows is left out. In each row the
+/// actions are on the upper lane, the rests (in the colour of their place) and
+/// the cooling on the lower one. A step that runs into the night fades out at
+/// the edge; one that lies in the night is a small mark there.
 struct ScheduleStrip: View {
     let schedule: Schedule
     let calendar: Calendar
@@ -189,41 +190,135 @@ struct ScheduleStrip: View {
         }
     }
 
-    private var midnights: [Date] {
-        var days: [Date] = []
-        var day = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: schedule.start))!
-        while day < schedule.target {
-            days.append(day)
-            day = calendar.date(byAdding: .day, value: 1, to: day)!
-        }
-        return days
-    }
+    private static let laneHeight = 12.0
+    private static let rowHeight = 27.0
+    private static let labelWidth = 38.0
+    private static let moonWidth = 14.0
+    /// The hours that get a line and a number.
+    private static let hourMarks = Array(stride(from: ScheduleDays.firstHour, through: ScheduleDays.lastHour, by: 3))
 
     var body: some View {
-        Chart {
-            ForEach(Array(schedule.steps.enumerated()), id: \.offset) { _, step in
-                BarMark(xStart: .value("Beginn", step.start), xEnd: .value("Ende", step.end),
-                        y: .value("Art", step.isAction ? "Handgriff" : "Ruhe"))
-                    .foregroundStyle(Self.color(step.kind))
+        let days = ScheduleDays(schedule, calendar: calendar).days
+        VStack(alignment: .leading, spacing: 4) {
+            axis
+            ForEach(Array(days.enumerated()), id: \.element.id) { index, day in
+                row(day, hasNight: index < days.count - 1)
             }
-            ForEach(midnights, id: \.self) { midnight in
-                RuleMark(x: .value("Mitternacht", midnight))
-                    .foregroundStyle(.primary)
-                    .annotation(position: .top, alignment: .leading) {
-                        Text(ScheduleText.time(midnight, calendar: calendar).prefix(2))
-                            .font(.caption2)
-                    }
-            }
-        }
-        .chartYAxis(.hidden)
-        .chartXAxis {
-            AxisMarks(values: .stride(by: .hour, count: 6)) { _ in
-                AxisGridLine()
-                AxisValueLabel(format: .dateTime.hour())
-            }
+            legend
         }
         .accessibilityElement()
         .accessibilityLabel("Übersicht des Zeitplans")
+    }
+
+    private func x(_ fraction: Double, in width: Double) -> Double { fraction * width }
+
+    private var axis: some View {
+        HStack(spacing: 6) {
+            Color.clear.frame(width: Self.labelWidth)
+            GeometryReader { geometry in
+                ForEach(Self.hourMarks, id: \.self) { hour in
+                    let position = Double(hour - ScheduleDays.firstHour) / Double(ScheduleDays.lastHour - ScheduleDays.firstHour)
+                    Text("\(hour)")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .position(x: min(max(x(position, in: geometry.size.width), 7), geometry.size.width - 7), y: 6)
+                }
+            }
+            .frame(height: 12)
+            Color.clear.frame(width: Self.moonWidth)
+        }
+    }
+
+    private func row(_ day: ScheduleDays.Day, hasNight: Bool) -> some View {
+        HStack(spacing: 6) {
+            VStack(spacing: 0) {
+                Text(ScheduleText.weekday(day.start, calendar: calendar)).font(.caption.weight(.semibold))
+                Text(ScheduleText.dayMonth(day.start, calendar: calendar)).font(.caption2).foregroundStyle(.secondary)
+            }
+            .frame(width: Self.labelWidth)
+            GeometryReader { geometry in
+                let width = geometry.size.width
+                ZStack(alignment: .topLeading) {
+                    RoundedRectangle(cornerRadius: 4).fill(.quaternary.opacity(0.5))
+                    ForEach(Self.hourMarks, id: \.self) { hour in
+                        let position = Double(hour - ScheduleDays.firstHour) / Double(ScheduleDays.lastHour - ScheduleDays.firstHour)
+                        Rectangle().fill(.quaternary).frame(width: 1)
+                            .offset(x: x(position, in: width) - 0.5)
+                    }
+                    ForEach(day.segments, id: \.stepIndex) { segment in
+                        bar(segment, width: width)
+                    }
+                    if let target = day.target {
+                        Rectangle().fill(.primary).frame(width: 2, height: Self.rowHeight)
+                            .offset(x: x(target, in: width) - 1)
+                    }
+                }
+            }
+            .frame(height: Self.rowHeight)
+            // The night follows this row: it is not drawn.
+            Image(systemName: "moon.fill")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .opacity(hasNight ? 1 : 0)
+                .frame(width: Self.moonWidth)
+        }
+    }
+
+    @ViewBuilder
+    private func bar(_ segment: ScheduleDays.Segment, width: Double) -> some View {
+        let isAction = if case .action = segment.kind { true } else { false }
+        let top = isAction ? 0.0 : Self.laneHeight + 3
+        if segment.inTheNight {
+            // A mark in both lanes at the edge: this step is in the night.
+            Capsule().fill(.primary).frame(width: 4, height: Self.rowHeight)
+                .offset(x: segment.from == 0 ? 0 : width - 4)
+        } else {
+            let left = x(segment.from, in: width)
+            let length = max(x(segment.to - segment.from, in: width), 2)
+            RoundedRectangle(cornerRadius: 3)
+                .fill(Self.color(segment.kind))
+                .overlay {
+                    if segment.outsideWindow {
+                        RoundedRectangle(cornerRadius: 3).strokeBorder(.primary, lineWidth: 1.5)
+                    }
+                }
+                .mask(fade(before: segment.continuesBefore, after: segment.continuesAfter, length: length))
+                .frame(width: length, height: Self.laneHeight)
+                .offset(x: left, y: top)
+        }
+    }
+
+    /// Full everywhere; a cut end fades out over about 14 points.
+    private func fade(before: Bool, after: Bool, length: Double) -> some View {
+        let edge = min(14 / length, 0.5)
+        return LinearGradient(stops: [
+            .init(color: .black.opacity(before ? 0 : 1), location: 0),
+            .init(color: .black, location: before ? edge : 0),
+            .init(color: .black, location: after ? 1 - edge : 1),
+            .init(color: .black.opacity(after ? 0 : 1), location: 1),
+        ], startPoint: .leading, endPoint: .trailing)
+    }
+
+    private var legend: some View {
+        HStack(spacing: 8) {
+            legendItem(.red, "Handgriff")
+            legendItem(.teal, "Raum")
+            legendItem(.orange, "Warm")
+            legendItem(.blue, "Kühlschrank")
+            legendItem(.gray, "Auskühlen")
+        }
+        .font(.caption2)
+        .foregroundStyle(.secondary)
+        .lineLimit(1)
+        .minimumScaleFactor(0.8)
+        .padding(.top, 2)
+    }
+
+    private func legendItem(_ color: Color, _ title: String) -> some View {
+        HStack(spacing: 3) {
+            RoundedRectangle(cornerRadius: 2).fill(color).frame(width: 8, height: 8)
+            Text(title)
+        }
     }
 }
 

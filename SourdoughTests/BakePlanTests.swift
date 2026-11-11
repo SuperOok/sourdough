@@ -426,6 +426,10 @@ struct ScheduleTextTests {
         #expect(ScheduleText.time(nov(15, 21), calendar: utc) == "So 21:00")
         #expect(ScheduleText.day(nov(14, 18), calendar: utc) == "Sa 14.11. 18:00")
         #expect(ScheduleText.day(nov(9, 7), calendar: utc) == "Mo 09.11. 07:00")
+        #expect(ScheduleText.weekday(nov(14, 8), calendar: utc) == "Sa")
+        #expect(ScheduleText.weekday(nov(15, 21), calendar: utc) == "So")
+        #expect(ScheduleText.dayMonth(nov(14, 18), calendar: utc) == "14.11.")
+        #expect(ScheduleText.dayMonth(nov(9, 7), calendar: utc) == "09.11.")
     }
 
     @Test func titles() {
