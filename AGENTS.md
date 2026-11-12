@@ -435,7 +435,20 @@ Rechnungen liegen im Package, jede Konstante als Richtwert an einer Stelle:
    Handgriff (nach der Stückgare: Vorheizen und Backen) ins Zeitfenster bringt;
    Auskühlen dauert genau die Mindestzeit, ein „anschnittfertig“ in der Nacht
    ist kein Konflikt; „+“ und „−“ verschieben alle Folgeschritte. Es gibt nur
-   ein Datumsfeld (`anchorTime`); seine Bedeutung bestimmt die Richtung.
+   ein Datumsfeld (`anchorTime`); seine Bedeutung bestimmt die Richtung. In der
+   Oberfläche wählt ein Menü-Picker „Festlegen für“ (`schedule-anchor`:
+   „Anschnittfertig“ oder „Sauerteig ansetzen“) das Ende, darunter steht der
+   kompakte `DatePicker` (`schedule-time`) und in grau das berechnete andere Ende
+   („Anschnittfertig: Sa 18:00“, `schedule-result`). Der `DatePicker` liefert
+   ganze Minuten: Wer ihn bedient, rundet die Sekunden des Plans ab, und das
+   berechnete Ende kann dadurch Sekunden früher liegen (Referenzplan: Start
+   Fr 16:26:27, nach einer Bedienung 16:26:00, „anschnittfertig“ 17:59:33).
+   `ScheduleText.time` rundet vorher auf ganze Sekunden, damit Rechenreste wie
+   17:59:59,9999 nicht als „17:59“ erscheinen. UI-Tests bedienen den
+   `DatePicker` über seine Knöpfe: Datum = Tag im Popover antippen (Label endet
+   auf „14. November“), Zeit = `pickerWheels` (Werte „00“ bis „59“), Schließen
+   mit einem Tipp neben das Popover (`PopoverDismissRegion`); gelesen wird der
+   Wert des Pickers („18:00, 14. Nov 2026“, sprachabhängig).
    `setAnchor` behält den Plan: alle Ruhen werden mit Ort und Dauer fest
    (`Schedule.restChoices`), das Feld übernimmt die Zeit des anderen Endes.
    **Zieltemperatur je Ruhe** (`ScheduleStep.celsius`, `Schedule.restCelsius`):
@@ -458,8 +471,10 @@ Schritt 2 `setup-vessel`, `setup-pan`, `setup-pot`, `setup-basket`,
 `recipe-starter`, `recipe-sourdough`, `recipe-main-<mehl>`,
 `recipe-main-water`, `recipe-salt`, `recipe-soak-<zusatz>`,
 `recipe-addin-<zusatz>`, `setup-next`. Schritt 3
+`schedule-anchor` (Menü-Picker: welches Ende das Datumsfeld festlegt),
 `schedule-time` (der kompakte `DatePicker`, die Zeit des einen Datumsfelds:
-Datum und Uhrzeit öffnen je ein Popover), `schedule-room` mit der Glühbirne
+Datum und Uhrzeit öffnen je ein Popover), `schedule-result` (das berechnete
+andere Ende), `schedule-room` mit der Glühbirne
 `schedule-tip-temperature` (Seite „Temperatur und Zeit“), `schedule-fridge`,
 `schedule-error`, `schedule-conflict-<n>`, `schedule-chart`,
 `schedule-step-<n>`, `schedule-range-<ruhe>`, `schedule-place-<ruhe>`,

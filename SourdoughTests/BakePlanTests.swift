@@ -603,6 +603,30 @@ struct BakePlanScheduleTests {
 }
 
 struct ScheduleTextTests {
+    @Test func timesAreRoundedToTheSecondBeforeTheyAreCutToTheMinute() {
+        // Saturday 18:00 less 0.4 ms, as float arithmetic may leave it, is 18:00.
+        let almost = Date(timeIntervalSinceReferenceDate: nov(14, 18).timeIntervalSinceReferenceDate - 0.0004)
+        #expect(ScheduleText.time(almost, calendar: utc) == "Sa 18:00")
+        #expect(ScheduleText.day(almost, calendar: utc) == "Sa 14.11. 18:00")
+        // 59.4 s into a minute is still in it, 59.6 s rounds up to the next.
+        #expect(ScheduleText.time(nov(14, 8) + 600 + 59.4, calendar: utc) == "Sa 08:10")
+        #expect(ScheduleText.time(nov(14, 8) + 600 + 59.6, calendar: utc) == "Sa 08:11")
+    }
+
+    @Test func theEndsOfThePlanAreNamedAndTheOtherOneIsShown() {
+        #expect(ScheduleText.anchor(.ready) == "Anschnittfertig")
+        #expect(ScheduleText.anchor(.start) == "Sauerteig ansetzen")
+        // The reference plan: ready on Saturday 18:00, so the sourdough is mixed
+        // on Friday at 16:26 (8 × 3^0.6 h at the cool place, 1.75 / √3 h warm
+        // bulk rest, 1.5 h proof and the actions in between; see `ScheduleTests`).
+        let schedule = Schedule(target: nov(14, 18), ryeShare: 50, vessel: .pot, temperatures: Temperatures(),
+                                calendar: utc)
+        #expect(ScheduleText.result(fixing: .ready, schedule: schedule, calendar: utc)
+                == "Sauerteig ansetzen: Fr 16:26")
+        #expect(ScheduleText.result(fixing: .start, schedule: schedule, calendar: utc)
+                == "Anschnittfertig: Sa 18:00")
+    }
+
     @Test func timesAndDays() {
         #expect(ScheduleText.time(nov(14, 8) + 600, calendar: utc) == "Sa 08:10")
         #expect(ScheduleText.time(nov(15, 21), calendar: utc) == "So 21:00")

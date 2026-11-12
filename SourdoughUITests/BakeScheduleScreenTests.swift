@@ -194,6 +194,52 @@ final class BakeScheduleScreenTests: SourdoughUITestCase {
         assertLabel("schedule-step-8", contains: "Mo 12:00")
     }
 
+    func testTheDateFieldFixesEitherEndOfThePlanAndShowsTheOther() {
+        openSchedule()
+        // Ready on Saturday 18:00 is mixing on Friday 16:26, as in the steps.
+        assertText("schedule-result", "Sauerteig ansetzen: Fr 16:26")
+        // Switching keeps the plan: the field takes the start (the picker shows
+        // 16:26), and the result is the end, Saturday 18:00, as before.
+        choose("schedule-anchor", "Sauerteig ansetzen")
+        assertPicker("16:26", "13. Nov")
+        assertText("schedule-result", "Anschnittfertig: Sa 18:00")
+        let reference = ["Fr 16:26", "Fr 16:36", "Sa 08:04", "Sa 08:24", "Sa 09:25", "Sa 09:40", "Sa 10:25",
+                         "Sa 11:10", "Sa 12:00"]
+        for (index, time) in reference.enumerated() {
+            assertLabel("schedule-step-\(index)", contains: time)
+        }
+        assertLabel("schedule-place-sourdough", contains: "Kühl (16 °C)")
+        assertLabel("schedule-place-bulk", contains: "Warm (27 °C)")
+        // A day later: every rest keeps its place and time, so the plan moves
+        // by a day. The picker, however, hands over whole minutes: the start
+        // was 16:26:27 (Saturday 09:25 less 16 h 58 min 33 s, see the unit
+        // tests of the package), now it is 16:26:00, and every step is 27 s
+        // earlier than a day later: the sourdough ends at 16:36:00 + 15 h 27 min
+        // 56 s = Sunday 08:03:56, the warm bulk rest (1 h 0 min 37 s) ends 09:24:33,
+        // the proof 11:09:33, baking 11:59:33, ready at 17:59:33.
+        dateButton.tap()
+        let day = app.buttons.matching(NSPredicate(format: "label ENDSWITH %@", "14. November")).firstMatch
+        XCTAssertTrue(day.waitForExistence(timeout: 5))
+        day.tap()
+        closePopover()
+        assertPicker("16:26", "14. Nov")
+        assertText("schedule-result", "Anschnittfertig: So 17:59")
+        let later = ["Sa 16:26", "Sa 16:36", "So 08:03", "So 08:23", "So 09:24", "So 09:39", "So 10:24",
+                     "So 11:09", "So 11:59"]
+        for (index, time) in later.enumerated() {
+            assertLabel("schedule-step-\(index)", contains: time)
+        }
+        assertLabel("schedule-place-sourdough", contains: "Kühl (16 °C)")
+        // And back: the field takes the end (17:59:33), the start is the
+        // result and is where it was.
+        choose("schedule-anchor", "Anschnittfertig")
+        assertPicker("17:59", "15. Nov")
+        assertText("schedule-result", "Sauerteig ansetzen: Sa 16:26")
+        for (index, time) in later.enumerated() {
+            assertLabel("schedule-step-\(index)", contains: time)
+        }
+    }
+
     func testTheTimeComesFromTheWheels() {
         openSchedule()
         timeButton.tap()

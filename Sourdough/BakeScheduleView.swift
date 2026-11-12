@@ -16,14 +16,28 @@ struct BakeScheduleView: View {
         let schedule = model.schedule(calendar: calendar)
         NumberForm(fields: ["schedule-room", "schedule-fridge"] + (model.usesCoolPlace ? ["schedule-cool"] : [])) { focus in
             Section {
+                // Which end of the plan the one date field fixes; the plan stays
+                // as it is, the field takes the time of the other end.
+                Picker("Festlegen für", selection: Binding(
+                    get: { model.anchor }, set: { model.setAnchor($0, calendar: calendar) })) {
+                    ForEach(ScheduleAnchor.allCases, id: \.self) { Text(ScheduleText.anchor($0)).tag($0) }
+                }
+                .pickerStyle(.menu)
+                .accessibilityIdentifier("schedule-anchor")
                 // The picker only shows once there is a time: one out of its
                 // range would be moved into it, and the proposal would be lost.
                 if model.anchorTime != nil {
-                    DatePicker("Anschnittfertig", selection: Binding(
+                    DatePicker("Zeitpunkt", selection: Binding(
                         get: { model.chosenTime }, set: { model.chosenTime = $0 }),
                                in: now..., displayedComponents: [.date, .hourAndMinute])
                         .datePickerStyle(.compact)
                         .accessibilityIdentifier("schedule-time")
+                }
+                // The other end, which the plan computes; grey, as no input.
+                if let schedule {
+                    Text(ScheduleText.result(fixing: model.anchor, schedule: schedule, calendar: calendar))
+                        .foregroundStyle(.secondary)
+                        .accessibilityIdentifier("schedule-result")
                 }
                 HStack {
                     NumberField(title: "Raumtemperatur (°C)", text: Binding(

@@ -153,9 +153,15 @@ extension Place {
 enum ScheduleText {
     private static let weekdays = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"]
 
+    /// `date` to the whole second: the arithmetic of a plan may leave a time
+    /// a few nanoseconds short of a minute, and 18:00 must not read "17:59".
+    private static func wholeSeconds(_ date: Date) -> Date {
+        Date(timeIntervalSinceReferenceDate: date.timeIntervalSinceReferenceDate.rounded())
+    }
+
     /// "Sa 08:10"
     static func time(_ date: Date, calendar: Calendar) -> String {
-        let parts = calendar.dateComponents([.weekday, .hour, .minute], from: date)
+        let parts = calendar.dateComponents([.weekday, .hour, .minute], from: wholeSeconds(date))
         return String(format: "%@ %02d:%02d", weekdays[parts.weekday! - 1], parts.hour!, parts.minute!)
     }
 
@@ -172,9 +178,23 @@ enum ScheduleText {
 
     /// "Sa 14.11. 18:00"
     static func day(_ date: Date, calendar: Calendar) -> String {
-        let parts = calendar.dateComponents([.weekday, .day, .month, .hour, .minute], from: date)
+        let parts = calendar.dateComponents([.weekday, .day, .month, .hour, .minute], from: wholeSeconds(date))
         return String(format: "%@ %02d.%02d. %02d:%02d", weekdays[parts.weekday! - 1],
                       parts.day!, parts.month!, parts.hour!, parts.minute!)
+    }
+
+    /// The name of the end of the plan that the date field fixes.
+    static func anchor(_ anchor: ScheduleAnchor) -> String {
+        switch anchor {
+        case .ready: "Anschnittfertig"
+        case .start: "Sauerteig ansetzen"
+        }
+    }
+
+    /// The other end of the plan, which the plan computes: "Anschnittfertig: Sa 18:00".
+    static func result(fixing anchor: ScheduleAnchor, schedule: Schedule, calendar: Calendar) -> String {
+        let other: ScheduleAnchor = anchor == .ready ? .start : .ready
+        return "\(Self.anchor(other)): \(time(schedule.time(of: other), calendar: calendar))"
     }
 
     /// The title of a step; shaping depends on the vessel.
