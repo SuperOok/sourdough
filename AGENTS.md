@@ -17,14 +17,17 @@ Der Code ist zweierlei. `Sourdough/` ist die App: Oberfläche und
 Speicherung. `SourdoughKit/` ist ein Swift Package mit der **Rechenlogik**,
 ohne Xcode-Projekt und ohne Simulator prüfbar.
 
-Stand 2026-11-09: Startanimation (Platzhalter), Startbildschirm mit
+Stand 2026-11-12: Startanimation (Platzhalter), Startbildschirm mit
 Startfoto (vorläufig, nur lokal) und vier Optionen (Brot backen, Backutensilien,
 Sauerteigstarter, Tipps und Tricks) und das Backprotokoll, Utensilien-Liste
 mit Speicherung, Tipps und Tricks, Starter-Protokoll. „Brot backen“ plant einen
 Durchgang in drei Schritten (Mehle, Utensilien und Menge, Zeitplan) und führt
 dann Schritt für Schritt hindurch (Plan: `docs/brotback-durchgang.md`, Ablauf:
-`docs/ablauf.md`). Der letzte volle Lauf mit Abdeckung 100 % ist vom
-2026-11-09 (siehe „Wann welcher Lauf“).
+`docs/ablauf.md`). Der letzte volle Lauf mit Abdeckung ist vom
+2026-11-12: 89 UI-Fälle grün, alle Dateien bei 100 % bis auf zwei
+(`EquipmentFormView`, `StretchFoldView`); beide wurden danach geschlossen und
+in einem Teillauf mit 100 % nachgemessen, ein neuer voller Lauf steht aus
+(siehe „Wann welcher Lauf“).
 
 ## Aufbau
 
@@ -221,8 +224,8 @@ tools/uitests.sh
 ```
 
 Das ganze Schema, also auch die App-Fälle; braucht einen Simulator und
-dauert eine Viertelstunde (Stand 2026-11-09, 38 UI-Fälle auf einem
-MacBook Air mit 16 GB, nebenher lief ein Build). Die Zeit steckt in XCUITest selbst: rund 6,5 s je
+dauert über eine Stunde (Stand 2026-11-12, 89 UI-Fälle: 3679 s auf einem
+MacBook Air mit 16 GB). Die Zeit steckt in XCUITest selbst: rund 6,5 s je
 App-Start und 1 bis 3 s je Bedienschritt. Paralleles Testen ist
 ausgeschaltet, weil es hier einzelne Fälle bis zu zehnmal langsamer machte;
 `PARALLEL=YES WORKERS=<n>` schaltet es ein. Läuft nebenher die Live-Ansicht des Simulators in der

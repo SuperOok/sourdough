@@ -240,6 +240,19 @@ final class EquipmentListTests: SourdoughUITestCase {
         element(app.textFields, "item-width")
     }
 
+    func testASizeThatIsNoNumberShowsAnError() {
+        start()
+        add("pan")
+        let save = element(app.buttons, "item-save")
+        // Two decimal separators are no number.
+        replaceText("item-length", with: "1,2,3")
+        assertText("item-error", "Bitte gib nur Zahlen ein.")
+        XCTAssertFalse(save.isEnabled)
+
+        replaceText("item-length", with: "30")
+        assertText("item-error", "Noch fehlen: Breite und Höhe. Gib alle Maße an oder keines.")
+    }
+
     func testTheSizeIsOptionalButMustBeComplete() {
         start()
         add("pan")

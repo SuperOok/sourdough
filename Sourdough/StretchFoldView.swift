@@ -34,7 +34,7 @@ struct StretchFoldView: View {
     var body: some View {
         TimelineView(.animation(paused: reduceMotion)) { timeline in
             Canvas { context, size in
-                let seconds = reduceMotion ? StretchFold.stillSeconds : timeline.date.timeIntervalSinceReferenceDate
+                let seconds = Self.seconds(reduceMotion: reduceMotion, date: timeline.date)
                 Self.draw(StretchFold(at: seconds), in: &context, size: size)
             }
         }
@@ -43,10 +43,21 @@ struct StretchFoldView: View {
         .background(.fill.quaternary, in: RoundedRectangle(cornerRadius: 12))
     }
 
-    /// The German names of the stages, by their number.
-    static let stageNames: [StretchFold.Stage: String] = [
-        .grab: "Greifen", .stretch: "Dehnen", .fold: "Falten", .turn: "Drehen",
-    ]
+    /// The German name of a stage.
+    static func stageName(_ stage: StretchFold.Stage) -> String {
+        switch stage {
+        case .grab: "Greifen"
+        case .stretch: "Dehnen"
+        case .fold: "Falten"
+        case .turn: "Drehen"
+        }
+    }
+
+    /// The moment to draw: the running clock, or with reduced motion the one
+    /// still picture.
+    static func seconds(reduceMotion: Bool, date: Date) -> Double {
+        reduceMotion ? StretchFold.stillSeconds : date.timeIntervalSinceReferenceDate
+    }
 
     // Fixed colours: dough and skin look the same in the dark; everything
     // else takes its colour from the system so it reads in both modes.
@@ -83,7 +94,7 @@ struct StretchFoldView: View {
 
         // The labels: the stage, and the side below it. The hand comes from
         // the upper right and never covers them.
-        let stage = Text("\(frame.stage.rawValue) \(stageNames[frame.stage, default: ""])")
+        let stage = Text("\(frame.stage.rawValue) \(stageName(frame.stage))")
             .font(.callout.weight(.semibold))
         context.draw(stage, at: CGPoint(x: 12, y: 10), anchor: .topLeading)
         let side = Text("Seite \(frame.side + 1) von \(StretchFold.sides)")
