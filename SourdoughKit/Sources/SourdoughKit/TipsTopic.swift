@@ -10,6 +10,9 @@ public struct TipsTopic: Equatable, Sendable, Identifiable {
         case flours, wheat, rye, spelt, buckwheat
         case seeds, nuts, driedFruit, roastedOnions, herbs
         case kneading, proofing, freeStanding, temperature, schedule
+        // The app itself: one page for each screen that has a lightbulb. The
+        // log and the starter pages serve the list and the detail screen alike.
+        case start, planFlours, planSetup, planSchedule, run, log, equipmentList, starterNew, starterFeed
 
         public var id: String { rawValue }
     }
@@ -19,6 +22,8 @@ public struct TipsTopic: Equatable, Sendable, Identifiable {
         case starters
         case ingredients
         case baking
+        /// What each screen of the app is for.
+        case app
     }
 
     public let id: ID
@@ -47,6 +52,8 @@ public struct TipsTopic: Equatable, Sendable, Identifiable {
         case .starter: .starters
         case .flours, .wheat, .rye, .spelt, .buckwheat, .seeds, .nuts, .driedFruit, .roastedOnions, .herbs: .ingredients
         case .kneading, .proofing, .freeStanding, .temperature, .schedule: .baking
+        case .start, .planFlours, .planSetup, .planSchedule, .run, .log, .equipmentList, .starterNew,
+             .starterFeed: .app
         }
     }
 }
