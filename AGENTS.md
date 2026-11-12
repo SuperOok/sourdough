@@ -302,7 +302,8 @@ Mehlen (Zeile, „Mehl hinzufügen“, Mehl-Sheet). Zusätze: `SeedsIcon`, `Nuts
 `DriedFruitIcon`, `RoastedOnionsIcon`, `HerbsIcon` (Zeile und
 „Zusatz hinzufügen“). Im Inhaltsverzeichnis der Tipps hat jedes Thema sein Icon
 (`TipsIcon.name`): die Utensilien wie oben, dazu `FlourSackIcon`,
-`StarterJarIcon`, `StarterStateIcon`, `KneadingIcon`, `ScheduleIcon`. Ein neues
+`StarterJarIcon`, `KneadingIcon`, `ScheduleIcon` (auch für „Temperatur und Zeit“,
+bis ein eigenes Icon freigegeben ist; `StarterStateIcon` liegt ungenutzt im Katalog). Ein neues
 Thema braucht dort einen Fall; `IngredientIconTests` prüft, dass jedes Thema
 eins hat. `CustomIcon` ist für VoiceOver verborgen: der Text daneben sagt, was
 es ist.
@@ -335,8 +336,8 @@ Aufbewahrungsort (Raumtemperatur oder Kühlschrank mit Temperatur von 0 bis
 Zeitpunkt). Das Anlegen ist die erste Fütterung, ohne behaltenen Starter.
 
 **Der Zustand ist eine Schätzung** (`StarterModel`, Beschreibung im
-Dokumentationskommentar und in der Tipps-Seite „So wird der Zustand
-berechnet“): Aus der Verdünnung bei der letzten Fütterung (Starter + Mehl +
+Dokumentationskommentar und in den Abschnitten der Tipps-Seite
+„Sauerteigstarter“): Aus der Verdünnung bei der letzten Fütterung (Starter + Mehl +
 Wasser im Verhältnis zum behaltenen Starter) folgt die Zahl der
 Verdopplungen; eine Verdopplung dauert bei 22 °C 3 Stunden für Weizen
 (Roggen ×0,8, Dinkel ×0,9) und je 10 °C kälter dreimal so lang. Daraus
@@ -586,6 +587,15 @@ Mischung“, „Küchenmaschine“ und aus den Anleitungsschritten `kneadFold` u
 Durchgang (`TipsText.open`). Das Foto `KneadingPhoto` (Krume bei zu kurzem,
 richtigem und zu langem Kneten) hat ungeklärte Rechte: nur lokal, in
 `.gitignore`, ohne die Datei zeigt die App den Platzhalter.
+
+**Seite „Temperatur und Zeit“** (`temperature`, Kategorie „Brot backen“): die
+Faustregel (je 10 °C kälter dreimal so lang, Bezug 22 °C) mit den von Hand
+nachgerechneten Stunden der Sauerteigstufe (27 °C 4,6 h, 16 °C 15,5 h, 5 °C
+52 h), die engen Spannen (`RestKind.factorRange(at:)`), die Ortswahl des
+Zeitplans und der kühle Ort. `TipsCatalogTests` hält Stunden und Spannen gegen
+`ScheduleRules`. Verlinkt von „So wird der Zeitplan berechnet“; eine
+Glühbirne im Zeitplan (`BakeScheduleView`) fehlt noch. Die Seiten zum Starter
+sind eine: die Zustandsrechnung steht als Abschnitte in `starter.md`.
 
 **Ein neues Thema** braucht drei Schritte: einen Fall in
 `TipsTopic.ID` (der Rohwert ist der Dateiname), die Datei `Tips/<id>.md` und

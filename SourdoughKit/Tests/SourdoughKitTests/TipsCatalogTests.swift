@@ -28,22 +28,75 @@ struct TipsCatalogTests {
 
     @Test func topicsAreGroupedIntoCategories() {
         #expect(TipsCatalog.topics(in: .utensils).map(\.id) == [.kneader, .pot, .pan, .basket])
-        #expect(TipsCatalog.topics(in: .starters).map(\.id) == [.starter, .starterStates])
+        #expect(TipsCatalog.topics(in: .starters).map(\.id) == [.starter])
         #expect(TipsCatalog.topics(in: .ingredients).map(\.id)
                 == [.flours, .wheat, .rye, .spelt, .buckwheat, .seeds, .nuts, .driedFruit, .roastedOnions, .herbs])
-        #expect(TipsCatalog.topics(in: .baking).map(\.id) == [.kneading, .proofing, .freeStanding, .schedule])
+        #expect(TipsCatalog.topics(in: .baking).map(\.id) == [.kneading, .proofing, .freeStanding, .temperature, .schedule])
         #expect(TipsTopic.Category.allCases == [.utensils, .starters, .ingredients, .baking])
     }
 
     @Test func titlesOfTheStarterTopics() {
         #expect(TipsCatalog.topic(.starter).title == "Sauerteigstarter")
-        #expect(TipsCatalog.topic(.starterStates).title == "So wird der Zustand berechnet")
     }
 
     @Test func titlesOfTheBakingTopics() {
         #expect(TipsCatalog.topic(.flours).title == "Mehle und ihre Mischung")
         #expect(TipsCatalog.topic(.kneading).title == "Kneten")
         #expect(TipsCatalog.topic(.schedule).title == "So wird der Zeitplan berechnet")
+        #expect(TipsCatalog.topic(.temperature).title == "Temperatur und Zeit")
+    }
+
+    @Test func theStarterPageHoldsTheStateSectionsAsSiblingsAfterGoodToKnow() {
+        let headings = TipsCatalog.topic(.starter).blocks.compactMap { block -> String? in
+            if case .heading(let text) = block { text } else { nil }
+        }
+        #expect(headings == ["Gut zu wissen", "Was in die Rechnung eingeht", "Die Zustände", "Das Datum"])
+        #expect(TipsTopic.ID(rawValue: "starterStates") == nil)
+    }
+
+    @Test func theTemperaturePageLinksTheScheduleAndProofingAndIsLinkedFromTheSchedule() {
+        #expect(links(in: .temperature).isSuperset(of: ["schedule", "proofing"]))
+        #expect(links(in: .schedule).contains("temperature"))
+        #expect(TipsCatalog.topic(.temperature).category == .baking)
+    }
+
+    /// 8 h at 22 °C, three times as long for every 10 °C colder, worked out by
+    /// hand: 27 °C is 5 K warmer, 8 / 3^0.5 = 8 / 1.7321 = 4.619; 16 °C is 6 K
+    /// colder, 8 · 3^0.6 = 8 · 1.9332 = 15.47; 5 °C is 17 K colder,
+    /// 8 · 3^1.7 = 8 · 6.473 = 51.78. The page quotes these rounded.
+    @Test func theTemperaturePageQuotesTheHoursOfTheRule() {
+        let text = plainText(.temperature)
+        for (celsius, hours, quoted) in [(27.0, 4.619, "etwa 4,6 Stunden"), (22.0, 8.0, "8 Stunden"),
+                                          (16.0, 15.47, "etwa 15,5 Stunden"), (5.0, 51.78, "etwa 52 Stunden")] {
+            let rule = ScheduleRules.hours(.sourdough, ryeShare: 0, celsius: celsius)
+            #expect(abs(rule - hours) < 0.01, "\(celsius) °C")
+            #expect(text.contains(quoted), "\(quoted)")
+        }
+    }
+
+    @Test func theTemperaturePageNamesTheRangesOfTheRule() {
+        let text = plainText(.temperature)
+        // Factors 0.85 to 1.2, sourdough 0.8 to 1.25, fridge 0.7 to 1.5.
+        #expect(RestKind.proof.factorRange(at: .room) == 0.85...1.2)
+        #expect(RestKind.sourdough.factorRange(at: .room) == 0.8...1.25)
+        #expect(RestKind.bulk.factorRange(at: .fridge) == 0.7...1.5)
+        for quoted in ["0,85- bis 1,2-Fache", "0,8- bis 1,25-Fache", "0,7- bis 1,5-Fache", "16 °C", "8 bis 18 °C"] {
+            #expect(text.contains(quoted), "\(quoted)")
+        }
+    }
+
+    private func plainText(_ id: TipsTopic.ID) -> String {
+        TipsCatalog.topic(id).blocks.flatMap { block -> [String] in
+            switch block {
+            case .paragraph(let text): [text]
+            case .bullets(let items): items
+            default: []
+            }
+        }.joined(separator: "\n")
+    }
+
+    private func links(in id: TipsTopic.ID) -> Set<String> {
+        Set(plainText(id).components(separatedBy: "(tip:").dropFirst().map { String($0.prefix { $0 != ")" }) })
     }
 
     @Test func theKneadingPageHasItsPhotoAndTheAnimation() {

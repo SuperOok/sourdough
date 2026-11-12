@@ -118,10 +118,10 @@ final class StarterDetailTests: SourdoughUITestCase {
         _ = element(app.buttons, "starter-row-Roggensauerteig")
     }
 
-    func testTheDetailHasTipsOnTheCalculation() {
+    func testTheDetailHasTipsOnTheStarter() {
         open("Roggensauerteig")
         tapButton("detail-tips")
-        assertTitle("So wird der Zustand berechnet")
+        assertTitle("Sauerteigstarter")
         tapButton("tips-topic-close")
         assertText("detail-state", "Reift")
     }
