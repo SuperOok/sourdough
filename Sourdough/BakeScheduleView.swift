@@ -10,22 +10,26 @@ struct BakeScheduleView: View {
     /// "Now" for the proposed target; tests fix it.
     let now: Date
     let onStart: (BakeRun) -> Void
-    @State private var pickingTarget = false
     private var calendar: Calendar { .current }
 
     var body: some View {
         let schedule = model.schedule(calendar: calendar)
         NumberForm(fields: ["schedule-room", "schedule-fridge"] + (model.usesCoolPlace ? ["schedule-cool"] : [])) { focus in
             Section {
-                Button { pickingTarget = true } label: {
-                    LabeledContent("Anschnittfertig") {
-                        Text(model.anchorTime.map { ScheduleText.day($0, calendar: calendar) } ?? "—")
-                    }
+                // The picker only shows once there is a time: one out of its
+                // range would be moved into it, and the proposal would be lost.
+                if model.anchorTime != nil {
+                    DatePicker("Anschnittfertig", selection: Binding(
+                        get: { model.chosenTime }, set: { model.chosenTime = $0 }),
+                               in: now..., displayedComponents: [.date, .hourAndMinute])
+                        .datePickerStyle(.compact)
+                        .accessibilityIdentifier("schedule-time")
                 }
-                .foregroundStyle(.primary)
-                .accessibilityIdentifier("schedule-target")
-                NumberField(title: "Raumtemperatur (°C)", text: Binding(
-                    get: { model.roomText }, set: { model.roomText = $0 }), id: "schedule-room", focus: focus)
+                HStack {
+                    NumberField(title: "Raumtemperatur (°C)", text: Binding(
+                        get: { model.roomText }, set: { model.roomText = $0 }), id: "schedule-room", focus: focus)
+                    TipsIconButton(topic: .temperature, identifier: "schedule-tip-temperature")
+                }
                 NumberField(title: "Kühlschrank (°C)", text: Binding(
                     get: { model.fridgeText }, set: { model.fridgeText = $0 }), id: "schedule-fridge", focus: focus)
                 Toggle("Kühler Ort (Keller, Flur)", isOn: Binding(
@@ -43,8 +47,6 @@ struct BakeScheduleView: View {
                             .foregroundStyle(.red)
                             .accessibilityIdentifier("schedule-error")
                     }
-                    Text("Ein kühler Ort erlaubt längere Ruhezeiten, ohne dass der Teig überreift. "
-                         + "Ohne ihn plant die App nur mit Raum, Wärme und Kühlschrank.")
                     Text("Handgriffe liegen zwischen \(model.window.startHour) und \(model.window.endHour) Uhr.")
                 }
             }
@@ -92,7 +94,6 @@ struct BakeScheduleView: View {
             model.proposeTarget(now: now, calendar: calendar)
         }
         .onChange(of: model.temperatures) { _, new in kitchenStore.temperatures = new }
-        .sheet(isPresented: $pickingTarget) { targetSheet }
     }
 
     @ViewBuilder
@@ -131,16 +132,24 @@ struct BakeScheduleView: View {
     @ViewBuilder
     private func restControls(_ rest: RestKind, place: Place, step: ScheduleStep, range: ClosedRange<Double>,
                               schedule: Schedule) -> some View {
-        RangeBar(range: range, value: step.hours, color: ScheduleStrip.color(step.kind))
+        // One scale for every place of the rest, so that the coloured range
+        // moves when the place changes.
+        RangeBar(scale: ScheduleRules.scale(rest, ryeShare: model.effectiveMix.ryeShare,
+                                            temperatures: model.temperatures),
+                 range: range, value: step.hours, color: ScheduleStrip.color(step.kind))
             .frame(height: 6)
         Text("Sinnvoll: \(ScheduleText.range(range))")
             .font(.footnote)
             .foregroundStyle(.secondary)
+            .lineLimit(1)
             .accessibilityIdentifier("schedule-range-\(rest.rawValue)")
-        if let needed = model.needed(for: rest, in: schedule) {
-            Text(ScheduleText.needed(hours: needed.hours, celsius: needed.celsius))
+        // Always there and always one line, so that the controls below do not
+        // move when the text changes.
+        if let hint = model.temperatureHint(for: rest, in: schedule) {
+            Text(ScheduleText.temperature(hours: hint.hours, celsius: hint.celsius))
                 .font(.footnote)
                 .foregroundStyle(.secondary)
+                .lineLimit(1)
                 .accessibilityIdentifier("schedule-needed-\(rest.rawValue)")
         }
         HStack {
@@ -149,6 +158,9 @@ struct BakeScheduleView: View {
             }
             .pickerStyle(.menu)
             .labelsHidden()
+            // One line, as high as the stepper: "Raumtemperatur (22 °C)" took two
+            // and moved the stepper when the place changed.
+            .fixedSize()
             .accessibilityIdentifier("schedule-place-\(rest.rawValue)")
             Spacer()
             Stepper("Dauer",
@@ -156,26 +168,6 @@ struct BakeScheduleView: View {
                     onDecrement: { model.stepHours(-0.5, of: rest, calendar: calendar) })
                 .labelsHidden()
                 .accessibilityIdentifier("schedule-stepper-\(rest.rawValue)")
-        }
-    }
-
-    private var targetSheet: some View {
-        NavigationStack {
-            Form {
-                DatePicker("Anschnittfertig", selection: Binding(
-                    get: { model.chosenTime }, set: { model.chosenTime = $0 }),
-                           in: now..., displayedComponents: [.date, .hourAndMinute])
-                    .datePickerStyle(.graphical)
-                    .accessibilityIdentifier("schedule-datepicker")
-            }
-            .navigationTitle("Anschnittfertig")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Fertig") { pickingTarget = false }
-                        .accessibilityIdentifier("schedule-target-done")
-                }
-            }
         }
     }
 }
@@ -340,16 +332,17 @@ struct ScheduleStrip: View {
     }
 }
 
-/// A thin bar: the sensible range coloured, the current value as a mark.
+/// A thin bar: the sensible range of the place coloured, the current value as
+/// a mark, on the scale of the rest (`RangeScale`) that all its places share.
 struct RangeBar: View {
+    let scale: RangeScale
     let range: ClosedRange<Double>
     let value: Double
     let color: Color
 
     var body: some View {
         GeometryReader { geometry in
-            let top = range.upperBound * 1.15
-            let x = { (hours: Double) in geometry.size.width * hours / top }
+            let x = { (hours: Double) in geometry.size.width * scale.position(of: hours) }
             ZStack(alignment: .leading) {
                 Capsule().fill(.quaternary)
                 Capsule().fill(color.opacity(0.6))

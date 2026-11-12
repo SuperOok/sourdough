@@ -334,6 +334,76 @@ struct ScheduleTests {
     }
 }
 
+struct RangeScaleTests {
+    @Test func aLogarithmicScaleGivesEqualFactorsEqualWidths() {
+        // 1 to 100 h: 10 h is the middle, as it is two factors of 10 from 1 h
+        // either way. log₁₀ 2 / 2 = 0.150515 is the share of a doubling from 1 h.
+        let scale = RangeScale(lowerBound: 1, upperBound: 100)
+        #expect(abs(scale.position(of: 10) - 0.5) < 1e-12)
+        #expect(scale.position(of: 1) == 0)
+        #expect(abs(scale.position(of: 100) - 1) < 1e-12)
+        #expect(abs(scale.position(of: 2) - 0.150515) < 1e-6)
+        // A doubling is as wide at 10 h as at 1 h.
+        #expect(abs((scale.position(of: 20) - scale.position(of: 10)) - 0.150515) < 1e-6)
+        // 2 h to 32 h are four doublings: each takes a quarter.
+        let octaves = RangeScale(lowerBound: 2, upperBound: 32)
+        #expect(abs(octaves.position(of: 4) - 0.25) < 1e-12)
+        #expect(abs(octaves.position(of: 8) - 0.5) < 1e-12)
+        #expect(abs(octaves.position(of: 16) - 0.75) < 1e-12)
+    }
+
+    @Test func beyondTheEndsThePositionStaysAtTheEnds() {
+        let scale = RangeScale(lowerBound: 1, upperBound: 100)
+        #expect(scale.position(of: 0.5) == 0)
+        #expect(scale.position(of: 1000) == 1)
+    }
+
+    @Test func aScaleCoversAllRangesWithAMarginOnBothEnds() {
+        // 2 to 4 h and 8 to 16 h with a margin of 2: from 1 h to 32 h, five
+        // doublings, so 2 h is at 1/5, 4 h at 2/5, 8 h at 3/5, 16 h at 4/5.
+        let scale = RangeScale(covering: [2...4, 8...16], margin: 2)
+        #expect(scale.lowerBound == 1 && scale.upperBound == 32)
+        #expect(abs(scale.position(of: 2) - 0.2) < 1e-12)
+        #expect(abs(scale.position(of: 4) - 0.4) < 1e-12)
+        #expect(abs(scale.position(of: 8) - 0.6) < 1e-12)
+        #expect(abs(scale.position(of: 16) - 0.8) < 1e-12)
+        // The margin is 15 % unless said otherwise.
+        let usual = RangeScale(covering: [2...4])
+        #expect(RangeScale.margin == 1.15)
+        #expect(abs(usual.lowerBound - 2 / 1.15) < 1e-12 && abs(usual.upperBound - 4 * 1.15) < 1e-12)
+    }
+
+    @Test func allPlacesOfARestShareOneScale() {
+        // The sourdough takes 8 h at 22 °C; the ranges of its places are
+        // 0.8 to 1.25 times the nominal time: warm (27 °C, 8 / √3 = 4.619 h)
+        // from 6.4 / √3 = 3.695 h, room (22 °C) up to 10 h, cool (16 °C,
+        // 8 × 3^0.6 = 15.465 h) up to 10 × 3^0.6 = 19.332 h.
+        let kitchen = Temperatures(roomCelsius: 22, fridgeCelsius: 5, coolCelsius: 16)
+        let scale = ScheduleRules.scale(.sourdough, ryeShare: 50, temperatures: kitchen)
+        #expect(abs(scale.lowerBound - 6.4 / 3.0.squareRoot() / 1.15) < 1e-9)
+        #expect(abs(scale.upperBound - 10 * pow(3, 0.6) * 1.15) < 1e-9)
+        // Without the cool place the room, at most 10 h, is the longest.
+        let noCool = Temperatures(roomCelsius: 22, fridgeCelsius: 5, usesCoolPlace: false)
+        let narrow = ScheduleRules.scale(.sourdough, ryeShare: 50, temperatures: noCool)
+        #expect(abs(narrow.lowerBound - scale.lowerBound) < 1e-12)
+        #expect(abs(narrow.upperBound - 10 * 1.15) < 1e-9)
+        // The range of one place is as wide as the next on this scale: both
+        // are 0.8 to 1.25 times the nominal time, a factor of 1.5625.
+        func width(_ place: Place) -> Double {
+            let range = ScheduleRules.range(.sourdough, ryeShare: 50, place: place, temperatures: kitchen)
+            return scale.position(of: range.upperBound) - scale.position(of: range.lowerBound)
+        }
+        #expect(abs(width(.warm) - width(.cool)) < 1e-12)
+        #expect(abs(width(.room) - width(.cool)) < 1e-12)
+        // A longer rest is further right.
+        #expect(scale.position(of: 8) < scale.position(of: 15.465))
+        // The proof has the fridge, whose range goes to 1.5 × 1.5 × 3^1.7 h.
+        let proof = ScheduleRules.scale(.proof, ryeShare: 0, temperatures: kitchen)
+        #expect(abs(proof.upperBound - 1.5 * 1.5 * pow(3, 1.7) * 1.15) < 1e-9)
+        #expect(abs(proof.lowerBound - 0.85 * 1.5 / 3.0.squareRoot() / 1.15) < 1e-9)
+    }
+}
+
 struct TargetTemperatureTests {
     private let kitchen = Temperatures(roomCelsius: 22, fridgeCelsius: 5)
 

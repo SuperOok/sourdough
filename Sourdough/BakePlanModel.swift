@@ -275,6 +275,15 @@ final class BakePlanModel {
         return (wish, ScheduleRules.celsius(rest, ryeShare: effectiveMix.ryeShare, hours: wish))
     }
 
+    /// The duration of `rest` and the temperature that goes with it
+    /// (`ScheduleStep.celsius`): what the user asked for if the plan could not
+    /// give it (`needed`), else what the plan has. `nil` without that rest.
+    func temperatureHint(for rest: RestKind, in schedule: Schedule) -> (hours: Double, celsius: Double)? {
+        if let wanted = needed(for: rest, in: schedule) { return wanted }
+        guard let step = schedule.rest(rest), let celsius = step.celsius else { return nil }
+        return (step.hours, celsius)
+    }
+
     /// Moves `rest` to `place`, at its nominal time there.
     func setPlace(_ place: Place, of rest: RestKind) {
         let hours = ScheduleRules.hours(rest, ryeShare: effectiveMix.ryeShare, celsius: temperatures.celsius(place))

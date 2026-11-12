@@ -18,7 +18,34 @@ final class BakeScheduleScreenTests: SourdoughUITestCase {
         openBake()
         tapButton("plan-next")
         tapButton("setup-next")
-        _ = element(app.buttons, "schedule-target")
+        _ = element(app.datePickers, "schedule-time")
+    }
+
+    /// The compact date picker: one button for the date and one for the time,
+    /// inside a button that carries both as its value ("18:00, 14. Nov 2026").
+    private var picker: XCUIElement { element(app.datePickers, "schedule-time") }
+    private var dateButton: XCUIElement {
+        picker.buttons.matching(NSPredicate(format: "label MATCHES %@", ".*\\d{4}")).firstMatch
+    }
+    private var timeButton: XCUIElement {
+        picker.buttons.matching(NSPredicate(format: "label MATCHES %@", "\\d{1,2}:\\d{2}")).firstMatch
+    }
+
+    /// Waits until the picker shows all of `parts`.
+    private func assertPicker(_ parts: String..., line: UInt = #line) {
+        let value = picker.buttons.firstMatch
+        for part in parts {
+            let done = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value CONTAINS %@", part),
+                                                 object: value)
+            XCTAssertEqual(XCTWaiter().wait(for: [done], timeout: 5), .completed,
+                           "Der Wähler zeigt nicht \(part), sondern \(String(describing: value.value)).", line: line)
+        }
+    }
+
+    /// Closes the popover of the picker by tapping beside it.
+    private func closePopover() {
+        app.buttons["PopoverDismissRegion"].coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.97)).tap()
+        XCTAssertTrue(app.buttons["PopoverDismissRegion"].waitForNonExistence(timeout: 5), "Das Popover blieb offen.")
     }
 
     func testTheRestsLinkToTheProofingPage() {
@@ -34,7 +61,7 @@ final class BakeScheduleScreenTests: SourdoughUITestCase {
 
     func testTheProposalStartsOnFridayEveningForSaturdayEvening() {
         openSchedule()
-        assertLabel("schedule-target", contains: "Sa 14.11. 18:00")
+        assertPicker("18:00", "14. Nov")
         XCTAssertTrue(any("schedule-chart").exists)
         let expected = [
             ("Fr 16:26", "Sauerteig ansetzen"), ("Fr 16:36", "Sauerteig reift"),
@@ -68,20 +95,53 @@ final class BakeScheduleScreenTests: SourdoughUITestCase {
         // take, 22 − 10 × log₃(2 / 1.5) = 19.4 °C.
         assertLabel("schedule-step-5", contains: "1 Std. 48 Min.")
         assertLabel("schedule-step-4", contains: "Sa 09:07")
-        assertText("schedule-needed-proof", "Für 2 Std. 0 Min. wären etwa 19 °C nötig.")
+        assertText("schedule-needed-proof", "Für 2 Std. 0 Min. passen etwa 19 °C.")
         // Another half hour: 2 h 30 min are in the range of the cool place, the
-        // proof moves there, and the hint is gone.
+        // proof moves there, and the line names 22 − 10 × log₃(2.5 / 1.5) = 17.35 °C.
         more.tap()
         assertLabel("schedule-step-5", contains: "2 Std. 30 Min.")
         assertLabel("schedule-step-4", contains: "Sa 08:25")
         assertLabel("schedule-place-proof", contains: "Kühl (16 °C)")
-        XCTAssertFalse(app.staticTexts["schedule-needed-proof"].exists)
+        assertText("schedule-needed-proof", "Für 2 Std. 30 Min. passen etwa 17 °C.")
         tapButton("schedule-reset")
         assertLabel("schedule-step-5", contains: "1 Std. 30 Min.")
-        // A shorter proof moves to the warm place: 1 h at 27 °C is in its range.
+        // The line is there for the proposal too: 1.5 h are the rule's time at 22 °C.
+        assertText("schedule-needed-proof", "Für 1 Std. 30 Min. passen etwa 22 °C.")
+        // A shorter proof moves to the warm place: 1 h at 27 °C is in its range,
+        // and 22 − 10 × log₃(1 / 1.5) = 25.7 °C goes with it.
         element(app.steppers, "schedule-stepper-proof").buttons.element(boundBy: 0).tap()
         assertLabel("schedule-step-5", contains: "1 Std. 0 Min.")
         assertLabel("schedule-place-proof", contains: "Warm (27 °C)")
+        assertText("schedule-needed-proof", "Für 1 Std. 0 Min. passen etwa 26 °C.")
+    }
+
+    func testPlusAndMinusStayWhereTheyAreWhateverTheLineSays() {
+        openSchedule()
+        let more = element(app.steppers, "schedule-stepper-proof").buttons.element(boundBy: 1)
+        let line = text("schedule-needed-proof")
+        let before = (more.frame.minY, line.frame.minY)
+        // "Für 1 Std. 30 Min. passen etwa 22 °C." becomes another text, and the
+        // proof moves to another place, with a shorter name ("Kühl (16 °C)"
+        // for "Raumtemperatur (22 °C)", which once took two lines): the line
+        // and the controls below the bar stay. The rows above change too (the
+        // plan moves earlier), so they must not move this one either.
+        more.tap()
+        assertText("schedule-needed-proof", "Für 2 Std. 0 Min. passen etwa 19 °C.")
+        XCTAssertEqual(more.frame.minY, before.0, accuracy: 0.5)
+        XCTAssertEqual(line.frame.minY, before.1, accuracy: 0.5)
+        more.tap()
+        assertText("schedule-needed-proof", "Für 2 Std. 30 Min. passen etwa 17 °C.")
+        XCTAssertEqual(more.frame.minY, before.0, accuracy: 0.5)
+        XCTAssertEqual(line.frame.minY, before.1, accuracy: 0.5)
+        XCTAssertLessThan(line.frame.height, 25, "Die Zeile ist einzeilig.")
+    }
+
+    func testTheTemperaturePageOpensFromTheRoomTemperature() {
+        openSchedule()
+        tapButton("schedule-tip-temperature")
+        assertTitle("Temperatur und Zeit")
+        tapButton("tips-topic-close")
+        _ = element(app.datePickers, "schedule-time")
     }
 
     func testTheCoolPlaceCanBeSetSwitchedOffAndIsRemembered() {
@@ -100,7 +160,7 @@ final class BakeScheduleScreenTests: SourdoughUITestCase {
         openBake()
         tapButton("plan-next")
         tapButton("setup-next")
-        _ = element(app.buttons, "schedule-target")
+        _ = element(app.datePickers, "schedule-time")
         XCTAssertEqual(element(app.switches, "schedule-cool-toggle").value as? String, "0")
         flip("schedule-cool-toggle", to: true)
         XCTAssertEqual(element(app.textFields, "schedule-cool").value as? String, "14")
@@ -125,14 +185,40 @@ final class BakeScheduleScreenTests: SourdoughUITestCase {
 
     func testTheTargetComesFromTheCalendar() {
         openSchedule()
-        tapButton("schedule-target")
-        let picker = element(app.datePickers, "schedule-datepicker")
-        let day = picker.buttons.matching(NSPredicate(format: "label CONTAINS %@", "16")).firstMatch
+        dateButton.tap()
+        let day = app.buttons.matching(NSPredicate(format: "label ENDSWITH %@", "16. November")).firstMatch
         XCTAssertTrue(day.waitForExistence(timeout: 5))
         day.tap()
-        tapButton("schedule-target-done")
-        assertLabel("schedule-target", contains: "Mo 16.11. 18:00")
+        closePopover()
+        assertPicker("18:00", "16. Nov")
         assertLabel("schedule-step-8", contains: "Mo 12:00")
+    }
+
+    func testTheTimeComesFromTheWheels() {
+        openSchedule()
+        timeButton.tap()
+        let minutes = app.pickerWheels.element(boundBy: 1)
+        XCTAssertTrue(minutes.waitForExistence(timeout: 5))
+        // The wheel reads "00 minutes" (in the language of the device), but
+        // its values are the bare numbers "00" to "59".
+        minutes.adjust(toPickerWheelValue: "30")
+        closePopover()
+        // Ready 18:30: baking ends 12:30 (cooling 6 h), from 11:40, preheating
+        // from 10:55; proof 1.5 h at room temperature from 10:10, shaping 09:55.
+        // The bulk rest no longer needs the warm place: at room temperature
+        // kneading may start at 08:00, which leaves it 09:55 − 08:20 = 1 h
+        // 35 min, within 0.85 × 1.75 h = 1 h 29 min and 1.2 × 1.75 h. The
+        // sourdough ends at 08:00 and takes 8 × 3^0.6 = 15 h 28 min at the cool
+        // place: from Friday 16:32, mixed at 16:22.
+        assertPicker("18:30", "14. Nov")
+        let expected = ["Fr 16:22", "Fr 16:32", "Sa 08:00", "Sa 08:20", "Sa 09:55", "Sa 10:10", "Sa 10:55",
+                        "Sa 11:40", "Sa 12:30"]
+        for (index, time) in expected.enumerated() {
+            assertLabel("schedule-step-\(index)", contains: time)
+        }
+        assertLabel("schedule-step-3", contains: "1 Std. 35 Min.")
+        assertLabel("schedule-place-sourdough", contains: "Kühl (16 °C)")
+        assertLabel("schedule-place-bulk", contains: "Raumtemperatur (22 °C)")
     }
 
     func testTemperaturesAreCheckedAndRemembered() {

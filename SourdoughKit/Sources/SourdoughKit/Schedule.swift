@@ -100,6 +100,38 @@ public enum RestKind: String, Codable, CaseIterable, Sendable {
     }
 }
 
+/// A logarithmic scale from hours to a position between 0 and 1, for the bars
+/// that show a sensible range of a rest. Equal factors take equal widths: a
+/// rest that is three times as long is as far to the right whatever its
+/// length, as in the rule that every 10 °C colder takes three times as long.
+public struct RangeScale: Equatable, Sendable {
+    /// The factor by which the scale reaches beyond the ranges it covers, at
+    /// both ends.
+    public static let margin = 1.15
+
+    /// The hours at position 0 and at position 1; both above 0.
+    public let lowerBound: Double
+    public let upperBound: Double
+
+    public init(lowerBound: Double, upperBound: Double) {
+        self.lowerBound = lowerBound
+        self.upperBound = upperBound
+    }
+
+    /// The scale that holds all of `ranges`, with `margin` on both ends.
+    public init(covering ranges: [ClosedRange<Double>], margin: Double = Self.margin) {
+        lowerBound = ranges.map(\.lowerBound).min()! / margin
+        upperBound = ranges.map(\.upperBound).max()! * margin
+    }
+
+    /// Where `hours` lies: 0 at `lowerBound`, 1 at `upperBound`, in between
+    /// by the logarithm; beyond the ends it stays at 0 or 1.
+    public func position(of hours: Double) -> Double {
+        let fraction = log(hours / lowerBound) / log(upperBound / lowerBound)
+        return min(max(fraction, 0), 1)
+    }
+}
+
 /// What the user does at the dough.
 public enum ActionKind: String, Codable, CaseIterable, Sendable {
     case mixSourdough, knead, shape, preheat, bake
@@ -140,6 +172,14 @@ public enum ScheduleRules {
     /// around, `22 °C − 10 °C × log₃(hours / hours at 22 °C)`.
     public static func celsius(_ rest: RestKind, ryeShare: Double, hours: Double) -> Double {
         referenceCelsius - 10 * log(hours / referenceHours(rest, ryeShare: ryeShare)) / log(StarterModel.q10)
+    }
+
+    /// The scale for the range bars of `rest`: one for all its places, so that
+    /// the coloured range moves when the place changes (`RangeScale`).
+    public static func scale(_ rest: RestKind, ryeShare: Double, temperatures: Temperatures) -> RangeScale {
+        RangeScale(covering: rest.places(for: temperatures).map {
+            range(rest, ryeShare: ryeShare, place: $0, temperatures: temperatures)
+        })
     }
 
     /// The place at which `hours` of `rest` is sensible: `current` if its

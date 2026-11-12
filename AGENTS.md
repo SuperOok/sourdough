@@ -408,9 +408,19 @@ Rechnungen liegen im Package, jede Konstante als Richtwert an einer Stelle:
    „+“ und „−“ (`BakePlanModel.stepHours`) gehen von der zuletzt gewünschten
    Zeit aus und wechseln den Ort, dessen Spanne sie trifft
    (`ScheduleRules.place(forHours:…)`; im Zwischenraum der Ort mit der
-   nächsten Nennzeit nach Verhältnis); trifft keiner, steht darunter die
-   Temperatur, die nötig wäre (`ScheduleRules.celsius`, die Regel umgekehrt,
-   Bezeichner `schedule-needed-<ruhe>`). Der kühle Ort ist optional
+   nächsten Nennzeit nach Verhältnis). Unter jeder Ruhe steht immer eine
+   einzeilige Zeile mit der Temperatur zur eingestellten Dauer („Für 2 Std.
+   0 Min. passen etwa 19 °C.“, `ScheduleRules.celsius`, die Regel umgekehrt,
+   Bezeichner `schedule-needed-<ruhe>`): trifft kein Ort die gewünschte Zeit,
+   gilt sie der gewünschten Dauer (`BakePlanModel.temperatureHint`), sonst der
+   geplanten. Die Zeile ist immer da und einzeilig, und der Ortswähler
+   (`fixedSize`) bleibt einzeilig, damit „+“ und „−“ nicht springen. Die
+   **Bereichsleiste** (`RangeBar`) zeigt die Spanne des gewählten Ortes auf einer
+   **logarithmischen Skala, die alle Orte der Ruhe teilen** (`RangeScale`,
+   `ScheduleRules.scale`: von der kleinsten Untergrenze bis zur größten
+   Obergrenze aller Spannen, je 15 % Rand): gleiche Faktoren sind gleich breit,
+   und der farbige Bereich wandert beim Ortswechsel; der Strich ist die geplante
+   Dauer. Der kühle Ort ist optional
    (`Temperatures.usesCoolPlace`, Schalter `schedule-cool-toggle`, Feld
    `schedule-cool`, 16 °C voreingestellt, nur wirksam, wenn kühler als der
    Raum); ältere gespeicherte Temperaturen ohne ihn bekommen die Voreinstellung.
@@ -448,8 +458,9 @@ Schritt 2 `setup-vessel`, `setup-pan`, `setup-pot`, `setup-basket`,
 `recipe-starter`, `recipe-sourdough`, `recipe-main-<mehl>`,
 `recipe-main-water`, `recipe-salt`, `recipe-soak-<zusatz>`,
 `recipe-addin-<zusatz>`, `setup-next`. Schritt 3
-`schedule-target` (Sheet mit `schedule-datepicker`,
-`schedule-target-done`), `schedule-room`, `schedule-fridge`,
+`schedule-time` (der kompakte `DatePicker`, die Zeit des einen Datumsfelds:
+Datum und Uhrzeit öffnen je ein Popover), `schedule-room` mit der Glühbirne
+`schedule-tip-temperature` (Seite „Temperatur und Zeit“), `schedule-fridge`,
 `schedule-error`, `schedule-conflict-<n>`, `schedule-chart`,
 `schedule-step-<n>`, `schedule-range-<ruhe>`, `schedule-place-<ruhe>`,
 `schedule-stepper-<ruhe>`, `schedule-reset`. `<mehl>` ist der Rohwert von
@@ -614,7 +625,8 @@ nachgerechneten Stunden der Sauerteigstufe (27 °C 4,6 h, 16 °C 15,5 h, 5 °C
 52 h), die engen Spannen (`RestKind.factorRange(at:)`), die Ortswahl des
 Zeitplans und der kühle Ort. `TipsCatalogTests` hält Stunden und Spannen gegen
 `ScheduleRules`. Verlinkt von „So wird der Zeitplan berechnet“; eine
-Glühbirne im Zeitplan (`BakeScheduleView`) fehlt noch. Die Seiten zum Starter
+Glühbirne im Zeitplan sitzt hinter der Raumtemperatur
+(`schedule-tip-temperature`). Die Seiten zum Starter
 sind eine: die Zustandsrechnung steht als Abschnitte in `starter.md`.
 
 **Ein neues Thema** braucht drei Schritte: einen Fall in

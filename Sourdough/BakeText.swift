@@ -203,9 +203,11 @@ enum ScheduleText {
         "\(duration(hours: hours.lowerBound)) bis \(duration(hours: hours.upperBound))"
     }
 
-    /// "Für 7 Std. 30 Min. wären etwa 14 °C nötig."
-    static func needed(hours: Double, celsius: Double) -> String {
-        "Für \(duration(hours: hours)) wären etwa \(StarterText.number(celsius.rounded())) °C nötig."
+    /// The temperature that goes with a duration, as the rule has it, in whole
+    /// degrees: "Für 7 Std. 30 Min. passen etwa 14 °C." It holds whether the
+    /// place gives that long a rest or not.
+    static func temperature(hours: Double, celsius: Double) -> String {
+        "Für \(duration(hours: hours)) passen etwa \(StarterText.number(celsius.rounded())) °C."
     }
 
     static func conflict(_ step: ScheduleStep, vessel: BakeSetup.Vessel, window: InteractionWindow,

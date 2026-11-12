@@ -562,6 +562,31 @@ struct BakePlanScheduleTests {
         #expect(abs(needed.celsius - (22 + 10 * log(6) / log(3))) < 1e-9)
     }
 
+    @Test func everyRestNamesTheTemperatureOfItsDuration() {
+        // Saturday 18:00, the proof at room temperature takes 1.5 h, the rule's
+        // time at 22 °C: 22 °C.
+        let model = BakePlanModel()
+        model.proposeSetup(from: [pot])
+        model.proposeTarget(now: nov(13, 9), calendar: utc)
+        var hint = model.temperatureHint(for: .proof, in: model.schedule(calendar: utc)!)!
+        #expect(abs(hint.hours - 1.5) < 1e-9 && abs(hint.celsius - 22) < 1e-9)
+        // The sourdough at the cool place takes its nominal time there: 16 °C.
+        hint = model.temperatureHint(for: .sourdough, in: model.schedule(calendar: utc)!)!
+        #expect(abs(hint.celsius - 16) < 1e-9)
+        // 2 h are more than the room gives: the hint is for the 2 h asked for,
+        // 22 − 10 × log₃(2 / 1.5) = 19.38 °C, and not for the 1.8 h of the plan.
+        model.stepHours(0.5, of: .proof, calendar: utc)
+        hint = model.temperatureHint(for: .proof, in: model.schedule(calendar: utc)!)!
+        #expect(hint.hours == 2)
+        #expect(abs(hint.celsius - (22 - 10 * log(4.0 / 3) / log(3))) < 1e-9)
+        // 2.5 h are in the range of the cool place: the plan gives them, and
+        // the hint is for them, 22 − 10 × log₃(2.5 / 1.5) = 17.35 °C.
+        model.stepHours(0.5, of: .proof, calendar: utc)
+        hint = model.temperatureHint(for: .proof, in: model.schedule(calendar: utc)!)!
+        #expect(abs(hint.hours - 2.5) < 1e-9)
+        #expect(abs(hint.celsius - (22 - 10 * log(5.0 / 3) / log(3))) < 1e-9)
+    }
+
     @Test func choosingAPlaceOrResettingForgetsTheWish() {
         let model = BakePlanModel()
         model.proposeSetup(from: [pot])
@@ -605,9 +630,10 @@ struct ScheduleTextTests {
                 == ["Warm (27 °C)", "Raumtemperatur (19,5 °C)", "Kühl (16 °C)", "Kühlschrank (4 °C)"])
     }
 
-    @Test func theTemperatureANeededPlaceWouldHave() {
-        #expect(ScheduleText.needed(hours: 2, celsius: 19.38) == "Für 2 Std. 0 Min. wären etwa 19 °C nötig.")
-        #expect(ScheduleText.needed(hours: 0.25, celsius: 38.3) == "Für 15 Min. wären etwa 38 °C nötig.")
+    @Test func theTemperatureThatGoesWithADuration() {
+        #expect(ScheduleText.temperature(hours: 2, celsius: 19.38) == "Für 2 Std. 0 Min. passen etwa 19 °C.")
+        #expect(ScheduleText.temperature(hours: 0.25, celsius: 38.3) == "Für 15 Min. passen etwa 38 °C.")
+        #expect(ScheduleText.temperature(hours: 1.5, celsius: 22) == "Für 1 Std. 30 Min. passen etwa 22 °C.")
     }
 
     @Test func rangesAndConflicts() {
