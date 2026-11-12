@@ -9,6 +9,7 @@ struct SourdoughApp: App {
     private let runStore = BakeRunStore()
 
     init() {
+        HeadlineFont.register()
         LaunchSetup.apply(options, equipment: equipmentStore, starters: starterStore, kitchen: kitchenStore,
                           runs: runStore)
     }
