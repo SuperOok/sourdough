@@ -632,9 +632,10 @@ mit UI-Tests abgedeckt werden müsste. `SourdoughKit` gilt mit
   zwingt.
 - **Formulare mit Zahlen** sind ein `NumberForm` (`NumberForm.swift`) mit
   `NumberField`s. Eingabefelder tragen einen sichtbaren Hintergrund, der den
-  Wert als Eingabe kennzeichnet (Kapsel oder Kasten; die Zahlenfelder
-  `.fill.tertiary` mit Radius 8); berechnete Werte stehen ohne Hintergrund in
-  grauer Schrift. Wo es ein System-Widget gibt, liefert es den Hintergrund
+  Wert als Eingabe kennzeichnet (Kapsel oder Kasten); die Zahlenfelder und die
+  Namensfelder nehmen dafür `.textFieldStyle(.roundedBorder)` (Systemstil, 96
+  pt breit bei Zahlen; hell weiß mit feinem Rand, dunkel schwarz);
+  berechnete Werte stehen ohne Hintergrund in grauer Schrift. Wo es ein System-Widget gibt, liefert es den Hintergrund
   selbst: der kompakte `DatePicker` (Wert als Kapsel in der Akzentfarbe, Auswahl
   im Popover) statt eines Buttons mit Text, der nicht nach Eingabe aussieht.
   Über dem Ziffernblock steht „Weiter“

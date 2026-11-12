@@ -18,6 +18,7 @@ struct AddStarterView: View {
                                 model.inFridge ? "add-fridge-temp" : "add-room-temp"]) { focus in
                 Section("Sauerteig") {
                     TextField(model.flour.starterName, text: $model.name)
+                        .textFieldStyle(.roundedBorder)
                         .accessibilityIdentifier("add-name")
                     Picker("Mehl", selection: $model.flour) {
                         ForEach(FlourType.starterGrains, id: \.self) { flour in

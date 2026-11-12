@@ -52,8 +52,8 @@ struct NumberForm<Content: View>: View {
     }
 }
 
-/// A labelled field for a number of grams, degrees or centimetres, in a
-/// visible box so that it stands apart from computed values.
+/// A labelled field for a number of grams, degrees or centimetres, in the
+/// system's rounded box so that it stands apart from computed values.
 struct NumberField: View {
     let title: String
     @Binding var text: String
@@ -72,10 +72,9 @@ struct NumberField: View {
                     for: UITextField.textDidBeginEditingNotification)) { note in
                     DispatchQueue.main.async { (note.object as? UITextField)?.selectAll(nil) }
                 }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 5)
+                // The system's own box, which marks the value as an input.
+                .textFieldStyle(.roundedBorder)
                 .frame(width: 96)
-                .background(.fill.tertiary, in: .rect(cornerRadius: 8))
         }
         .id(id)
     }
