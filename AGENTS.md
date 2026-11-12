@@ -378,8 +378,8 @@ Rechnungen liegen im Package, jede Konstante als Richtwert an einer Stelle:
    (`FlourType.starterGrains`). Die beiden Brotarten: Buchweizen-Roggenbrot
    (45 Roggen 1150, 25 Roggenvollkorn, 20 Buchweizen, 10 Dinkel 1050; 88 %
    Hydration) und Buchweizen-Dinkelbrot (50 Dinkel 1050, 25 Dinkel 630,
-   25 Buchweizen; 75 %). Sein Icon ist vorläufig `SeedsIcon`, bis ein Vorschlag
-   für ein eigenes freigegeben ist. **Zusätze** (`AddIn`,
+   25 Buchweizen; 75 %). Sein Icon ist `BuckwheatIcon` (Körner an
+   einem Stängel; `SeedsIcon` bleibt für die Zusatz-Saaten). **Zusätze** (`AddIn`,
    `AddIns`): Saaten, Nüsse, Trockenfrüchte, Röstzwiebeln, Kräuter, je als
    Anteil vom Mehl mit Vorgabe und Spanne (Saaten, Nüsse, Früchte 15 %,
    5–30; Röstzwiebeln 8 %, 2–15; Kräuter 3 %, 1–6). Saaten weichen in ihrem
@@ -575,7 +575,8 @@ Gärkörbchen, Roggen, Mehle, Buchweizen), in den Anleitungsschritten
 `schedule-tip-bulk`, `schedule-tip-proof`) und in „Utensilien und Menge“ (der
 Hinweis unter dem Backweg hat einen Link, die Meldung „freigeschoben läuft
 auseinander“ eine Glühbirne `setup-issue-tip-<n>`). Ihre Icons sind
-vorläufig `KneadingIcon` (Gare) und `BreadIcon` (freigeschoben). Neue Begriffe
+`ProofingIcon` (Gare: Schüssel mit gewölbtem Teig) und `FreeStandingIcon`
+(freigeschoben: Laib auf dem Blech). Neue Begriffe
 im Text immer als `[Begriff](tip:<id>)` verlinken.
 
 **Seite „Kneten“** (`kneading`, Kategorie „Brot backen“): Zu kurz, richtig und

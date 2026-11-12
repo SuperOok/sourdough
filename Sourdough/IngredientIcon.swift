@@ -9,7 +9,7 @@ enum IngredientIcon {
         case .spelt: "SpeltIcon"
         case .rye: "RyeIcon"
         // Until a drawing of its own is approved: the seeds.
-        case .buckwheat: "SeedsIcon"
+        case .buckwheat: "BuckwheatIcon"
         }
     }
 
@@ -29,7 +29,8 @@ enum IngredientIcon {
     static let allNames = ["WheatIcon", "SpeltIcon", "RyeIcon", "SeedsIcon", "NutsIcon",
                            "DriedFruitIcon", "RoastedOnionsIcon", "HerbsIcon",
                            "FlourSackIcon", "StarterJarIcon",
-                           "KneadingIcon", "ScheduleIcon"]
+                           "KneadingIcon", "ProofingIcon", "FreeStandingIcon", "BuckwheatIcon",
+                           "ScheduleIcon"]
 }
 
 /// The icon in front of a page in the contents of the tips.
@@ -53,8 +54,9 @@ enum TipsIcon {
         case .herbs: IngredientIcon.name(AddIn.herbs)
         // The proofing page borrows the dough, the free-standing page the loaf,
         // until drawings of their own are approved.
-        case .kneading, .proofing: "KneadingIcon"
-        case .freeStanding: "BreadIcon"
+        case .kneading: "KneadingIcon"
+        case .proofing: "ProofingIcon"
+        case .freeStanding: "FreeStandingIcon"
         // Temperature and time borrow the schedule's icon: `CustomIcon` draws
         // assets only, and a system symbol (`thermometer.medium`) would need a
         // change in `StartView.swift`.

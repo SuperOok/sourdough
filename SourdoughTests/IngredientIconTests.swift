@@ -4,7 +4,7 @@ import Testing
 
 struct IngredientIconTests {
     @Test func eachGrainShowsItsEar() {
-        #expect(FlourType.allCases.map(IngredientIcon.name(_:)) == ["RyeIcon", "WheatIcon", "SpeltIcon", "SeedsIcon"])
+        #expect(FlourType.allCases.map(IngredientIcon.name(_:)) == ["RyeIcon", "WheatIcon", "SpeltIcon", "BuckwheatIcon"])
     }
 
     @Test func aFlourShowsTheEarOfItsGrain() {
@@ -26,10 +26,10 @@ struct IngredientIconTests {
             .kneader: "KneaderIcon", .pot: "PotIcon", .pan: "PanOpenIcon", .basket: "BasketRoundIcon",
             .starter: "StarterJarIcon",
             .flours: "FlourSackIcon", .wheat: "WheatIcon", .rye: "RyeIcon", .spelt: "SpeltIcon",
-            .buckwheat: "SeedsIcon",
+            .buckwheat: "BuckwheatIcon",
             .seeds: "SeedsIcon", .nuts: "NutsIcon", .driedFruit: "DriedFruitIcon",
             .roastedOnions: "RoastedOnionsIcon", .herbs: "HerbsIcon",
-            .kneading: "KneadingIcon", .proofing: "KneadingIcon", .freeStanding: "BreadIcon",
+            .kneading: "KneadingIcon", .proofing: "ProofingIcon", .freeStanding: "FreeStandingIcon",
             .temperature: "ScheduleIcon", .schedule: "ScheduleIcon",
         ]
         #expect(expected.count == TipsTopic.ID.allCases.count)
