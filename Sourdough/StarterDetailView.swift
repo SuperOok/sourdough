@@ -73,7 +73,7 @@ struct StarterDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
-                TipsButton(topic: .starterStates, identifier: "detail-tips")
+                TipsButton(topic: .starter, identifier: "detail-tips")
             }
         }
         .onAppear {

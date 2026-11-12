@@ -24,13 +24,13 @@ struct IngredientIconTests {
     @Test func everyTipsPageHasAnIconOfItsOwnKind() {
         let expected: [TipsTopic.ID: String] = [
             .kneader: "KneaderIcon", .pot: "PotIcon", .pan: "PanOpenIcon", .basket: "BasketRoundIcon",
-            .starter: "StarterJarIcon", .starterStates: "StarterStateIcon",
+            .starter: "StarterJarIcon",
             .flours: "FlourSackIcon", .wheat: "WheatIcon", .rye: "RyeIcon", .spelt: "SpeltIcon",
             .buckwheat: "SeedsIcon",
             .seeds: "SeedsIcon", .nuts: "NutsIcon", .driedFruit: "DriedFruitIcon",
             .roastedOnions: "RoastedOnionsIcon", .herbs: "HerbsIcon",
             .kneading: "KneadingIcon", .proofing: "KneadingIcon", .freeStanding: "BreadIcon",
-            .schedule: "ScheduleIcon",
+            .temperature: "ScheduleIcon", .schedule: "ScheduleIcon",
         ]
         #expect(expected.count == TipsTopic.ID.allCases.count)
         for id in TipsTopic.ID.allCases {

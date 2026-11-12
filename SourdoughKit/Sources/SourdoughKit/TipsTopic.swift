@@ -6,10 +6,10 @@ public struct TipsTopic: Equatable, Sendable, Identifiable {
     /// of `tip:` links. The utensil topics use the ids of the equipment lines.
     public enum ID: String, CaseIterable, Identifiable, Sendable {
         case kneader, pot, pan, basket
-        case starter, starterStates
+        case starter
         case flours, wheat, rye, spelt, buckwheat
         case seeds, nuts, driedFruit, roastedOnions, herbs
-        case kneading, proofing, freeStanding, schedule
+        case kneading, proofing, freeStanding, temperature, schedule
 
         public var id: String { rawValue }
     }
@@ -44,9 +44,9 @@ public struct TipsTopic: Equatable, Sendable, Identifiable {
     public var category: Category {
         switch id {
         case .kneader, .pot, .pan, .basket: .utensils
-        case .starter, .starterStates: .starters
+        case .starter: .starters
         case .flours, .wheat, .rye, .spelt, .buckwheat, .seeds, .nuts, .driedFruit, .roastedOnions, .herbs: .ingredients
-        case .kneading, .proofing, .freeStanding, .schedule: .baking
+        case .kneading, .proofing, .freeStanding, .temperature, .schedule: .baking
         }
     }
 }

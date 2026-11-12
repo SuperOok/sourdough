@@ -8,13 +8,13 @@ final class TipsTests: SourdoughUITestCase {
         launch()
         tapButton("start-tips")
         XCTAssertTrue(app.navigationBars["Tipps und Tricks"].firstMatch.waitForExistence(timeout: 10))
-        for id in ["kneader", "pot", "pan", "basket", "starter", "starterStates"] {
+        for id in ["kneader", "pot", "pan", "basket", "starter"] {
             XCTAssertTrue(element(app.buttons, "tips-topic-\(id)").exists)
         }
         // The ingredients and the schedule further down.
         app.swipeUp()
         for id in ["flours", "wheat", "rye", "spelt", "seeds", "nuts", "driedFruit", "roastedOnions", "herbs",
-                   "schedule"] {
+                   "temperature", "schedule"] {
             XCTAssertTrue(element(app.buttons, "tips-topic-\(id)").exists, id)
         }
         app.swipeDown()

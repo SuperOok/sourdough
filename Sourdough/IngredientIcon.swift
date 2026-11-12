@@ -28,7 +28,7 @@ enum IngredientIcon {
     /// Every asset name this enum and `TipsIcon` can return.
     static let allNames = ["WheatIcon", "SpeltIcon", "RyeIcon", "SeedsIcon", "NutsIcon",
                            "DriedFruitIcon", "RoastedOnionsIcon", "HerbsIcon",
-                           "FlourSackIcon", "StarterJarIcon", "StarterStateIcon",
+                           "FlourSackIcon", "StarterJarIcon",
                            "KneadingIcon", "ScheduleIcon"]
 }
 
@@ -41,7 +41,6 @@ enum TipsIcon {
         case .pan: EquipmentIcon.name(for: .pan)
         case .basket: EquipmentIcon.name(for: .basket)
         case .starter: "StarterJarIcon"
-        case .starterStates: "StarterStateIcon"
         case .flours: "FlourSackIcon"
         case .wheat: IngredientIcon.name(FlourType.wheat)
         case .rye: IngredientIcon.name(FlourType.rye)
@@ -56,7 +55,10 @@ enum TipsIcon {
         // until drawings of their own are approved.
         case .kneading, .proofing: "KneadingIcon"
         case .freeStanding: "BreadIcon"
-        case .schedule: "ScheduleIcon"
+        // Temperature and time borrow the schedule's icon: `CustomIcon` draws
+        // assets only, and a system symbol (`thermometer.medium`) would need a
+        // change in `StartView.swift`.
+        case .temperature, .schedule: "ScheduleIcon"
         }
     }
 }
