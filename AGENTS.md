@@ -77,7 +77,7 @@ Sourdough/             Quellcode der App
   BakeRunView.swift, BakeRunStore.swift, BakeRunText.swift, BakeRunDemo.swift
                        laufender Durchgang: Anzeige, Speicherung, Texte, Demo
   BakeLogView.swift    Backprotokoll: Liste und Einzelansicht
-  NumberForm.swift     Formular mit Zahlenfeldern: Kasten, „Weiter“, „Fertig“
+  NumberForm.swift     Formular mit Zahlenfeldern: Hintergrund, „Weiter“, „Fertig“
   LaunchOptions.swift  Startparameter für Tests
   LaunchSetup.swift    wendet sie einmal beim App-Start an
   Refreshing.swift     setzt „jetzt“ jede Minute neu
@@ -631,8 +631,13 @@ mit UI-Tests abgedeckt werden müsste. `SourdoughKit` gilt mit
 - Ausschließlich SwiftUI. Kein UIKit, sofern nicht eine bestimmte API dazu
   zwingt.
 - **Formulare mit Zahlen** sind ein `NumberForm` (`NumberForm.swift`) mit
-  `NumberField`s. Eingabefelder stehen in einem sichtbaren Kasten, berechnete
-  Werte ohne Kasten in grauer Schrift. Über dem Ziffernblock steht „Weiter“
+  `NumberField`s. Eingabefelder tragen einen sichtbaren Hintergrund, der den
+  Wert als Eingabe kennzeichnet (Kapsel oder Kasten; die Zahlenfelder
+  `.fill.tertiary` mit Radius 8); berechnete Werte stehen ohne Hintergrund in
+  grauer Schrift. Wo es ein System-Widget gibt, liefert es den Hintergrund
+  selbst: der kompakte `DatePicker` (Wert als Kapsel in der Akzentfarbe, Auswahl
+  im Popover) statt eines Buttons mit Text, der nicht nach Eingabe aussieht.
+  Über dem Ziffernblock steht „Weiter“
   (`keyboard-next`, zum nächsten Feld aus `fields`) und „Fertig“
   (`keyboard-done`); das Feld mit dem Fokus rollt in die Mitte. Ohne das lag
   der Ziffernblock über den folgenden Feldern, das schwebende „Fertig“ über
@@ -643,6 +648,12 @@ mit UI-Tests abgedeckt werden müsste. `SourdoughKit` gilt mit
   `typeOnKeypad`: `typeText` tippt wie eine Hardware-Tastatur, und dann
   blendet der Simulator den Ziffernblock aus
   (`EquipmentListTests.testTheMeasuresCanBeTypedOneAfterTheOther`).
+- **Standard-Widgets vor Eigenbau:** Für jede Bedienaufgabe zuerst das
+  passende iOS-Standard-Widget nehmen (Picker, DatePicker, Stepper, Toggle,
+  Menü, Formularzeile) und sein Aussehen und Verhalten übernehmen. Findet sich
+  kein sinnvoll passendes Standard-Widget und müssten ungewöhnliche Dinge
+  kombiniert oder selbst gezeichnet werden, **fragt der Agent vorher** und
+  zeigt die Alternativen, statt es zu entscheiden.
 - Views enthalten `#Preview`-Blöcke. Previews funktionsfähig halten; sie
   sind die schnellste Rückmeldung in diesem Projekt.
 - Das Deployment-Target ist aktuell gewählt, neuere Plattform-APIs dürfen
