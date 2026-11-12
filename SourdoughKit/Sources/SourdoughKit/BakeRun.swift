@@ -20,12 +20,22 @@ public struct BakeRun: Codable, Equatable, Identifiable, Sendable {
     public let setup: BakeSetup
     public let temperatures: Temperatures
     public let window: InteractionWindow
+    /// When the bread can be cut, as planned; with `anchor == .start` the
+    /// result of planning forwards.
     public let target: Date
     public let choices: [RestKind: RestChoice]
     /// The time zone the plan was made in, so the schedule comes out the same.
     public let timeZone: TimeZone
     /// Optional, so that bakes saved before add-ins existed still load.
     private let addInShares: AddIns?
+    /// Optional, so that bakes saved before planning forwards still load:
+    /// they were all planned backwards from `target`.
+    private let scheduleAnchor: ScheduleAnchor?
+    /// The start a forward plan begins with; `nil` for a backward one.
+    private let startTime: Date?
+    /// The target temperature of each rest as planned; `nil` for bakes saved
+    /// before there was one.
+    private let restCelsius: [RestKind: Double]?
 
     public private(set) var status: Status = .active
     public private(set) var endedAt: Date?
@@ -36,8 +46,8 @@ public struct BakeRun: Codable, Equatable, Identifiable, Sendable {
 
     public init(id: UUID = UUID(), startedAt: Date, bread: BreadType, mix: FlourMix, totalGrams: Double,
                 limits: [Flour: Double], starter: Starter?, setup: BakeSetup, temperatures: Temperatures,
-                window: InteractionWindow, target: Date, choices: [RestKind: RestChoice], timeZone: TimeZone,
-                addIns: AddIns = AddIns()) {
+                window: InteractionWindow, anchor: ScheduleAnchor = .ready, time: Date,
+                choices: [RestKind: RestChoice], timeZone: TimeZone, addIns: AddIns = AddIns()) {
         self.id = id
         self.startedAt = startedAt
         self.bread = bread
@@ -48,24 +58,42 @@ public struct BakeRun: Codable, Equatable, Identifiable, Sendable {
         self.setup = setup
         self.temperatures = temperatures
         self.window = window
-        self.target = target
         self.choices = choices
         self.timeZone = timeZone
         addInShares = addIns
+        scheduleAnchor = anchor
+        startTime = anchor == .start ? time : nil
+        let schedule = Schedule(anchor: anchor, time: time, ryeShare: mix.ryeShare, vessel: setup.vessel,
+                                temperatures: temperatures, window: window, choices: choices,
+                                calendar: Self.calendar(timeZone))
+        target = schedule.target
+        restCelsius = schedule.restCelsius
     }
 
     /// The add-ins of the plan; none for a bake saved before there were any.
     public var addIns: AddIns { addInShares ?? AddIns() }
 
-    public var calendar: Calendar {
+    /// Which end of the plan was fixed; `.ready` for bakes saved before
+    /// planning forwards.
+    public var anchor: ScheduleAnchor { scheduleAnchor ?? .ready }
+
+    /// The temperature `rest` aims for, as planned; for a bake saved before
+    /// there was one, that of its place.
+    public func celsius(_ rest: RestKind) -> Double {
+        restCelsius?[rest] ?? temperatures.celsius(schedule.rest(rest)!.place!)
+    }
+
+    public var calendar: Calendar { Self.calendar(timeZone) }
+
+    private static func calendar(_ timeZone: TimeZone) -> Calendar {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = timeZone
         return calendar
     }
 
     public var schedule: Schedule {
-        Schedule(target: target, ryeShare: mix.ryeShare, vessel: setup.vessel, temperatures: temperatures,
-                 window: window, choices: choices, calendar: calendar)
+        Schedule(anchor: anchor, time: startTime ?? target, ryeShare: mix.ryeShare, vessel: setup.vessel,
+                 temperatures: temperatures, window: window, choices: choices, calendar: calendar)
     }
 
     public var recipe: Recipe {

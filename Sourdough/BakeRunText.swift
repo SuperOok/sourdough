@@ -25,7 +25,7 @@ enum BakeRunText {
             .addIns: addIns(recipe),
         ]
         if let rest = BakeProcess.followingRest(step), let resting = schedule.rest(rest) {
-            values[.restPlace] = resting.place.map { placePhrase($0, run.temperatures) }
+            values[.restTemperature] = restTemperature(run.celsius(rest))
             values[.restDuration] = ScheduleText.duration(hours: resting.hours)
             values[.restUntil] = ScheduleText.time(resting.end, calendar: calendar)
         } else {
@@ -63,15 +63,10 @@ enum BakeRunText {
         }
     }
 
-    /// "bei Raumtemperatur (22 °C)"
-    static func placePhrase(_ place: Place, _ temperatures: Temperatures) -> String {
-        let celsius = "\(StarterText.number(temperatures.celsius(place))) °C"
-        return switch place {
-        case .warm: "an einem warmen Ort (\(celsius))"
-        case .room: "bei Raumtemperatur (\(celsius))"
-        case .cool: "an einem kühlen Ort (\(celsius))"
-        case .fridge: "im Kühlschrank (\(celsius))"
-        }
+    /// "bei etwa 19 °C": the target temperature of a rest, in whole degrees.
+    /// Only the temperature, no place: where the dough finds it is up to the user.
+    static func restTemperature(_ celsius: Double) -> String {
+        "bei etwa \(Int(celsius.rounded())) °C"
     }
 
     /// Warm water for a warm bulk rest, else for the usual 26 °C dough.

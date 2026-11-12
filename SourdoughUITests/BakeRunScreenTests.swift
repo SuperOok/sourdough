@@ -51,7 +51,7 @@ final class BakeRunScreenTests: SourdoughUITestCase {
         assertLabel("run-text", contains: "Sauerteigstufe ansetzen")
         assertLabel("run-text", contains: "78 g Roggenvollkorn")
         assertLabel("run-text", contains: "16 g Anstellgut – nimm dafür „Roggensauerteig“")
-        assertLabel("run-text", contains: "an einem kühlen Ort (16 °C) etwa 15 Std. 28 Min. reifen, bis Sa 08:04")
+        assertLabel("run-text", contains: "bei etwa 16 °C reifen: etwa 15 Std. 28 Min., bis Sa 08:04")
         assertLabel("run-step-0", contains: "erledigt")
         done()
         answer("yes")
@@ -193,6 +193,8 @@ final class BakeLogScreenTests: SourdoughUITestCase {
         assertExact("log-hydration", "Hydration, 81,6 %")
         assertExact("log-sourdough", "Sauerteigstufe, 172 g")
         assertLabel("log-step-0", contains: "geplant Fr 16:26 · erledigt Fr 09:00 · Ja")
+        // The sourdough ripens at the cool place, 16 °C.
+        assertLabel("log-step-1", contains: "Ruhe bei etwa 16 °C")
         tapButton("log-delete")
         app.alerts.buttons["Abbrechen"].tap()
         tapButton("log-delete")

@@ -415,6 +415,19 @@ Rechnungen liegen im Package, jede Konstante als Richtwert an einer Stelle:
    einen anderen Ort oder meldet einen Konflikt. Auskühlen 2 h, ab 50 %
    Roggen 6 h, ab 80 % einen Tag. Der Vorschlag ist der erste Mittag oder
    Abend, dessen Plan nach „jetzt“ beginnt und ohne Konflikt ist.
+   **Zwei Richtungen** (`ScheduleAnchor`, im Modell `BakePlanModel.anchor`):
+   `.ready` rechnet rückwärts von „anschnittfertig“, `.start` vorwärts vom
+   Ansetzen des Sauerteigs (`Schedule(start:…)`, `Schedule(anchor:time:…)`).
+   Vorwärts wählt jede Ruhe den ersten Ort, dessen Spanne den folgenden
+   Handgriff (nach der Stückgare: Vorheizen und Backen) ins Zeitfenster bringt;
+   Auskühlen dauert genau die Mindestzeit, ein „anschnittfertig“ in der Nacht
+   ist kein Konflikt; „+“ und „−“ verschieben alle Folgeschritte. Es gibt nur
+   ein Datumsfeld (`anchorTime`); seine Bedeutung bestimmt die Richtung.
+   `setAnchor` behält den Plan: alle Ruhen werden mit Ort und Dauer fest
+   (`Schedule.restChoices`), das Feld übernimmt die Zeit des anderen Endes.
+   **Zieltemperatur je Ruhe** (`ScheduleStep.celsius`, `Schedule.restCelsius`):
+   die Temperatur, bei der die geplante Dauer der Regel entspricht
+   (`ScheduleRules.celsius`); bei der Nennzeit die des Ortes.
 
 Bezeichner: `start-bake`; Schritt 1 `plan-bread`, `plan-bread-character`,
 `plan-starter`, `plan-no-starters`, `plan-total`, `plan-flour-<mehl>`,
@@ -463,6 +476,11 @@ gibt höchstens einen laufenden Durchgang; beim App-Start öffnet die App ihn
 direkt, auf dem Startbildschirm steht dann „Läuft: …“. Gespeichert wird je
 Durchgang eine JSON-Datei unter Application Support/`bakes/`
 (`BakeRunStore`), nicht in `UserDefaults`, weil später Fotos dazukommen.
+Der Durchgang merkt sich Richtung (`anchor`), bei `.start` die Startzeit, und
+die Zieltemperatur je Ruhe (`BakeRun.celsius(_:)`); ältere Dateien ohne diese
+Werte gelten als rückwärts geplant mit der Temperatur des Ortes. Die Anleitung
+nennt bei jeder Ruhe nur die Temperatur, keinen Ort (`{restTemperature}`,
+„bei etwa 19 °C“, ganze Grad).
 
 **Der Ablauf ist Daten** (`BakeProcess`): neun Schritte (`StepID`), davon drei
 Entscheidungen mit Antworten (`answers`); „Noch nicht“ hält den Schritt offen
@@ -481,7 +499,8 @@ Platzhalter bekannt ist und `docs/ablauf.md` zur Definition passt.
 **Backprotokoll** (`BakeLogView`, `BakeLogDetailView`): alle Durchgänge,
 neueste zuerst, mit Brotart, Status, Starter, Utensilien, Temperaturen,
 Mehlen in Gramm, Hydration, Sauerteigstufe, Salz und je Schritt geplanter
-und erledigter Zeit samt Antwort; ein Durchgang lässt sich löschen.
+und erledigter Zeit samt Antwort, bei Schritten vor einer Ruhe deren
+Zieltemperatur („Ruhe bei etwa 16 °C“); ein Durchgang lässt sich löschen.
 
 Bezeichner der Durchführung: `run-target`, `run-status`, `run-planned`,
 `run-text`, `run-hint`, `run-done`, `run-answer-<antwort>` (`yes`, `notYet`,

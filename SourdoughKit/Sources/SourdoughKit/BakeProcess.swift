@@ -60,8 +60,9 @@ public enum BakeProcess {
         case soaker
         /// When the add-ins go into the dough: a paragraph, or nothing.
         case addIns
-        /// Where the rest after this step takes place: "bei Raumtemperatur (22 °C)".
-        case restPlace
+        /// The temperature the rest after this step aims for: "bei etwa 19 °C".
+        /// Only the temperature: where the dough finds it is up to the user.
+        case restTemperature
         /// How long that rest takes, and until when.
         case restDuration
         case restUntil
@@ -150,7 +151,7 @@ public enum BakeProcess {
         return schedule.steps.first { $0.kind == .action(action) }!.start
     }
 
-    /// The rest that follows `step`, whose place and time its text names.
+    /// The rest that follows `step`, whose temperature and time its text names.
     public static func followingRest(_ step: StepID) -> RestKind? {
         switch step {
         case .mixSourdough: .sourdough

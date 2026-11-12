@@ -334,6 +334,173 @@ struct ScheduleTests {
     }
 }
 
+struct TargetTemperatureTests {
+    private let kitchen = Temperatures(roomCelsius: 22, fridgeCelsius: 5)
+
+    @Test func atTheNominalTimeARestAimsForTheTemperatureOfItsPlace() {
+        // The reference plan for Saturday 18:00: sourdough at the cool place
+        // (16 °C), warm bulk rest (27 °C), proof at room temperature (22 °C),
+        // each at its nominal time.
+        let schedule = Schedule(target: nov(14, 18), ryeShare: 50, vessel: .pot, temperatures: kitchen, calendar: utc)
+        #expect(abs(schedule.rest(.sourdough)!.celsius! - 16) < 1e-9)
+        #expect(abs(schedule.rest(.bulk)!.celsius! - 27) < 1e-9)
+        #expect(abs(schedule.rest(.proof)!.celsius! - 22) < 1e-9)
+        #expect(schedule.steps.filter { $0.celsius != nil }.count == 3)
+        let celsius = schedule.restCelsius
+        #expect(Set(celsius.keys) == [.sourdough, .bulk, .proof])
+        #expect(abs(celsius[.bulk]! - 27) < 1e-9)
+    }
+
+    @Test func aRestLongerThanNominalAimsColder() {
+        // The fridge proof of Sunday 12:00 at 30 % rye lasts 12 h 10 min
+        // (see `aMorningBakeSendsTheProofIntoTheFridge`): 22 − 10 × log₃(12.1667 /
+        // 1.5) = 22 − 10 × ln 8.1111 / ln 3 = 22 − 10 × 2.09324 / 1.09861 = 2.946 °C,
+        // colder than the 5 °C of the fridge.
+        let schedule = Schedule(target: nov(15, 12), ryeShare: 30, vessel: .pot, temperatures: kitchen, calendar: utc)
+        #expect(abs(schedule.rest(.proof)!.celsius! - 2.946) < 0.001)
+    }
+
+    @Test func aClampedChoiceAimsForTheTemperatureOfItsHours() {
+        // A proof of 1.8 h at room temperature, the most its range allows:
+        // 22 − 10 × log₃(1.8 / 1.5) = 22 − 10 × 0.18232 / 1.09861 = 20.340 °C.
+        let schedule = Schedule(target: nov(15, 12), ryeShare: 50, vessel: .pot, temperatures: kitchen,
+                                choices: [.proof: RestChoice(place: .room, hours: 1.8)], calendar: utc)
+        #expect(abs(schedule.rest(.proof)!.celsius! - 20.340) < 0.001)
+    }
+}
+
+struct ForwardScheduleTests {
+    private let kitchen = Temperatures()
+    private let sqrt3 = 3.0.squareRoot()
+    /// 8 h × 3^0.6: the sourdough at the cool place (16 °C), 15.4655 h.
+    private let coolSourdough = 8 * pow(3.0, 0.6)
+
+    private func forward(_ start: Date, window: InteractionWindow = InteractionWindow(),
+                         choices: [RestKind: RestChoice] = [:]) -> Schedule {
+        Schedule(start: start, ryeShare: 50, vessel: .pot, temperatures: kitchen, window: window,
+                 choices: choices, calendar: utc)
+    }
+
+    @Test func theReferencePlanForwardsComesBackToItsTarget() {
+        // Backwards from Saturday 18:00 (Roggenmischbrot 50, pot, room 22 °C,
+        // fridge 5 °C, cool place 16 °C): proof 1.5 h at room temperature from
+        // 09:40, shaping 09:25, warm bulk rest 1.75 / √3 = 1.0104 h, kneading
+        // from 08:04:23, the sourdough 8 × 3^0.6 = 15.4655 h = 15 h 28 min at
+        // the cool place from Friday 16:36, mixed at 16:26.
+        let backward = Schedule(target: nov(14, 18), ryeShare: 50, vessel: .pot, temperatures: kitchen,
+                                calendar: utc)
+        let mixing = nov(14, 9, 25) - (1.75 / sqrt3 + 20.0 / 60 + coolSourdough + 10.0 / 60) * 3600
+        #expect(close(backward.start, mixing))
+        #expect(backward.start >= nov(13, 16, 26) && backward.start < nov(13, 16, 27))
+        let choices = backward.restChoices
+        #expect(choices[.sourdough]?.place == .cool && abs(choices[.sourdough]!.hours - coolSourdough) < 1e-9)
+        #expect(choices[.bulk]?.place == .warm && abs(choices[.bulk]!.hours - 1.75 / sqrt3) < 1e-9)
+        #expect(choices[.proof]?.place == .room && abs(choices[.proof]!.hours - 1.5) < 1e-9)
+        // Forwards from that start with the same rests: every step where it
+        // was, and the bread ready at Saturday 18:00 exactly.
+        let schedule = forward(backward.start, choices: choices)
+        #expect(close(schedule.target, nov(14, 18)))
+        #expect(schedule.steps.map(\.kind) == backward.steps.map(\.kind))
+        for (step, expected) in zip(schedule.steps, backward.steps) {
+            #expect(close(step.start, expected.start) && close(step.end, expected.end), "\(step.kind)")
+        }
+        #expect(schedule.conflicts.isEmpty)
+    }
+
+    @Test func forwardsEachRestTakesThePlaceThatPutsTheNextActionIntoTheWindow() {
+        // From Friday 16:30: mixing until 16:40. The sourdough at room
+        // temperature (6.4 to 10 h) would put kneading (20 min) between 23:04
+        // and 02:40: not in 8–21 h. At the cool place 15.4655 h end at 08:07:56
+        // on Saturday, kneading until 08:27:56 fits. The bulk rest at room
+        // temperature, 1.75 h, ends 10:12:56, shaping until 10:27:56; the proof
+        // 1.5 h at room temperature ends 11:57:56, preheating from 11:12:56,
+        // baking until 12:47:56, cooling 6 h: ready at 18:47:56.
+        let schedule = forward(nov(13, 16, 30))
+        #expect(schedule.steps.map(\.kind) == [
+            .action(.mixSourdough), .rest(.sourdough, .cool), .action(.knead), .rest(.bulk, .room),
+            .action(.shape), .rest(.proof, .room), .action(.preheat), .action(.bake), .cooling,
+        ])
+        let knead = nov(13, 16, 40) + coolSourdough * 3600
+        #expect(close(schedule.steps[2].start, knead))
+        #expect(close(schedule.steps[4].start, knead + (20.0 / 60 + 1.75) * 3600))
+        let bake = knead + (20.0 / 60 + 1.75 + 15.0 / 60 + 1.5) * 3600
+        #expect(close(schedule.steps[6].start, bake - 45 * 60))
+        #expect(close(schedule.steps[7].start, bake))
+        #expect(close(schedule.target, bake + (50.0 / 60 + 6) * 3600))
+        #expect(schedule.conflicts.isEmpty)
+        #expect(close(schedule.start, nov(13, 16, 30)))
+        #expect(abs(schedule.rest(.sourdough)!.celsius! - 16) < 1e-9)
+    }
+
+    @Test func aTargetInTheNightIsNoConflict() {
+        // From Friday 08:00, all at room temperature: mixing to 08:10,
+        // sourdough 8 h to 16:10, kneading to 16:30, bulk 1.75 h to 18:15,
+        // shaping to 18:30, proof 1.5 h to 20:00, preheating 19:15, baking
+        // 20:00 to 20:50, cooling 6 h: ready Saturday 02:50.
+        let schedule = forward(nov(13, 8))
+        #expect(schedule.steps.compactMap(\.place) == [.room, .room, .room])
+        #expect(close(schedule.steps[7].start, nov(13, 20)))
+        #expect(close(schedule.target, nov(14, 2, 50)))
+        #expect(schedule.conflicts.isEmpty)
+    }
+
+    @Test func aShorterRestMovesEveryStepAfterIt() {
+        // As before, with the sourdough one hour shorter, 7 h (within 6.4 to
+        // 10 h): everything after it comes one hour earlier, ready 01:50.
+        let plain = forward(nov(13, 8))
+        let shorter = forward(nov(13, 8), choices: [.sourdough: RestChoice(place: .room, hours: 7)])
+        #expect(shorter.steps[0] == plain.steps[0])
+        for (step, before) in zip(shorter.steps.dropFirst(2), plain.steps.dropFirst(2)) {
+            #expect(close(step.start, before.start - 3600) && close(step.end, before.end - 3600))
+        }
+        #expect(close(shorter.target, nov(14, 1, 50)))
+        #expect(shorter.conflicts.isEmpty)
+    }
+
+    @Test func aChosenRestIsClampedAndMayPushTheNextActionOutOfTheWindow() {
+        // From Friday 12:00 a sourdough of 20 h at room temperature is
+        // clamped to 10 h: 12:10 to 22:10, kneading 22:10 — outside.
+        let schedule = forward(nov(13, 12), choices: [.sourdough: RestChoice(place: .room, hours: 20)])
+        #expect(abs(schedule.rest(.sourdough)!.hours - 10) < 1e-9)
+        #expect(close(schedule.steps[2].start, nov(13, 22, 10)))
+        #expect(schedule.conflicts.first == .knead)
+    }
+
+    @Test func aLateStartIsAConflictOfTheMixing() {
+        // From Friday 21:30 the mixing ends 21:40, after the window. The
+        // sourdough then goes to the cool place (room: kneading at 04:04 to
+        // 07:40, too early) and kneading falls at 13:07:56 on Saturday.
+        let schedule = forward(nov(13, 21, 30))
+        #expect(schedule.conflicts == [.mixSourdough])
+        #expect(schedule.rest(.sourdough)!.kind == .rest(.sourdough, .cool))
+    }
+
+    @Test func withoutAnyRoomEveryActionIsAConflictForwardsToo() {
+        // The window closes when it opens: every rest takes its nominal time
+        // at room temperature. From Friday 16:30: 10 + 20 + 15 + 50 min of
+        // actions and 8 + 1.75 + 1.5 + 6 h of rests and cooling, 18 h 50 min:
+        // ready Saturday 11:20.
+        let schedule = forward(nov(13, 16, 30), window: InteractionWindow(startHour: 8, endHour: 8))
+        #expect(schedule.conflicts == [.mixSourdough, .knead, .shape, .preheat, .bake])
+        #expect(schedule.steps.compactMap(\.place) == [.room, .room, .room])
+        #expect(close(schedule.target, nov(14, 11, 20)))
+    }
+
+    @Test func theAnchorChoosesTheDirection() {
+        let ready = Schedule(anchor: .ready, time: nov(14, 18), ryeShare: 50, vessel: .pot, temperatures: kitchen,
+                             calendar: utc)
+        #expect(ready == Schedule(target: nov(14, 18), ryeShare: 50, vessel: .pot, temperatures: kitchen,
+                                  calendar: utc))
+        let start = Schedule(anchor: .start, time: nov(13, 8), ryeShare: 50, vessel: .pot, temperatures: kitchen,
+                             calendar: utc)
+        #expect(start == forward(nov(13, 8)))
+        #expect(ScheduleAnchor.allCases == [.ready, .start])
+        #expect(start.time(of: .start) == nov(13, 8))
+        #expect(ready.time(of: .ready) == nov(14, 18))
+        #expect(close(start.time(of: .ready), nov(14, 2, 50)))
+    }
+}
+
 struct ScheduleDaysTests {
     private func close(_ a: Double, _ b: Double) -> Bool { abs(a - b) < 1e-9 }
 

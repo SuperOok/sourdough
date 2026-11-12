@@ -199,7 +199,7 @@ struct BakeRunTests {
         BakeRun(startedAt: nov(13, 9), bread: .ryeMixedBread50, mix: BreadType.ryeMixedBread50.preset,
                 totalGrams: 825, limits: [.spelt1050: 235],
                 starter: Starter(name: "Opa", flour: .rye, createdAt: nov(1, 8)),
-                setup: setup, temperatures: Temperatures(), window: InteractionWindow(), target: nov(15, 12),
+                setup: setup, temperatures: Temperatures(), window: InteractionWindow(), time: nov(15, 12),
                 choices: [:], timeZone: TimeZone(identifier: "UTC")!)
     }
 
@@ -341,7 +341,7 @@ struct BakeRunTests {
     @Test func theAddInsGoIntoTheRecipe() {
         let bake = BakeRun(startedAt: nov(13, 9), bread: .ryeMixedBread50, mix: BreadType.ryeMixedBread50.preset,
                            totalGrams: 800, limits: [:], starter: nil, setup: potAndBasket,
-                           temperatures: Temperatures(), window: InteractionWindow(), target: nov(15, 12),
+                           temperatures: Temperatures(), window: InteractionWindow(), time: nov(15, 12),
                            choices: [:], timeZone: TimeZone(identifier: "UTC")!, addIns: AddIns([.nuts: 10]))
         #expect(bake.addIns == AddIns([.nuts: 10]))
         // 10 % of 800 g.
@@ -354,5 +354,53 @@ struct BakeRunTests {
         object["addInShares"] = nil
         let old = try JSONDecoder().decode(BakeRun.self, from: JSONSerialization.data(withJSONObject: object))
         #expect(old.addIns.isEmpty)
+    }
+
+    /// Roggenmischbrot 50 in the pot, room 22 °C, the proof fixed at room
+    /// temperature for 1.8 h, the most its range at 22 °C allows.
+    private func run(anchor: ScheduleAnchor, time: Date) -> BakeRun {
+        BakeRun(startedAt: nov(13, 7), bread: .ryeMixedBread50, mix: BreadType.ryeMixedBread50.preset,
+                totalGrams: 800, limits: [:], starter: nil, setup: potAndBasket, temperatures: Temperatures(),
+                window: InteractionWindow(), anchor: anchor, time: time,
+                choices: [.proof: RestChoice(place: .room, hours: 1.8)], timeZone: TimeZone(identifier: "UTC")!)
+    }
+
+    @Test func aBakePlannedForwardsKeepsItsStartAndKnowsItsTarget() throws {
+        // From Friday 08:00: mixing to 08:10, sourdough 8 h to 16:10, kneading
+        // to 16:30, bulk 1.75 h to 18:15, shaping to 18:30, proof 1.8 h to
+        // 20:18, baking to 21:08 — outside the window, but fixed by the
+        // choice —, cooling 6 h: ready Saturday 03:08.
+        let bake = run(anchor: .start, time: nov(13, 8))
+        #expect(bake.anchor == .start)
+        #expect(abs(bake.target.timeIntervalSince(nov(14, 3, 8))) < 0.001)
+        #expect(bake.schedule == Schedule(start: nov(13, 8), ryeShare: 50, vessel: .pot,
+                                          temperatures: Temperatures(),
+                                          choices: [.proof: RestChoice(place: .room, hours: 1.8)], calendar: utc))
+        let decoded = try JSONDecoder().decode(BakeRun.self, from: JSONEncoder().encode(bake))
+        #expect(decoded == bake)
+        #expect(decoded.schedule.start == nov(13, 8))
+    }
+
+    @Test func aBakeRemembersTheTargetTemperatureOfEachRest() {
+        // Backwards from Saturday 18:00 the proof is fixed at room temperature
+        // for 1.8 h instead of 1.5 h: 22 − 10 × log₃(1.8 / 1.5) =
+        // 22 − 10 × 0.18232 / 1.09861 = 20.340 °C.
+        let bake = run(anchor: .ready, time: nov(14, 18))
+        #expect(bake.anchor == .ready)
+        #expect(bake.target == nov(14, 18))
+        #expect(abs(bake.celsius(.proof) - 20.340) < 0.001)
+    }
+
+    @Test func aBakeSavedBeforeTargetTemperaturesTakesThoseOfItsPlaces() throws {
+        let data = try JSONEncoder().encode(run(anchor: .ready, time: nov(14, 18)))
+        var object = try #require(try JSONSerialization.jsonObject(with: data) as? [String: Any])
+        #expect(object["restCelsius"] != nil && object["scheduleAnchor"] != nil)
+        object["restCelsius"] = nil
+        object["scheduleAnchor"] = nil
+        let old = try JSONDecoder().decode(BakeRun.self, from: JSONSerialization.data(withJSONObject: object))
+        // The proof is at room temperature: 22 °C, not the 20.3 °C its time needs.
+        #expect(old.celsius(.proof) == 22)
+        #expect(old.anchor == .ready)
+        #expect(old.target == nov(14, 18))
     }
 }

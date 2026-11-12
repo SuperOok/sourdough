@@ -19,7 +19,7 @@ struct BakeScheduleView: View {
             Section {
                 Button { pickingTarget = true } label: {
                     LabeledContent("Anschnittfertig") {
-                        Text(model.target.map { ScheduleText.day($0, calendar: calendar) } ?? "—")
+                        Text(model.anchorTime.map { ScheduleText.day($0, calendar: calendar) } ?? "—")
                     }
                 }
                 .foregroundStyle(.primary)
@@ -163,7 +163,7 @@ struct BakeScheduleView: View {
         NavigationStack {
             Form {
                 DatePicker("Anschnittfertig", selection: Binding(
-                    get: { model.chosenTarget }, set: { model.chosenTarget = $0 }),
+                    get: { model.chosenTime }, set: { model.chosenTime = $0 }),
                            in: now..., displayedComponents: [.date, .hourAndMinute])
                     .datePickerStyle(.graphical)
                     .accessibilityIdentifier("schedule-datepicker")

@@ -128,11 +128,15 @@ enum BakeLogText {
         "Raum \(StarterText.number(temperatures.roomCelsius)) °C, Kühlschrank \(StarterText.number(temperatures.fridgeCelsius)) °C"
     }
 
-    /// "geplant Sa 08:10 · erledigt Sa 08:12", "· Über dem Rand" for an answer.
+    /// "geplant Sa 08:10 · erledigt Sa 08:12", "· Über dem Rand" for an
+    /// answer, "· Ruhe bei etwa 16 °C" for a step a rest follows.
     static func times(_ run: BakeRun, _ step: BakeProcess.StepID) -> String {
         var parts = ["geplant \(ScheduleText.time(BakeProcess.plannedTime(step, in: run.schedule), calendar: run.calendar))"]
         if let done = run.done[step] { parts.append("erledigt \(ScheduleText.time(done, calendar: run.calendar))") }
         if let answer = run.answers[step] { parts.append(BakeRunText.answer(answer)) }
+        if let rest = BakeProcess.followingRest(step) {
+            parts.append("Ruhe \(BakeRunText.restTemperature(run.celsius(rest)))")
+        }
         return parts.joined(separator: " · ")
     }
 }

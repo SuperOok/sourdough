@@ -235,6 +235,14 @@ public struct RestChoice: Codable, Equatable, Sendable {
     }
 }
 
+/// Which end of a bake the user fixes: the time the bread can be cut
+/// (`ready`; the plan goes backwards from it) or the time the sourdough is
+/// mixed (`start`; the plan goes forwards and "ready" is its result).
+public enum ScheduleAnchor: String, Codable, CaseIterable, Sendable {
+    case ready
+    case start
+}
+
 /// One entry of the timeline.
 public struct ScheduleStep: Equatable, Sendable {
     public enum Kind: Equatable, Sendable {
@@ -250,6 +258,20 @@ public struct ScheduleStep: Equatable, Sendable {
     public let hourRange: ClosedRange<Double>?
     /// An action outside the interaction window.
     public let outsideWindow: Bool
+    /// For a rest: the temperature at which its planned hours match the rule
+    /// (`ScheduleRules.celsius`), the one to aim for. At the nominal time it
+    /// is the temperature of the place.
+    public let celsius: Double?
+
+    init(kind: Kind, start: Date, end: Date, hourRange: ClosedRange<Double>? = nil, outsideWindow: Bool = false,
+         celsius: Double? = nil) {
+        self.kind = kind
+        self.start = start
+        self.end = end
+        self.hourRange = hourRange
+        self.outsideWindow = outsideWindow
+        self.celsius = celsius
+    }
 
     public var hours: Double { end.timeIntervalSince(start) / 3600 }
 
@@ -260,7 +282,8 @@ public struct ScheduleStep: Equatable, Sendable {
     }
 }
 
-/// The timeline of a bake, planned backwards from the time the bread can be cut.
+/// The timeline of a bake, planned backwards from the time the bread can be
+/// cut or forwards from the time the sourdough is mixed (`ScheduleAnchor`).
 ///
 /// Going back from the target: the bread cools at least
 /// `ScheduleRules.coolingHours`, longer if that puts preheating and baking
@@ -270,11 +293,76 @@ public struct ScheduleStep: Equatable, Sendable {
 /// If no place works, it takes the nominal time at the usual place and the
 /// action is marked as outside the window. A rest in `choices` takes the
 /// place and hours given there instead, clamped to the range.
+///
+/// Going forward from the start, each rest likewise takes the first place at
+/// which a time within its range puts the action after it into the window
+/// (after the proof: preheating and baking), and the bread cools exactly
+/// `ScheduleRules.coolingHours`; a target in the night is no conflict. A
+/// longer or shorter rest moves every step after it.
 public struct Schedule: Equatable, Sendable {
     public let steps: [ScheduleStep]
     /// What the bread bakes in; it decides some step titles.
     public let vessel: BakeSetup.Vessel
 
+    /// The rests, each with the action before it, in their order.
+    private static let pairs: [(ActionKind, RestKind)] = [(.mixSourdough, .sourdough), (.knead, .bulk),
+                                                            (.shape, .proof)]
+
+    /// Plans backwards from `time` for `.ready`, forwards from it for `.start`.
+    public init(anchor: ScheduleAnchor, time: Date, ryeShare: Double, vessel: BakeSetup.Vessel,
+                temperatures: Temperatures, window: InteractionWindow = InteractionWindow(),
+                choices: [RestKind: RestChoice] = [:], calendar: Calendar) {
+        switch anchor {
+        case .ready:
+            self.init(target: time, ryeShare: ryeShare, vessel: vessel, temperatures: temperatures,
+                      window: window, choices: choices, calendar: calendar)
+        case .start:
+            self.init(start: time, ryeShare: ryeShare, vessel: vessel, temperatures: temperatures,
+                      window: window, choices: choices, calendar: calendar)
+        }
+    }
+
+    /// The place and hours of `rest`, and whether the action next to it lies
+    /// outside the window. That action (with preheating: the block of
+    /// actions) takes `length` seconds and ends at `base` + `direction` ×
+    /// hours: backwards the action before the rest, forwards the one after it.
+    private static func place(_ rest: RestKind, ryeShare: Double, temperatures: Temperatures,
+                              choice: RestChoice?, window: InteractionWindow, calendar: Calendar,
+                              base: Date, direction: Double, length: TimeInterval)
+    -> (place: Place, hours: Double, outside: Bool) {
+        func blockEnd(_ hours: Double) -> Date { base + direction * hours * 3600 }
+        func range(_ place: Place) -> ClosedRange<Double> {
+            ScheduleRules.range(rest, ryeShare: ryeShare, place: place, temperatures: temperatures)
+        }
+        func nominal(_ place: Place) -> Double {
+            ScheduleRules.hours(rest, ryeShare: ryeShare, celsius: temperatures.celsius(place))
+        }
+        let places = rest.places(for: temperatures)
+        if let choice, places.contains(choice.place) {
+            let hours = min(max(choice.hours, range(choice.place).lowerBound), range(choice.place).upperBound)
+            let end = blockEnd(hours)
+            return (choice.place, hours, !window.contains(end - length, end, calendar: calendar))
+        }
+        for place in places {
+            let span = range(place)
+            let bounds = [blockEnd(span.lowerBound), blockEnd(span.upperBound)].sorted()
+            if let end = window.closestEnd(to: blockEnd(nominal(place)), length: length, in: bounds[0], bounds[1],
+                                           calendar: calendar) {
+                return (place, direction * end.timeIntervalSince(base) / 3600, false)
+            }
+        }
+        return (places[0], nominal(places[0]), true)
+    }
+
+    private static func restStep(_ rest: RestKind, place: Place, start: Date, end: Date, ryeShare: Double,
+                                 temperatures: Temperatures) -> ScheduleStep {
+        ScheduleStep(kind: .rest(rest, place), start: start, end: end,
+                     hourRange: ScheduleRules.range(rest, ryeShare: ryeShare, place: place, temperatures: temperatures),
+                     celsius: ScheduleRules.celsius(rest, ryeShare: ryeShare,
+                                                    hours: end.timeIntervalSince(start) / 3600))
+    }
+
+    /// Plans backwards from `target`, the time the bread can be cut.
     public init(target: Date, ryeShare: Double, vessel: BakeSetup.Vessel,
                 temperatures: Temperatures, window: InteractionWindow = InteractionWindow(),
                 choices: [RestKind: RestChoice] = [:], calendar: Calendar) {
@@ -290,50 +378,66 @@ public struct Schedule: Equatable, Sendable {
                                        in: latestBakeEnd - 3 * 86400, latestBakeEnd, calendar: calendar)
         let bakeEnd = fitted ?? latestBakeEnd
         let bakeStart = bakeEnd - minutes(.bake)
-        reversed.append(ScheduleStep(kind: .cooling, start: bakeEnd, end: target, hourRange: nil, outsideWindow: false))
-        reversed.append(ScheduleStep(kind: .action(.bake), start: bakeStart, end: bakeEnd, hourRange: nil,
+        reversed.append(ScheduleStep(kind: .cooling, start: bakeEnd, end: target))
+        reversed.append(ScheduleStep(kind: .action(.bake), start: bakeStart, end: bakeEnd,
                                      outsideWindow: fitted == nil))
         reversed.append(ScheduleStep(kind: .action(.preheat), start: bakeStart - minutes(.preheat), end: bakeStart,
-                                     hourRange: nil, outsideWindow: fitted == nil))
+                                     outsideWindow: fitted == nil))
 
-        // The rests, each with the action before it.
+        // The rests, last first, each with the action before it.
         var end = bakeStart
-        let pairs: [(RestKind, ActionKind)] = [(.proof, .shape), (.bulk, .knead), (.sourdough, .mixSourdough)]
-        for (rest, action) in pairs {
+        for (action, rest) in Self.pairs.reversed() {
             let length = minutes(action)
-            func range(_ place: Place) -> ClosedRange<Double> {
-                ScheduleRules.range(rest, ryeShare: ryeShare, place: place, temperatures: temperatures)
-            }
-            func nominal(_ place: Place) -> Double {
-                ScheduleRules.hours(rest, ryeShare: ryeShare, celsius: temperatures.celsius(place))
-            }
-            var chosen: (place: Place, start: Date, outside: Bool)?
-            let places = rest.places(for: temperatures)
-            if let choice = choices[rest], places.contains(choice.place) {
-                let hours = min(max(choice.hours, range(choice.place).lowerBound), range(choice.place).upperBound)
-                let start = end - hours * 3600
-                chosen = (choice.place, start, !window.contains(start - length, start, calendar: calendar))
-            } else {
-                for place in places {
-                    let span = range(place)
-                    if let start = window.closestEnd(to: end - nominal(place) * 3600, length: length,
-                                                     in: end - span.upperBound * 3600, end - span.lowerBound * 3600,
-                                                     calendar: calendar) {
-                        chosen = (place, start, false)
-                        break
-                    }
-                }
-            }
-            let place = chosen?.place ?? places[0]
-            let start = chosen?.start ?? end - nominal(place) * 3600
-            let outside = chosen?.outside ?? true
-            reversed.append(ScheduleStep(kind: .rest(rest, place), start: start, end: end,
-                                         hourRange: range(place), outsideWindow: false))
+            let chosen = Self.place(rest, ryeShare: ryeShare, temperatures: temperatures, choice: choices[rest],
+                                    window: window, calendar: calendar, base: end, direction: -1, length: length)
+            let start = end - chosen.hours * 3600
+            reversed.append(Self.restStep(rest, place: chosen.place, start: start, end: end, ryeShare: ryeShare,
+                                          temperatures: temperatures))
             reversed.append(ScheduleStep(kind: .action(action), start: start - length, end: start,
-                                         hourRange: nil, outsideWindow: outside))
+                                         outsideWindow: chosen.outside))
             end = start - length
         }
         steps = reversed.reversed()
+        self.vessel = vessel
+    }
+
+    /// Plans forwards from `start`, the time the sourdough is mixed.
+    public init(start: Date, ryeShare: Double, vessel: BakeSetup.Vessel,
+                temperatures: Temperatures, window: InteractionWindow = InteractionWindow(),
+                choices: [RestKind: RestChoice] = [:], calendar: Calendar) {
+        func minutes(_ action: ActionKind) -> TimeInterval {
+            ScheduleRules.minutes(action, vessel: vessel) * 60
+        }
+        var steps: [ScheduleStep] = []
+        var actionStart = start
+        var outside = !window.contains(start, start + minutes(.mixSourdough), calendar: calendar)
+
+        // Each action with the rest after it. What follows the rest is the
+        // next action; after the proof it is preheating, which overlaps the
+        // end of the proof, and baking.
+        for (action, rest) in Self.pairs {
+            let actionEnd = actionStart + minutes(action)
+            steps.append(ScheduleStep(kind: .action(action), start: actionStart, end: actionEnd,
+                                      outsideWindow: outside))
+            let after = minutes(rest == .sourdough ? .knead : rest == .bulk ? .shape : .bake)
+            let before = rest == .proof ? minutes(.preheat) : 0
+            let chosen = Self.place(rest, ryeShare: ryeShare, temperatures: temperatures, choice: choices[rest],
+                                    window: window, calendar: calendar, base: actionEnd + after, direction: 1,
+                                    length: before + after)
+            let restEnd = actionEnd + chosen.hours * 3600
+            steps.append(Self.restStep(rest, place: chosen.place, start: actionEnd, end: restEnd,
+                                       ryeShare: ryeShare, temperatures: temperatures))
+            actionStart = restEnd
+            outside = chosen.outside
+        }
+
+        let bakeEnd = actionStart + minutes(.bake)
+        steps.append(ScheduleStep(kind: .action(.preheat), start: actionStart - minutes(.preheat), end: actionStart,
+                                  outsideWindow: outside))
+        steps.append(ScheduleStep(kind: .action(.bake), start: actionStart, end: bakeEnd, outsideWindow: outside))
+        steps.append(ScheduleStep(kind: .cooling, start: bakeEnd,
+                                  end: bakeEnd + ScheduleRules.coolingHours(ryeShare: ryeShare) * 3600))
+        self.steps = steps
         self.vessel = vessel
     }
 
@@ -369,6 +473,28 @@ public struct Schedule: Equatable, Sendable {
             if case .action(let action) = step.kind, step.outsideWindow { return action }
             return nil
         }
+    }
+
+    /// The end that `anchor` fixes: the start or the target.
+    public func time(of anchor: ScheduleAnchor) -> Date {
+        anchor == .start ? start : target
+    }
+
+    /// The target temperature of each rest (`ScheduleStep.celsius`).
+    public var restCelsius: [RestKind: Double] {
+        Dictionary(uniqueKeysWithValues: steps.compactMap { step in
+            if case .rest(let rest, _) = step.kind, let celsius = step.celsius { return (rest, celsius) }
+            return nil
+        })
+    }
+
+    /// Every rest as it is planned, as choices: planned from the other end
+    /// with these, the schedule keeps its rests.
+    public var restChoices: [RestKind: RestChoice] {
+        Dictionary(uniqueKeysWithValues: steps.compactMap { step in
+            if case .rest(let rest, let place) = step.kind { return (rest, RestChoice(place: place, hours: step.hours)) }
+            return nil
+        })
     }
 
     /// The rest of `kind`.
