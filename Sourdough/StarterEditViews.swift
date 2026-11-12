@@ -66,6 +66,9 @@ struct AddStarterView: View {
                     Button("Abbrechen") { dismiss() }
                         .accessibilityIdentifier("add-cancel")
                 }
+                ToolbarItem(placement: .primaryAction) {
+                    TipsButton(topic: .starterNew, identifier: "add-tips")
+                }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Speichern") {
                         if let starter = model.makeStarter() { onSave(starter) }
@@ -128,6 +131,9 @@ struct FeedView: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Abbrechen") { dismiss() }
                         .accessibilityIdentifier("feed-cancel")
+                }
+                ToolbarItem(placement: .primaryAction) {
+                    TipsButton(topic: .starterFeed, identifier: "feed-tips")
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Speichern") {

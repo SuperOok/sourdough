@@ -48,6 +48,19 @@ struct StartView: View {
             // for the back button of the pages pushed from here.
             .navigationTitle("Sourdough")
             .toolbar(.hidden, for: .navigationBar)
+            // The navigation bar is hidden and takes no toolbar items, so the
+            // lightbulb sits in a bar of its own above the content: a safe-area
+            // inset keeps the headline from running under it.
+            .safeAreaInset(edge: .top) {
+                HStack {
+                    Spacer()
+                    TipsButton(topic: .start, identifier: "start-tips-bulb")
+                        .labelStyle(.iconOnly)
+                        .font(.title2)
+                        .frame(minWidth: 44, minHeight: 44)
+                }
+                .padding(.horizontal, 16)
+            }
             // Back into the bake in progress when the app starts.
             .task {
                 if let active = runStore.active, path.isEmpty { path = [.run(active.id)] }

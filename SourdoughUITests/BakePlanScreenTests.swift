@@ -30,7 +30,7 @@ final class BakePlanScreenTests: SourdoughUITestCase {
         assertText("plan-water", "Wasser, 816 g")
         XCTAssertTrue(text("plan-no-starters").exists)
         tapButton("tips-button")
-        assertTitle("Mehle und ihre Mischung")
+        assertTitle("Mehle wählen")
         tapButton("tips-topic-close")
         _ = element(app.buttons, "plan-bread")
     }

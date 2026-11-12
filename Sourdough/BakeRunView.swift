@@ -58,7 +58,7 @@ struct BakeRunView: View {
         }
         .navigationTitle(run.bread.germanName)
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar { TipsButton(topic: .schedule) }
+        .toolbar { TipsButton(topic: .run) }
         .environment(\.openURL, OpenURLAction { TipsText.open($0) { linkedTip = $0 } })
         .sheet(item: $linkedTip) { TipsView(initial: $0) }
         .alert("Durchgang abbrechen?", isPresented: $confirmCancel) {

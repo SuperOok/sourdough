@@ -28,7 +28,7 @@ struct EquipmentOverviewView: View {
         .navigationTitle("Backutensilien")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .primaryAction) { TipsButton() }
+            ToolbarItem(placement: .primaryAction) { TipsButton(topic: .equipmentList) }
             ToolbarItem(placement: .primaryAction) {
                 Menu {
                     ForEach(EquipmentKind.allCases, id: \.self) { kind in

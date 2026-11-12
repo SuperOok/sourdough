@@ -53,7 +53,7 @@ final class BakeEquipmentScreenTests: SourdoughUITestCase {
         assertText("setup-dough", "Teig, 1000 g")
         assertText("setup-dough-source", "Ohne Innenmaße rechnet die App mit 1000 g Teig.")
         tapButton("tips-button")
-        assertTitle("Kastenform")
+        assertTitle("Utensilien und Menge")
         tapButton("tips-topic-close")
         _ = element(app.segmentedControls, "setup-vessel")
     }

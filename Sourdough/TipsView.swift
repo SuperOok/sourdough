@@ -20,7 +20,7 @@ struct TipsView: View {
                         ForEach(TipsCatalog.topics(in: category)) { topic in
                             NavigationLink(value: topic.id) {
                                 Label { Text(topic.title) } icon: {
-                                    CustomIcon(name: TipsIcon.name(topic.id))
+                                    TipsGlyphView(glyph: TipsIcon.glyph(topic.id))
                                 }
                             }
                             .accessibilityIdentifier("tips-topic-\(topic.id.rawValue)")
@@ -58,6 +58,10 @@ struct TipsTopicView: View {
                 ForEach(Array(topic.blocks.enumerated()), id: \.offset) { _, block in
                     TipsBlockView(block: block)
                 }
+                // What only the app knows goes below the welcome text.
+                if topic.id == .start {
+                    TipsStartFooter()
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 16)
@@ -71,6 +75,24 @@ struct TipsTopicView: View {
                     .accessibilityIdentifier("tips-topic-close")
             }
         }
+    }
+}
+
+/// The end of the welcome page: the version of the app and the credit of the
+/// font, which the Markdown file cannot hold.
+struct TipsStartFooter: View {
+    var versionLine = AppInfo.versionLine()
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(versionLine)
+                .accessibilityIdentifier("tips-version")
+            Text(AppInfo.fontCredit)
+                .accessibilityIdentifier("tips-font-credit")
+        }
+        .font(.footnote)
+        .foregroundStyle(.secondary)
+        .padding(.top, 16)
     }
 }
 

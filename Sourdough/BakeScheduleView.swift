@@ -103,6 +103,7 @@ struct BakeScheduleView: View {
         }
         .navigationTitle("Zeitplan")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar { TipsButton(topic: .planSchedule) }
         .onAppear {
             if model.roomText.isEmpty { model.useTemperatures(kitchenStore.temperatures) }
             model.proposeTarget(now: now, calendar: calendar)

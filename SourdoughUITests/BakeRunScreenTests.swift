@@ -138,10 +138,10 @@ final class BakeRunScreenTests: SourdoughUITestCase {
         _ = element(app.buttons, "plan-bread")
     }
 
-    func testTheRunHasTipsOnTheSchedule() {
+    func testTheRunHasItsOwnTipsPage() {
         launchWithRun()
         tapButton("tips-button")
-        assertTitle("So wird der Zeitplan berechnet")
+        assertTitle("Der Durchgang")
         tapButton("tips-topic-close")
         _ = element(app.buttons, "run-answer-yes")
     }

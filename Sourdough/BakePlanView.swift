@@ -39,7 +39,7 @@ struct BakePlanView: View {
             }
         }
         .navigationTitle("Brot backen")
-        .toolbar { TipsButton(topic: .flours) }
+        .toolbar { TipsButton(topic: .planFlours) }
         .sheet(item: $editing) { edited in
             FlourEditView(model: model, flour: edited.flour)
         }

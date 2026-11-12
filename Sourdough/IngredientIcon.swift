@@ -1,3 +1,4 @@
+import SwiftUI
 import SourdoughKit
 
 /// Which own icon (see `CustomIcon`) stands for a grain, a flour or an add-in.
@@ -33,34 +34,68 @@ enum IngredientIcon {
                            "ScheduleIcon"]
 }
 
+/// What stands in front of a page in the contents of the tips: an own icon
+/// from the asset catalog or, where there is none, a system symbol.
+enum TipsGlyph: Equatable {
+    case asset(String)
+    case symbol(String)
+}
+
 /// The icon in front of a page in the contents of the tips.
 enum TipsIcon {
-    static func name(_ topic: TipsTopic.ID) -> String {
+    static func glyph(_ topic: TipsTopic.ID) -> TipsGlyph {
         switch topic {
-        case .kneader: EquipmentIcon.name(for: .kneader)
-        case .pot: EquipmentIcon.name(for: .pot)
-        case .pan: EquipmentIcon.name(for: .pan)
-        case .basket: EquipmentIcon.name(for: .basket)
-        case .starter: "StarterJarIcon"
-        case .flours: "FlourSackIcon"
-        case .wheat: IngredientIcon.name(FlourType.wheat)
-        case .rye: IngredientIcon.name(FlourType.rye)
-        case .spelt: IngredientIcon.name(FlourType.spelt)
-        case .buckwheat: IngredientIcon.name(FlourType.buckwheat)
-        case .seeds: IngredientIcon.name(AddIn.seeds)
-        case .nuts: IngredientIcon.name(AddIn.nuts)
-        case .driedFruit: IngredientIcon.name(AddIn.driedFruit)
-        case .roastedOnions: IngredientIcon.name(AddIn.roastedOnions)
-        case .herbs: IngredientIcon.name(AddIn.herbs)
+        case .kneader: .asset(EquipmentIcon.name(for: .kneader))
+        case .pot: .asset(EquipmentIcon.name(for: .pot))
+        case .pan: .asset(EquipmentIcon.name(for: .pan))
+        case .basket: .asset(EquipmentIcon.name(for: .basket))
+        case .starter: .asset("StarterJarIcon")
+        case .flours: .asset("FlourSackIcon")
+        case .wheat: .asset(IngredientIcon.name(FlourType.wheat))
+        case .rye: .asset(IngredientIcon.name(FlourType.rye))
+        case .spelt: .asset(IngredientIcon.name(FlourType.spelt))
+        case .buckwheat: .asset(IngredientIcon.name(FlourType.buckwheat))
+        case .seeds: .asset(IngredientIcon.name(AddIn.seeds))
+        case .nuts: .asset(IngredientIcon.name(AddIn.nuts))
+        case .driedFruit: .asset(IngredientIcon.name(AddIn.driedFruit))
+        case .roastedOnions: .asset(IngredientIcon.name(AddIn.roastedOnions))
+        case .herbs: .asset(IngredientIcon.name(AddIn.herbs))
         // The proofing page borrows the dough, the free-standing page the loaf,
         // until drawings of their own are approved.
-        case .kneading: "KneadingIcon"
-        case .proofing: "ProofingIcon"
-        case .freeStanding: "FreeStandingIcon"
-        // Temperature and time borrow the schedule's icon: `CustomIcon` draws
-        // assets only, and a system symbol (`thermometer.medium`) would need a
-        // change in `StartView.swift`.
-        case .temperature, .schedule: "ScheduleIcon"
+        case .kneading: .asset("KneadingIcon")
+        case .proofing: .asset("ProofingIcon")
+        case .freeStanding: .asset("FreeStandingIcon")
+        case .temperature: .symbol("thermometer.medium")
+        case .schedule: .asset("ScheduleIcon")
+        // The pages about the screens of the app: the icons of their start
+        // cards and the pages they belong to, plus system symbols. No drawings
+        // of their own.
+        case .start: .symbol("house")
+        case .planFlours: .asset("FlourSackIcon")
+        case .planSetup: .symbol("scalemass")
+        case .planSchedule: .asset("ScheduleIcon")
+        case .run: .asset("BreadIcon")
+        case .log: .symbol("book")
+        case .equipmentList: .asset("PotIcon")
+        case .starterNew: .asset("StarterJarIcon")
+        case .starterFeed: .symbol("drop")
+        }
+    }
+}
+
+/// A `TipsGlyph` drawn at the size of the own icons.
+struct TipsGlyphView: View {
+    let glyph: TipsGlyph
+
+    var body: some View {
+        switch glyph {
+        case .asset(let name):
+            CustomIcon(name: name)
+        case .symbol(let name):
+            Image(systemName: name)
+                .frame(width: 28, height: 28)
+                // Decoration, like `CustomIcon`: the title beside it says what it is.
+                .accessibilityHidden(true)
         }
     }
 }

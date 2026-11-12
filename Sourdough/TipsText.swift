@@ -49,6 +49,7 @@ extension TipsTopic.Category {
         case .starters: "Sauerteigstarter"
         case .ingredients: "Zutaten"
         case .baking: "Brot backen"
+        case .app: "Die App"
         }
     }
 }

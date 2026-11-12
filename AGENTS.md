@@ -54,7 +54,10 @@ Sourdough/             Quellcode der App
                        (`BreadIcon`, `PotIcon` als SVG im Asset-Katalog, Vorlage-
                        Rendering, Strichstärke 3 auf 48 pt); SF Symbols hat kein
                        Brot und keinen Bräter. Neue Icons erst als Vorschlag zeigen.
-  TipsView.swift       Tipps und Tricks: Inhaltsverzeichnis, Seite, Button
+  TipsView.swift       Tipps und Tricks: Inhaltsverzeichnis, Seite, Button;
+                       am Ende der Seite „Willkommen“ der Fußbereich mit Version
+                       und Schriftnachweis (`TipsStartFooter`)
+  AppInfo.swift        Versionszeile („Version 1.0 (3)“) und Schriftnachweis
   IngredientIcon.swift Icons der Mehle (Ähre je Getreide), Zusätze und Tipps-Themen
   TipsText.swift       Inline-Markdown und `tip:`-Links
   StretchFoldView.swift  Animation „Dehnen und Falten“ (Zeichnung; Takt in `StretchFold`)
@@ -301,12 +304,17 @@ Sie stehen vor den Starter-Zeilen, in der Starter-Auswahl der Planung, vor den
 Mehlen (Zeile, „Mehl hinzufügen“, Mehl-Sheet). Zusätze: `SeedsIcon`, `NutsIcon`,
 `DriedFruitIcon`, `RoastedOnionsIcon`, `HerbsIcon` (Zeile und
 „Zusatz hinzufügen“). Im Inhaltsverzeichnis der Tipps hat jedes Thema sein Icon
-(`TipsIcon.name`): die Utensilien wie oben, dazu `FlourSackIcon`,
-`StarterJarIcon`, `KneadingIcon`, `ScheduleIcon` (auch für „Temperatur und Zeit“,
-bis ein eigenes Icon freigegeben ist; `StarterStateIcon` liegt ungenutzt im Katalog). Ein neues
-Thema braucht dort einen Fall; `IngredientIconTests` prüft, dass jedes Thema
-eins hat. `CustomIcon` ist für VoiceOver verborgen: der Text daneben sagt, was
-es ist.
+(`TipsIcon.glyph`, ein `TipsGlyph`: eigenes Asset oder SF Symbol): die
+Utensilien wie oben, dazu `FlourSackIcon`, `StarterJarIcon`, `KneadingIcon`,
+`ScheduleIcon` (für „So wird der Zeitplan berechnet“; `StarterStateIcon` liegt
+ungenutzt im Katalog). „Temperatur und Zeit“ zeigt das SF Symbol
+`thermometer.medium`. Die Seiten der Kategorie „Die App“ nehmen die Icons ihrer
+Karten und Seiten (`BreadIcon`, `PotIcon`, `FlourSackIcon`, `ScheduleIcon`,
+`StarterJarIcon`) oder SF Symbols (`house`, `scalemass`, `book`, `drop`), keine
+eigenen Zeichnungen. Ein neues Thema braucht dort einen Fall;
+`IngredientIconTests` prüft, dass jedes Thema eins hat und dass Asset oder
+Symbol existiert. `CustomIcon` ist für VoiceOver verborgen: der Text daneben
+sagt, was es ist.
 
 Unter der Liste steht „Nicht vorhanden, aber sinnvoll“: die Arten, von denen
 es noch kein Stück gibt, schon bei leerer Liste (dann alle vier), und nur,
@@ -565,9 +573,9 @@ deshalb prüft `isAvailable` vorher).
 googlefonts/caveat, Commit `59745e8` (`fonts/ttf/Caveat-Bold.ttf`, die Quelle
 von google/fonts `ofl/caveat`). Die OFL verlangt, Lizenztext und
 Urheberhinweis mitzuliefern: `Sourdough/Fonts/OFL.txt` liegt im App-Bundle.
-**Offen:** Die Anzeige des Nachweises in der App (Zeile „Schrift: Caveat, The
-Caveat Project Authors, SIL OFL 1.1“ in der Startseiten-Information) steht noch
-aus und kommt mit einer anderen Aufgabe.
+Der Nachweis steht in der App: die Zeile „Schrift: Caveat, The Caveat Project
+Authors, SIL OFL 1.1“ (`AppInfo.fontCredit`, Bezeichner `tips-font-credit`) am
+Ende der Tipps-Seite „Willkommen“.
 
 ## Tipps und Tricks
 
@@ -654,12 +662,47 @@ Utensil-Themen tragen dieselben Ids wie die Arten der Utensilien
 Zutaten: je Getreide (`wheat`, `rye`, `spelt`, `buckwheat` wie `FlourType`) und je Zusatz
 (wie `AddIn`), Kategorie „Zutaten“.
 
-**Aufruf aus jeder Ansicht:** Die Tipps öffnen als Sheet über der aktuellen
-Ansicht (`TipsButton` in der Symbolleiste, im Utensilien-Formular direkt mit der
-Seite der Art). „Fertig“ schließt das Sheet, darunter bleibt alles
-unverändert. Neue Ansichten bekommen einen `TipsButton`; sitzt er in einer
-Ansicht, über der schon ein Sheet mit eigenem Knopf liegt, braucht er eine
-eigene `identifier`.
+**Aufruf aus jeder Ansicht:** Jede Ansicht hat oben rechts eine Glühbirne
+(`TipsButton`, Bezeichner `tips-button`), die die Tipps als Sheet über der
+Ansicht öffnet, direkt auf der Seite zu dieser Ansicht. „Fertig“ schließt das
+Sheet, darunter bleibt alles unverändert. Neue Ansichten bekommen einen
+`TipsButton` und, wenn keine bestehende Seite genügt, ein neues Thema. Sitzt
+der Knopf in einer Ansicht, über der schon ein Sheet mit eigenem Knopf liegt,
+braucht er einen eigenen `identifier`. Die Tipps-Ansicht selbst hat keinen.
+
+| Ansicht | Seite | Bezeichner |
+| --- | --- | --- |
+| Startbildschirm | `start` („Willkommen“) | `start-tips-bulb` |
+| Brot backen, Mehle | `planFlours` | `tips-button` |
+| Utensilien und Menge | `planSetup` | `tips-button` |
+| Zeitplan | `planSchedule` | `tips-button` |
+| Durchgang | `run` | `tips-button` |
+| Backprotokoll, Liste und Durchgang | `log` | `tips-button` |
+| Backutensilien (Liste) | `equipmentList` | `tips-button` |
+| Utensil (Formular) | Seite der Art | `item-tips` |
+| Mehl (Sheet) | Seite des Getreides | `flour-tips` |
+| Sauerteigstarter (Liste) | `starter` | `tips-button` |
+| Starter (Detail) | `starter` | `detail-tips` |
+| Neuer Starter | `starterNew` | `add-tips` |
+| Füttern | `starterFeed` | `feed-tips` |
+
+**Kategorie „Die App“** (`TipsTopic.Category.app`, zuletzt im Inhaltsverzeichnis):
+je eine kurze Seite zu dem, was man auf einer Ansicht tut. Liste und Detail
+des Backprotokolls teilen sich `log`, Liste und Detail der Starter `starter`:
+eine Seite je Ansicht wäre doppelt gewesen. Die Seiten verweisen auf die
+Sachseiten (`temperature`, `proofing`, `schedule`, Utensilien, Mehle).
+
+**Die Startseite der Tipps** (`start`, „Willkommen“): Begrüßung, was die App
+bietet und was nicht (keine Erinnerungen, kein Tagebuch außer dem
+Backprotokoll). Sie hat keine Versionsangabe in der Markdown-Datei: Am Ende der
+Seite hängt `TipsTopicView` für dieses Thema den Fußbereich `TipsStartFooter`
+an, mit der Versionszeile `AppInfo.versionLine` aus `CFBundleShortVersionString`
+und `CFBundleVersion` (`tips-version`) und dem Schriftnachweis
+(`tips-font-credit`). Die Glühbirne des Startbildschirms sitzt in einem
+`safeAreaInset` am oberen Rand, weil die Navigationsleiste dort ausgeblendet ist
+und keine Symbolleisteneinträge zeigt; der Inset hält die Überschrift frei.
+Der bestehende Eintrag `start-tips` („Tipps und Tricks“) öffnet das
+Inhaltsverzeichnis.
 
 **Links in Text:** Die `openURL`-Aktion hängt an der Seite selbst, nicht am
 `NavigationStack`; dort kam sie nicht an. Das URL aus dem Markdown hat kein

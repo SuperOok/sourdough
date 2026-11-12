@@ -50,7 +50,7 @@ struct BakeEquipmentView: View {
         }
         .navigationTitle("Utensilien und Menge")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar { TipsButton(topic: model.setup?.vessel == .loafPan ? .pan : .pot) }
+        .toolbar { TipsButton(topic: .planSetup) }
         // The links of the footer open their page over this screen.
         .environment(\.openURL, OpenURLAction { TipsText.open($0) { linkedTip = $0 } })
         .sheet(item: $linkedTip) { TipsView(initial: $0) }

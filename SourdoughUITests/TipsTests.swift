@@ -17,6 +17,12 @@ final class TipsTests: SourdoughUITestCase {
                    "temperature", "schedule"] {
             XCTAssertTrue(element(app.buttons, "tips-topic-\(id)").exists, id)
         }
+        // The pages about the screens of the app come last.
+        for id in ["start", "planFlours", "planSetup", "planSchedule", "run", "log", "equipmentList",
+                   "starterNew", "starterFeed"] {
+            XCTAssertTrue(element(app.buttons, "tips-topic-\(id)").exists, id)
+        }
+        app.swipeDown()
         app.swipeDown()
         tapButton("tips-topic-pot")
         assertTitle("Bräter und Römertopf")
@@ -88,8 +94,11 @@ final class TipsTests: SourdoughUITestCase {
         launch()
         openEquipment()
         tapButton("tips-button")
-        _ = element(app.buttons, "tips-topic-pan")
-        tapButton("tips-close")
+        assertTitle("Backutensilien verwalten")
+        // The page leads on to the pages of the kinds.
+        element(app.links, "Kastenform").tap()
+        assertTitle("Kastenform")
+        tapButton("tips-topic-close")
         _ = element(app.buttons, "equipment-add")
     }
 }
