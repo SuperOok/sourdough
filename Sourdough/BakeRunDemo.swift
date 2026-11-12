@@ -15,7 +15,7 @@ enum BakeRunDemo {
                                              temperatures: temperatures, calendar: calendar)
         return BakeRun(startedAt: now, bread: bread, mix: bread.preset, totalGrams: flour.rounded(), limits: [:],
                        starter: starters.first { $0.flour == .rye }, setup: setup, temperatures: temperatures,
-                       window: InteractionWindow(), target: target, choices: [:], timeZone: calendar.timeZone)
+                       window: InteractionWindow(), time: target, choices: [:], timeZone: calendar.timeZone)
     }
 
     /// The same bake with every step done at `now`.

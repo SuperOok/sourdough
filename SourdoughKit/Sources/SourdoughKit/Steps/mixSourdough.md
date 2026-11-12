@@ -8,4 +8,4 @@ Verrühre in einer Schüssel:
 
 {soaker}
 
-Decke die Schüssel ab und lass den Teig {restPlace} etwa {restDuration} reifen, bis {restUntil}.
+Decke die Schüssel ab und lass den Teig {restTemperature} reifen: etwa {restDuration}, bis {restUntil}.

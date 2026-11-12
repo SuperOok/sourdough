@@ -353,6 +353,16 @@ private func nov(_ day: Int, _ hour: Int) -> Date {
     utc.date(from: DateComponents(year: 2026, month: 11, day: day, hour: hour))!
 }
 
+/// The mixing of the plan for Saturday 18:00: shaping at 09:25, before it the
+/// warm bulk rest 1.75 / √3 h, kneading 20 min, the sourdough at the cool
+/// place 8 × 3^0.6 h and the mixing 10 min; Friday about 16:26.
+private let referenceStart: Date = {
+    let bulk: Double = 1.75 / 3.0.squareRoot()
+    let sourdough: Double = 8 * pow(3, 0.6)
+    let hours: Double = 25.0 / 60 - bulk - 20.0 / 60 - sourdough - 10.0 / 60
+    return nov(14, 9) + hours * 3600
+}()
+
 struct BakePlanScheduleTests {
     @Test func temperaturesComeFromWhatWasRemembered() {
         let model = BakePlanModel()
@@ -404,16 +414,79 @@ struct BakePlanScheduleTests {
     @Test func noScheduleWithoutEquipmentAndTarget() {
         let model = BakePlanModel()
         model.proposeTarget(now: nov(13, 9), calendar: utc)
-        #expect(model.target == nil)
-        #expect(model.chosenTarget == .distantPast)
-        model.chosenTarget = nov(15, 12)
-        #expect(model.target == nov(15, 12))
-        model.target = nil
+        #expect(model.anchorTime == nil)
+        #expect(model.chosenTime == .distantPast)
+        model.chosenTime = nov(15, 12)
+        #expect(model.anchorTime == nov(15, 12))
+        model.anchorTime = nil
         #expect(model.schedule(calendar: utc) == nil)
+        #expect(model.target(calendar: utc) == nil)
         model.setHours(2, of: .proof, calendar: utc)
         model.stepHours(0.5, of: .proof, calendar: utc)
         #expect(model.choices.isEmpty)
         #expect(model.wishes.isEmpty)
+        // Without a plan the anchor changes alone.
+        #expect(model.anchor == .ready)
+        model.setAnchor(.start, calendar: utc)
+        #expect(model.anchor == .start)
+        #expect(model.anchorTime == nil && model.choices.isEmpty)
+    }
+
+    @Test func switchingTheAnchorKeepsThePlan() {
+        // Saturday 18:00 backwards (see `theTargetIsProposedOnce`): sourdough
+        // 8 × 3^0.6 h at the cool place, bulk 1.75 / √3 h warm, proof 1.5 h at
+        // room temperature; mixed on Friday at 09:25 on Saturday minus
+        // 1.75 / √3 h, 20 min, 8 × 3^0.6 h and 10 min.
+        let model = BakePlanModel()
+        model.proposeSetup(from: [pot])
+        model.proposeTarget(now: nov(13, 9), calendar: utc)
+        let before = model.schedule(calendar: utc)!
+        let start = referenceStart
+        #expect(abs(before.start.timeIntervalSince(start)) < 0.001)
+        model.setAnchor(.start, calendar: utc)
+        #expect(model.anchor == .start)
+        #expect(model.anchorTime == before.start)
+        #expect(model.choices[.sourdough]?.place == .cool && model.choices[.bulk]?.place == .warm
+                && model.choices[.proof]?.place == .room)
+        let after = model.schedule(calendar: utc)!
+        for (step, old) in zip(after.steps, before.steps) {
+            #expect(step.kind == old.kind && abs(step.start.timeIntervalSince(old.start)) < 0.001)
+        }
+        #expect(abs(model.target(calendar: utc)!.timeIntervalSince(nov(14, 18))) < 0.001)
+        model.setAnchor(.start, calendar: utc)
+        #expect(model.anchorTime == before.start)
+        // Forwards, half an hour more for the sourdough (15.97 h, still at the
+        // cool place, 12.37 to 19.33 h) moves the rest: ready at 18:30.
+        model.stepHours(0.5, of: .sourdough, calendar: utc)
+        #expect(model.choices[.sourdough]?.place == .cool)
+        #expect(abs(model.target(calendar: utc)!.timeIntervalSince(nov(14, 18) + 1800)) < 0.001)
+        #expect(model.schedule(calendar: utc)!.start == before.start)
+        #expect(model.schedule(calendar: utc)!.conflicts.isEmpty)
+        // Back to planning backwards: the field takes the new target.
+        model.setAnchor(.ready, calendar: utc)
+        #expect(model.anchor == .ready)
+        #expect(abs(model.anchorTime!.timeIntervalSince(nov(14, 18) + 1800)) < 0.001)
+        #expect(abs(model.schedule(calendar: utc)!.start.timeIntervalSince(before.start)) < 0.001)
+    }
+
+    @Test func forwardsTheStartOfTheProposedPlanIsProposed() {
+        // The start of the plan for Saturday 18:00. Forwards without fixed
+        // rests the sourdough again goes to the cool place (at room
+        // temperature kneading would fall between 23:00 and 03:00), but the bulk
+        // rest stays at room temperature: from the end of kneading, 08:24 on
+        // Saturday, 1.75 h until 10:09, and shaping until 10:24 fits. That is
+        // 1.75 − 1.75 / √3 h longer than warm, and the bread is ready that much
+        // later.
+        let model = BakePlanModel()
+        model.setAnchor(.start, calendar: utc)
+        model.proposeSetup(from: [pot])
+        model.proposeTarget(now: nov(13, 9), calendar: utc)
+        let start = referenceStart
+        #expect(abs(model.anchorTime!.timeIntervalSince(start)) < 0.001)
+        let schedule = model.schedule(calendar: utc)!
+        #expect(schedule.rest(.bulk)?.kind == .rest(.bulk, .room))
+        let later = (1.75 - 1.75 / 3.0.squareRoot()) * 3600
+        #expect(abs(model.target(calendar: utc)!.timeIntervalSince(nov(14, 18) + later)) < 0.001)
     }
 
     @Test func theTargetIsProposedOnce() {
@@ -422,10 +495,10 @@ struct BakePlanScheduleTests {
         let model = BakePlanModel()
         model.proposeSetup(from: [pot])
         model.proposeTarget(now: nov(13, 9), calendar: utc)
-        #expect(model.target == nov(14, 18))
-        model.target = nov(15, 12)
+        #expect(model.anchorTime == nov(14, 18))
+        model.anchorTime = nov(15, 12)
         model.proposeTarget(now: nov(13, 9), calendar: utc)
-        #expect(model.target == nov(15, 12))
+        #expect(model.anchorTime == nov(15, 12))
         #expect(model.schedule(calendar: utc) == Schedule(target: nov(15, 12), ryeShare: 50, vessel: .pot,
                                                           temperatures: Temperatures(), calendar: utc))
     }

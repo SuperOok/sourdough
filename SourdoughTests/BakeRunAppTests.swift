@@ -56,7 +56,7 @@ struct BakeRunDemoTests {
 }
 
 struct BakeRunTextTests {
-    @Test func theSourdoughStageNamesAmountsPlaceAndTime() {
+    @Test func theSourdoughStageNamesAmountsTemperatureAndTime() {
         // 448 g, rye 224 g, 35 % soured: 78.4 g rye whole grain, as much water,
         // starter 15.7 g. The sourdough ripens at the cool place (16 °C) for
         // 8 × 3^0.6 = 15.465 h = 15 h 28 min, until Saturday 08:04.
@@ -65,7 +65,7 @@ struct BakeRunTextTests {
         #expect(values[.sourdoughFlour] == "78 g Roggenvollkorn")
         #expect(values[.sourdoughWater] == "78 g")
         #expect(values[.starterGrams] == "16 g")
-        #expect(values[.restPlace] == "an einem kühlen Ort (16 °C)")
+        #expect(values[.restTemperature] == "bei etwa 16 °C")
         #expect(values[.restDuration] == "15 Std. 28 Min.")
         #expect(values[.restUntil] == "Sa 08:04")
     }
@@ -81,7 +81,7 @@ struct BakeRunTextTests {
         #expect(values[.salt] == "9 g")
         #expect(values[.kneading] == "mit „Thermomix“")
         #expect(values[.waterCelsius] == "32 °C")
-        #expect(values[.restPlace] == "an einem warmen Ort (27 °C)")
+        #expect(values[.restTemperature] == "bei etwa 27 °C")
         #expect(values[.restDuration] == "1 Std. 1 Min.")
         #expect(values[.restUntil] == "Sa 09:25")
     }
@@ -97,7 +97,7 @@ struct BakeRunTextTests {
     @Test func withoutAnythingChosenTheTextsStillRead() {
         let bake = BakeRun(startedAt: nov(13, 9), bread: .speltBread, mix: BreadType.speltBread.preset,
                            totalGrams: 500, limits: [:], starter: nil, setup: BakeSetup(vessel: .tray),
-                           temperatures: Temperatures(), window: InteractionWindow(), target: nov(15, 12),
+                           temperatures: Temperatures(), window: InteractionWindow(), time: nov(15, 12),
                            choices: [.bulk: RestChoice(place: .room, hours: 3)], timeZone: utc.timeZone)
         let values = BakeRunText.values(for: bake, step: .knead)
         #expect(values[.starter] == "deinen Starter")
@@ -122,13 +122,12 @@ struct BakeRunTextTests {
         #expect(BakeRunText.undoLabel(bake, .mixSourdough) == "Zurück zu „Sauerteigstufe ansetzen“")
     }
 
-    @Test func answersPlacesPortionsAndStatus() {
+    @Test func answersTemperaturesPortionsAndStatus() {
         #expect(BakeProcess.Answer.allCases.map(BakeRunText.answer)
                 == ["Ja", "Noch nicht", "Unter dem Rand", "Am Deckel oder darüber"])
-        let temperatures = Temperatures(roomCelsius: 20, fridgeCelsius: 4)
-        #expect(Place.allCases.map { BakeRunText.placePhrase($0, temperatures) }
-                == ["an einem warmen Ort (27 °C)", "bei Raumtemperatur (20 °C)", "an einem kühlen Ort (16 °C)",
-                    "im Kühlschrank (4 °C)"])
+        // Whole degrees, half a degree rounds up; no place.
+        #expect([19.38, 19.5, 2.946, 27, -0.3].map(BakeRunText.restTemperature)
+                == ["bei etwa 19 °C", "bei etwa 20 °C", "bei etwa 3 °C", "bei etwa 27 °C", "bei etwa 0 °C"])
         #expect(BakeRunText.portions([], separator: ", ") == "")
         #expect([BakeRun.Status.active, .finished, .cancelled].map(BakeRunText.status)
                 == ["läuft", "fertig", "abgebrochen"])
@@ -201,6 +200,15 @@ struct BakeLogTextTests {
         #expect(BakeLogText.times(bake, .checkStarter) == "geplant Fr 16:26")
         bake.answer(.yes, at: nov(13, 21))
         #expect(BakeLogText.times(bake, .checkStarter) == "geplant Fr 16:26 · erledigt Fr 21:00 · Ja")
+    }
+
+    @Test func stepsARestFollowsNameItsTemperature() {
+        // Sourdough at the cool place (16 °C), bulk warm (27 °C, kneading
+        // 08:04), proof at room temperature (22 °C, shaping 09:25).
+        let bake = demo()
+        #expect(BakeLogText.times(bake, .mixSourdough) == "geplant Fr 16:26 · Ruhe bei etwa 16 °C")
+        #expect(BakeLogText.times(bake, .knead) == "geplant Sa 08:04 · Ruhe bei etwa 27 °C")
+        #expect(BakeLogText.times(bake, .shape) == "geplant Sa 09:25 · Ruhe bei etwa 22 °C")
     }
 }
 
@@ -323,6 +331,25 @@ struct BakePlanRunTests {
         #expect(bake?.target == nov(14, 18))
         #expect(bake?.setup == model.setup)
         #expect(bake?.timeZone == utc.timeZone)
+        #expect(bake?.anchor == .ready)
+    }
+
+    @Test func aBakePlannedForwardsKeepsItsStart() {
+        // Switched to the start, the plan keeps its rests and its target,
+        // Saturday 18:00; the bake starts where the plan does and aims for the
+        // same temperatures: the sourdough 16 °C.
+        let model = BakePlanModel()
+        model.proposeSetup(from: EquipmentDemo.items())
+        model.useTemperatures(Temperatures())
+        model.proposeTarget(now: nov(13, 9), calendar: utc)
+        model.starterID = rye.id
+        model.setAnchor(.start, calendar: utc)
+        let bake = model.makeRun(starters: [rye], now: nov(13, 9), calendar: utc)
+        #expect(bake?.anchor == .start)
+        #expect(bake?.schedule.start == model.anchorTime)
+        #expect(bake.map { abs($0.target.timeIntervalSince(nov(14, 18))) < 0.001 } == true)
+        #expect(bake.map { abs($0.celsius(.sourdough) - 16) < 1e-9 } == true)
+        #expect(bake?.choices == model.choices)
     }
 
     @Test func theBakeTakesTheAddIns() {

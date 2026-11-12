@@ -175,17 +175,41 @@ final class BakePlanModel {
         didSet { temperatures.usesCoolPlace = usesCoolPlace }
     }
     var window = InteractionWindow()
-    /// When the bread is ready to cut; `nil` until step three proposes one.
-    var target: Date?
+    /// Which end the user fixes: when the bread is ready to cut (the plan
+    /// goes backwards) or when the sourdough is mixed (forwards). Changed with
+    /// `setAnchor`, which keeps the plan.
+    private(set) var anchor: ScheduleAnchor = .ready
+    /// The time of the one date field: the target for `.ready`, the start for
+    /// `.start`; `nil` until step three proposes one.
+    var anchorTime: Date?
     private(set) var choices: [RestKind: RestChoice] = [:]
     /// The time the user asked for with plus and minus, where it differs from
     /// what the places allow: the plan shows the temperature it would need.
     private(set) var wishes: [RestKind: Double] = [:]
 
-    /// The target for the date picker, which only shows once there is one.
-    var chosenTarget: Date {
-        get { target ?? .distantPast }
-        set { target = newValue }
+    /// The time for the date picker, which only shows once there is one.
+    var chosenTime: Date {
+        get { anchorTime ?? .distantPast }
+        set { anchorTime = newValue }
+    }
+
+    /// Fixes the other end of the plan. The plan stays as it is: every rest
+    /// keeps its place and time (they become choices), and the date field
+    /// takes the time of the new end. Forwards, the bread cools only as long
+    /// as it must, so "ready" may come earlier than it was.
+    func setAnchor(_ new: ScheduleAnchor, calendar: Calendar) {
+        guard new != anchor else { return }
+        if let schedule = schedule(calendar: calendar) {
+            choices = schedule.restChoices
+            anchorTime = schedule.time(of: new)
+        }
+        anchor = new
+    }
+
+    /// When the bread is ready to cut: the field for `.ready`, the result of
+    /// the plan for `.start`; `nil` without a plan.
+    func target(calendar: Calendar) -> Date? {
+        schedule(calendar: calendar)?.target
     }
 
     /// The temperatures to start from, as remembered.
@@ -204,16 +228,20 @@ final class BakePlanModel {
         return nil
     }
 
-    /// Proposes a target unless there is one.
+    /// Proposes a time for the field unless there is one: the proposed target
+    /// (`Schedule.proposedTarget`), or for `.start` the start of its plan.
     func proposeTarget(now: Date, calendar: Calendar) {
-        guard target == nil, let setup else { return }
-        target = Schedule.proposedTarget(after: now, ryeShare: effectiveMix.ryeShare, vessel: setup.vessel,
-                                         temperatures: temperatures, window: window, calendar: calendar)
+        guard anchorTime == nil, let setup else { return }
+        let target = Schedule.proposedTarget(after: now, ryeShare: effectiveMix.ryeShare, vessel: setup.vessel,
+                                             temperatures: temperatures, window: window, calendar: calendar)
+        anchorTime = anchor == .ready ? target
+            : Schedule(target: target, ryeShare: effectiveMix.ryeShare, vessel: setup.vessel,
+                       temperatures: temperatures, window: window, calendar: calendar).start
     }
 
     func schedule(calendar: Calendar) -> Schedule? {
-        guard let setup, let target else { return nil }
-        return Schedule(target: target, ryeShare: effectiveMix.ryeShare, vessel: setup.vessel,
+        guard let setup, let anchorTime else { return nil }
+        return Schedule(anchor: anchor, time: anchorTime, ryeShare: effectiveMix.ryeShare, vessel: setup.vessel,
                         temperatures: temperatures, window: window, choices: choices, calendar: calendar)
     }
 
@@ -263,10 +291,11 @@ final class BakePlanModel {
     /// The bake to start; `nil` while something is missing or does not fit.
     func makeRun(starters: [Starter], now: Date, calendar: Calendar) -> BakeRun? {
         guard errorText == nil, temperatureError == nil, issues(starters: starters).isEmpty,
-              let setup, let target, let total = totalGrams else { return nil }
+              let setup, let anchorTime, let total = totalGrams else { return nil }
         return BakeRun(startedAt: now, bread: bread, mix: effectiveMix, totalGrams: total, limits: limits,
                        starter: starter(in: starters), setup: setup, temperatures: temperatures, window: window,
-                       target: target, choices: choices, timeZone: calendar.timeZone, addIns: addIns)
+                       anchor: anchor, time: anchorTime, choices: choices, timeZone: calendar.timeZone,
+                       addIns: addIns)
     }
 
     /// The amounts in grams; `nil` without a flour total.
