@@ -81,6 +81,8 @@ Sourdough/             Quellcode der App
   LaunchOptions.swift  Startparameter für Tests
   LaunchSetup.swift    wendet sie einmal beim App-Start an
   Refreshing.swift     setzt „jetzt“ jede Minute neu
+  HeadlineFont.swift   Schrift der Startüberschrift: Registrierung, Rückfall
+  Fonts/               `Caveat-Bold.ttf` und `OFL.txt` (Lizenz der Schrift)
   Assets.xcassets/
 SourdoughTests/        App-Tests (im Simulator, mit der App als Host):
                        Speicherung, View-Modelle, Formatierung
@@ -492,6 +494,34 @@ Bezeichner der Durchführung: `run-target`, `run-status`, `run-planned`,
 `log-sourdough`, `log-salt`, `log-addins`, `log-step-<n>`, `log-delete`.
 `<zusatz>` ist der Rohwert von `AddIn` (`seeds`, `nuts`, `driedFruit`,
 `roastedOnions`, `herbs`).
+
+## Startbildschirm: Überschrift und Schrift
+
+Der Startbildschirm trägt statt des Navigationstitels eine eigene Überschrift
+„Backen mit Sauerteig“ (`start-title`, Kopfzeile für VoiceOver) in der
+Handschrift **Caveat Bold**: einzeilig, zentriert, mit 120 pt gesetzt und per
+`minimumScaleFactor` auf die Breite verkleinert, sodass sie jedes Gerät
+füllt. Die Titelleiste des Startbildschirms ist ausgeblendet; der Titel
+„Sourdough“ bleibt unsichtbar bestehen, weil er die Beschriftung der
+Zurück-Knöpfe auf den Seiten darunter ist.
+
+Die Schrift liegt unter `Sourdough/Fonts/` (statischer Schnitt `Caveat-Bold.ttf`,
+Version 2.000, Gewicht 700; ein variabler Schnitt mit `.weight(...)` wäre in
+SwiftUI unsicher). `HeadlineFont.register()` meldet sie beim App-Start mit
+`CTFontManagerRegisterFontsForURL(.process)` an, ohne Eintrag in der
+Info.plist. Fehlt die Datei oder scheitert die Anmeldung, zeichnet
+`HeadlineFont.font` die Überschrift in der fetten Serifenschrift des Systems
+(`Font.custom` zeichnet bei unbekanntem Namen stillschweigend die Systemschrift,
+deshalb prüft `isAvailable` vorher).
+
+**Schriftnachweis:** Caveat, © 2014 The Caveat Project Authors
+(https://github.com/googlefonts/caveat), SIL Open Font License 1.1, Quelle:
+googlefonts/caveat, Commit `59745e8` (`fonts/ttf/Caveat-Bold.ttf`, die Quelle
+von google/fonts `ofl/caveat`). Die OFL verlangt, Lizenztext und
+Urheberhinweis mitzuliefern: `Sourdough/Fonts/OFL.txt` liegt im App-Bundle.
+**Offen:** Die Anzeige des Nachweises in der App (Zeile „Schrift: Caveat, The
+Caveat Project Authors, SIL OFL 1.1“ in der Startseiten-Information) steht noch
+aus und kommt mit einer anderen Aufgabe.
 
 ## Tipps und Tricks
 

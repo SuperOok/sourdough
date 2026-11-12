@@ -20,6 +20,7 @@ struct StartView: View {
         NavigationStack(path: $path) {
             ScrollView {
                 VStack(spacing: 16) {
+                    title
                     hero
                     if let active = runStore.active {
                         option("Brot backen", subtitle: "Läuft: \(active.bread.germanName)",
@@ -43,7 +44,10 @@ struct StartView: View {
                 }
                 .padding(.horizontal, 16)
             }
+            // The headline below replaces the large title. The title stays
+            // for the back button of the pages pushed from here.
             .navigationTitle("Sourdough")
+            .toolbar(.hidden, for: .navigationBar)
             // Back into the bake in progress when the app starts.
             .task {
                 if let active = runStore.active, path.isEmpty { path = [.run(active.id)] }
@@ -66,6 +70,22 @@ struct StartView: View {
                 }
             }
         }
+    }
+
+    /// The headline in one line: set far too large, then shrunk to the width of
+    /// the screen, so it fills every device alike.
+    private var title: some View {
+        Text("Backen mit Sauerteig")
+            .font(HeadlineFont.font(size: 120))
+            .lineLimit(1)
+            .minimumScaleFactor(0.05)
+            .multilineTextAlignment(.center)
+            // Handwriting overhangs its advance width; without room the last
+            // stroke of the "g" is cut off.
+            .padding(.horizontal, 12)
+            .frame(maxWidth: .infinity)
+            .accessibilityAddTraits(.isHeader)
+            .accessibilityIdentifier("start-title")
     }
 
     /// The photo `StartPhoto` over a placeholder. A missing asset draws
