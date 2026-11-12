@@ -41,6 +41,7 @@ struct EquipmentFormView: View {
                         CustomIcon(name: model.iconName)
                             .accessibilityHidden(true)
                         TextField(model.kind.germanName, text: $model.name)
+                            .textFieldStyle(.roundedBorder)
                             .accessibilityIdentifier("item-name")
                     }
                 }
