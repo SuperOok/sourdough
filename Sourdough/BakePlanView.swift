@@ -30,9 +30,11 @@ struct BakePlanView: View {
             addInSection
             waterSection
             Section {
-                NavigationLink("Weiter: Utensilien und Menge") {
+                NavigationLink {
                     BakeEquipmentView(model: model, equipmentStore: equipmentStore, starterStore: starterStore,
                                       kitchenStore: kitchenStore, now: now, onStart: onStart)
+                } label: {
+                    NextStepLabel(title: "Weiter: Utensilien und Menge")
                 }
                 .disabled(model.errorText != nil)
                 .accessibilityIdentifier("plan-next")
@@ -322,6 +324,19 @@ struct FlourEditView: View {
 
     private func step(_ target: Double, in range: ClosedRange<Double>) {
         model.setShare(flour, min(max(target, range.lowerBound), range.upperBound))
+    }
+}
+
+/// The text of a „Weiter“ link in a form: accent colour and semibold like a
+/// bordered button, faded while the link is disabled.
+struct NextStepLabel: View {
+    let title: String
+    @Environment(\.isEnabled) private var isEnabled
+
+    var body: some View {
+        Text(title)
+            .fontWeight(.semibold)
+            .foregroundStyle(isEnabled ? AnyShapeStyle(.tint) : AnyShapeStyle(.tertiary))
     }
 }
 
