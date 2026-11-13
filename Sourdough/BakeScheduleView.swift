@@ -11,9 +11,13 @@ struct BakeScheduleView: View {
     let now: Date
     let onStart: (BakeRun) -> Void
     private var calendar: Calendar { .current }
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
+        // The plan is built once per render and handed down; the rows ask the
+        // model only about what the plan does not hold.
         let schedule = model.schedule(calendar: calendar)
+        let ryeShare = model.effectiveMix.ryeShare
         NumberForm(fields: ["schedule-room", "schedule-fridge"] + (model.usesCoolPlace ? ["schedule-cool"] : [])) { focus in
             Section {
                 // Which end of the plan the one date field fixes; the plan stays
@@ -39,9 +43,10 @@ struct BakeScheduleView: View {
                         .foregroundStyle(.secondary)
                         .accessibilityIdentifier("schedule-result")
                 }
-                HStack {
-                    NumberField(title: "Raumtemperatur (°C)", text: Binding(
-                        get: { model.roomText }, set: { model.roomText = $0 }), id: "schedule-room", focus: focus)
+                // The lightbulb sits between label and box, so the box lines
+                // up with those of the rows below.
+                NumberField(title: "Raumtemperatur (°C)", text: Binding(
+                    get: { model.roomText }, set: { model.roomText = $0 }), id: "schedule-room", focus: focus) {
                     TipsIconButton(topic: .temperature, identifier: "schedule-tip-temperature")
                 }
                 NumberField(title: "Kühlschrank (°C)", text: Binding(
@@ -71,7 +76,7 @@ struct BakeScheduleView: View {
                 }
                 Section {
                     ForEach(Array(schedule.steps.enumerated()), id: \.offset) { index, step in
-                        stepRow(step, index: index, schedule: schedule)
+                        stepRow(step, index: index, schedule: schedule, ryeShare: ryeShare)
                     }
                     Button("Vorschlag wiederherstellen") { model.resetChoices() }
                         .disabled(model.choices.isEmpty)
@@ -92,11 +97,17 @@ struct BakeScheduleView: View {
                 }
             }
             Section {
-                let run = model.makeRun(starters: starterStore.starters, now: Date(), calendar: calendar)
-                Button("Durchgang starten") { run.map(onStart) }
-                    .fontWeight(.semibold)
-                    .disabled(run == nil)
-                    .accessibilityIdentifier("schedule-start")
+                // The run is built when the button is tapped; building it to
+                // decide whether the button is enabled would plan once more
+                // on every render. `makeRun` needs exactly these.
+                let canStart = schedule != nil && model.errorText == nil && model.temperatureError == nil
+                    && model.issues(starters: starterStore.starters).isEmpty
+                Button("Durchgang starten") {
+                    model.makeRun(starters: starterStore.starters, now: Date(), calendar: calendar).map(onStart)
+                }
+                .fontWeight(.semibold)
+                .disabled(!canStart)
+                .accessibilityIdentifier("schedule-start")
             } footer: {
                 Text("Danach führt dich die App Schritt für Schritt durch den Plan.")
             }
@@ -112,7 +123,7 @@ struct BakeScheduleView: View {
     }
 
     @ViewBuilder
-    private func stepRow(_ step: ScheduleStep, index: Int, schedule: Schedule) -> some View {
+    private func stepRow(_ step: ScheduleStep, index: Int, schedule: Schedule, ryeShare: Double) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .firstTextBaseline) {
                 HStack(alignment: .firstTextBaseline) {
@@ -139,50 +150,63 @@ struct BakeScheduleView: View {
                 }
             }
             if case .rest(let rest, let place) = step.kind, let range = step.hourRange {
-                restControls(rest, place: place, step: step, range: range, schedule: schedule)
+                restControls(rest, place: place, step: step, range: range, schedule: schedule, ryeShare: ryeShare)
             }
         }
     }
 
     @ViewBuilder
     private func restControls(_ rest: RestKind, place: Place, step: ScheduleStep, range: ClosedRange<Double>,
-                              schedule: Schedule) -> some View {
+                              schedule: Schedule, ryeShare: Double) -> some View {
         // One scale for every place of the rest, so that the coloured range
         // moves when the place changes.
-        RangeBar(scale: ScheduleRules.scale(rest, ryeShare: model.effectiveMix.ryeShare,
+        RangeBar(scale: ScheduleRules.scale(rest, ryeShare: ryeShare,
                                             temperatures: model.temperatures),
                  range: range, value: step.hours, color: ScheduleStrip.color(step.kind))
             .frame(height: 6)
+        // One line each at the usual sizes; at the accessibility sizes the
+        // lines wrap instead of being cut off.
+        let lines = typeSize.isAccessibilitySize ? nil : 1
         Text("Sinnvoll: \(ScheduleText.range(range))")
             .font(.footnote)
             .foregroundStyle(.secondary)
-            .lineLimit(1)
+            .lineLimit(lines)
             .accessibilityIdentifier("schedule-range-\(rest.rawValue)")
-        // Always there and always one line, so that the controls below do not
-        // move when the text changes.
+        // Always there, and one line at the usual sizes, so that the controls
+        // below do not move when the text changes.
         if let hint = model.temperatureHint(for: rest, in: schedule) {
             Text(ScheduleText.temperature(hours: hint.hours, celsius: hint.celsius))
                 .font(.footnote)
                 .foregroundStyle(.secondary)
-                .lineLimit(1)
+                .lineLimit(lines)
                 .accessibilityIdentifier("schedule-needed-\(rest.rawValue)")
         }
-        HStack {
-            Picker("Ort", selection: Binding(get: { place }, set: { model.setPlace($0, of: rest) })) {
-                ForEach(rest.places(for: model.temperatures), id: \.self) { Text($0.germanName(model.temperatures)).tag($0) }
-            }
-            .pickerStyle(.menu)
+        let placePicker = Picker("Ort", selection: Binding(get: { place }, set: { model.setPlace($0, of: rest) })) {
+            ForEach(rest.places(for: model.temperatures), id: \.self) { Text($0.germanName(model.temperatures)).tag($0) }
+        }
+        .pickerStyle(.menu)
+        .labelsHidden()
+        let durationStepper = Stepper("Dauer",
+                                      onIncrement: { model.stepHours(0.5, of: rest, calendar: calendar) },
+                                      onDecrement: { model.stepHours(-0.5, of: rest, calendar: calendar) })
             .labelsHidden()
-            // One line, as high as the stepper: "Raumtemperatur (22 °C)" took two
-            // and moved the stepper when the place changed.
-            .fixedSize()
-            .accessibilityIdentifier("schedule-place-\(rest.rawValue)")
-            Spacer()
-            Stepper("Dauer",
-                    onIncrement: { model.stepHours(0.5, of: rest, calendar: calendar) },
-                    onDecrement: { model.stepHours(-0.5, of: rest, calendar: calendar) })
-                .labelsHidden()
-                .accessibilityIdentifier("schedule-stepper-\(rest.rawValue)")
+            .accessibilityIdentifier("schedule-stepper-\(rest.rawValue)")
+        if typeSize.isAccessibilitySize {
+            // Side by side they would not fit: the stepper goes below the place.
+            VStack(alignment: .leading) {
+                placePicker.accessibilityIdentifier("schedule-place-\(rest.rawValue)")
+                durationStepper
+            }
+        } else {
+            HStack {
+                // One line, as high as the stepper: "Raumtemperatur (22 °C)" took
+                // two and moved the stepper when the place changed.
+                placePicker
+                    .fixedSize()
+                    .accessibilityIdentifier("schedule-place-\(rest.rawValue)")
+                Spacer()
+                durationStepper
+            }
         }
     }
 }

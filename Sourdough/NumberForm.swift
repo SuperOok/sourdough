@@ -53,29 +53,50 @@ struct NumberForm<Content: View>: View {
 }
 
 /// A labelled field for a number of grams, degrees or centimetres, in the
-/// system's rounded box so that it stands apart from computed values.
-struct NumberField: View {
+/// system's rounded box so that it stands apart from computed values. An
+/// `accessory` (a lightbulb, say) sits between the label and the box, so the
+/// box stays where it is in the other rows.
+struct NumberField<Accessory: View>: View {
     let title: String
     @Binding var text: String
     let id: String
     let focus: FocusState<String?>.Binding
+    let accessory: Accessory
+
+    init(title: String, text: Binding<String>, id: String, focus: FocusState<String?>.Binding,
+         @ViewBuilder accessory: () -> Accessory) {
+        self.title = title
+        self._text = text
+        self.id = id
+        self.focus = focus
+        self.accessory = accessory()
+    }
 
     var body: some View {
         LabeledContent(title) {
-            TextField("0", text: $text)
-                .keyboardType(.decimalPad)
-                .multilineTextAlignment(.trailing)
-                .focused(focus, equals: id)
-                .accessibilityIdentifier(id)
-                // Tapping a number selects all of it, so typing replaces it.
-                .onReceive(NotificationCenter.default.publisher(
-                    for: UITextField.textDidBeginEditingNotification)) { note in
-                    DispatchQueue.main.async { (note.object as? UITextField)?.selectAll(nil) }
-                }
-                // The system's own box, which marks the value as an input.
-                .textFieldStyle(.roundedBorder)
-                .frame(width: 96)
+            HStack(spacing: 8) {
+                accessory
+                TextField("0", text: $text)
+                    .keyboardType(.decimalPad)
+                    .multilineTextAlignment(.trailing)
+                    .focused(focus, equals: id)
+                    .accessibilityIdentifier(id)
+                    // Tapping a number selects all of it, so typing replaces it.
+                    .onReceive(NotificationCenter.default.publisher(
+                        for: UITextField.textDidBeginEditingNotification)) { note in
+                        DispatchQueue.main.async { (note.object as? UITextField)?.selectAll(nil) }
+                    }
+                    // The system's own box, which marks the value as an input.
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 96)
+            }
         }
         .id(id)
+    }
+}
+
+extension NumberField where Accessory == EmptyView {
+    init(title: String, text: Binding<String>, id: String, focus: FocusState<String?>.Binding) {
+        self.init(title: title, text: text, id: id, focus: focus) { EmptyView() }
     }
 }

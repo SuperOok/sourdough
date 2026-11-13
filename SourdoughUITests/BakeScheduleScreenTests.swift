@@ -1,3 +1,4 @@
+import UIKit
 import XCTest
 
 /// Planning a bake, step three: target, temperatures and the timeline.
@@ -21,25 +22,52 @@ final class BakeScheduleScreenTests: SourdoughUITestCase {
         _ = element(app.datePickers, "schedule-time")
     }
 
-    /// The compact date picker: one button for the date and one for the time,
-    /// inside a button that carries both as its value ("18:00, 14. Nov 2026").
+    /// The compact date picker: a button that carries date and time as its
+    /// value, and inside it one button for the date and one for the time, in
+    /// this order (`buttons` lists the outer one first).
     private var picker: XCUIElement { element(app.datePickers, "schedule-time") }
-    private var dateButton: XCUIElement {
-        picker.buttons.matching(NSPredicate(format: "label MATCHES %@", ".*\\d{4}")).firstMatch
-    }
-    private var timeButton: XCUIElement {
-        picker.buttons.matching(NSPredicate(format: "label MATCHES %@", "\\d{1,2}:\\d{2}")).firstMatch
+    private var dateButton: XCUIElement { picker.buttons.element(boundBy: 1) }
+    private var timeButton: XCUIElement { picker.buttons.element(boundBy: 2) }
+
+    /// A moment of November 2026 in the time zone of the device, which is what
+    /// the app plans in.
+    private func moment(_ day: Int, _ hour: Int, _ minute: Int) -> Date {
+        Calendar.current.date(from: DateComponents(year: 2026, month: 11, day: day, hour: hour, minute: minute))!
     }
 
-    /// Waits until the picker shows all of `parts`.
-    private func assertPicker(_ parts: String..., line: UInt = #line) {
+    /// How the picker writes a moment, as far as it does not depend on the
+    /// language: the time as the system writes it, the day and the year as
+    /// digits. The month is a name in the language of the app, which the test
+    /// process need not share ("Nov." and "Nov"); the days planned here are
+    /// all in November. The label of a day in the month grid of the popover
+    /// ends on the day and the month in full ("14. November").
+    private func timeText(_ moment: Date) -> String {
+        moment.formatted(.dateTime.hour().minute())
+    }
+    private func digits(_ moment: Date) -> [String] {
+        let parts = Calendar.current.dateComponents([.day, .year], from: moment)
+        return [String(parts.day!), String(parts.year!)]
+    }
+    private func dayText(_ moment: Date) -> String {
+        moment.formatted(.dateTime.day().month(.wide))
+    }
+
+    /// Waits until the picker shows this time and this date.
+    private func assertPicker(_ moment: Date, line: UInt = #line) {
         let value = picker.buttons.firstMatch
-        for part in parts {
+        for part in [timeText(moment)] + digits(moment) {
             let done = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value CONTAINS %@", part),
                                                  object: value)
             XCTAssertEqual(XCTWaiter().wait(for: [done], timeout: 5), .completed,
                            "Der Wähler zeigt nicht \(part), sondern \(String(describing: value.value)).", line: line)
         }
+    }
+
+    /// Taps a day in the month grid of the opened date popover.
+    private func tapDay(_ moment: Date, line: UInt = #line) {
+        let day = app.buttons.matching(NSPredicate(format: "label ENDSWITH %@", dayText(moment))).firstMatch
+        XCTAssertTrue(day.waitForExistence(timeout: 5), "Kein Tag \(dayText(moment)) im Kalender.", line: line)
+        day.tap()
     }
 
     /// Closes the popover of the picker by tapping beside it.
@@ -61,7 +89,11 @@ final class BakeScheduleScreenTests: SourdoughUITestCase {
 
     func testTheProposalStartsOnFridayEveningForSaturdayEvening() {
         openSchedule()
-        assertPicker("18:00", "14. Nov")
+        let saturday = moment(14, 18, 0)
+        assertPicker(saturday)
+        // The two buttons inside the picker are the date and the time.
+        for part in digits(saturday) { XCTAssertTrue(dateButton.label.contains(part), dateButton.label) }
+        XCTAssertEqual(timeButton.label, timeText(saturday))
         XCTAssertTrue(any("schedule-chart").exists)
         let expected = [
             ("Fr 16:26", "Sauerteig ansetzen"), ("Fr 16:36", "Sauerteig reift"),
@@ -144,6 +176,64 @@ final class BakeScheduleScreenTests: SourdoughUITestCase {
         _ = element(app.datePickers, "schedule-time")
     }
 
+    func testTheLightbulbSitsBeforeTheRoomBoxAndTheBoxesLineUp() {
+        openSchedule()
+        let room = any("schedule-room").frame
+        let bulb = any("schedule-tip-temperature").frame
+        // The other rows are one element each, label and box; the box is its
+        // right 96 points (the width of every number box).
+        let fridge = any("schedule-fridge").frame
+        let cool = any("schedule-cool").frame
+        XCTAssertEqual(room.maxX, fridge.maxX, accuracy: 1, "Die Raumtemperatur sitzt nicht bündig.")
+        XCTAssertEqual(room.maxX, cool.maxX, accuracy: 1)
+        XCTAssertEqual(room.width, 96, accuracy: 1)
+        // The lightbulb is between the label and the box, inside the row.
+        XCTAssertLessThanOrEqual(bulb.maxX, room.minX)
+        XCTAssertGreaterThan(bulb.minX, fridge.minX)
+        XCTAssertEqual(bulb.midY, room.midY, accuracy: 3)
+    }
+
+    func testTheRestControlsWrapAndStayReachableAtAccessibilitySizes() {
+        launch(seedEquipment: true, now: Self.friday,
+               extraArguments: ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityL"])
+        openBake()
+        tapButton("plan-next")
+        tapButton("setup-next")
+        _ = element(app.datePickers, "schedule-time")
+        // The hint is longer than the screen is wide here: it takes more than
+        // one line of its font (the footnote style at this size) instead of
+        // being cut off, and its text is the whole sentence.
+        let line = text("schedule-needed-proof")
+        scrollTo(line)
+        assertText("schedule-needed-proof", "Für 1 Std. 30 Min. passen etwa 22 °C.")
+        let oneLine = UIFont.preferredFont(
+            forTextStyle: .footnote,
+            compatibleWith: UITraitCollection(preferredContentSizeCategory: .accessibilityLarge)).lineHeight
+        XCTAssertGreaterThan(line.frame.height, 1.5 * oneLine, "Der Hinweis ist abgeschnitten.")
+        let range = text("schedule-range-proof")
+        XCTAssertGreaterThan(range.frame.height, 1.5 * oneLine, "Die Spanne ist abgeschnitten.")
+        // The place and the stepper are under each other, both on screen.
+        let place = element(app.buttons, "schedule-place-proof")
+        let stepper = element(app.steppers, "schedule-stepper-proof")
+        scrollTo(stepper)
+        XCTAssertTrue(place.isHittable, "Der Ortswähler liegt nicht im Bild.")
+        XCTAssertTrue(stepper.isHittable, "Der Stepper liegt nicht im Bild.")
+        XCTAssertGreaterThanOrEqual(stepper.frame.minY, place.frame.maxY - 1, "Der Stepper steht nicht unter dem Ort.")
+        let screen = app.windows.firstMatch.frame
+        XCTAssertGreaterThanOrEqual(place.frame.minX, screen.minX)
+        XCTAssertLessThanOrEqual(place.frame.maxX, screen.maxX)
+        XCTAssertLessThanOrEqual(stepper.frame.maxX, screen.maxX)
+        // And it still works.
+        stepper.buttons.element(boundBy: 1).tap()
+        assertText("schedule-needed-proof", "Für 2 Std. 0 Min. passen etwa 19 °C.")
+    }
+
+    /// Scrolls the form up until `element` can be tapped.
+    private func scrollTo(_ element: XCUIElement) {
+        for _ in 0..<12 where !element.isHittable { app.swipeUp() }
+        XCTAssertTrue(element.isHittable, "\(element) liegt nicht im Bild.")
+    }
+
     func testTheCoolPlaceCanBeSetSwitchedOffAndIsRemembered() {
         openSchedule()
         replaceText("schedule-cool", with: "20")
@@ -186,11 +276,9 @@ final class BakeScheduleScreenTests: SourdoughUITestCase {
     func testTheTargetComesFromTheCalendar() {
         openSchedule()
         dateButton.tap()
-        let day = app.buttons.matching(NSPredicate(format: "label ENDSWITH %@", "16. November")).firstMatch
-        XCTAssertTrue(day.waitForExistence(timeout: 5))
-        day.tap()
+        tapDay(moment(16, 18, 0))
         closePopover()
-        assertPicker("18:00", "16. Nov")
+        assertPicker(moment(16, 18, 0))
         assertLabel("schedule-step-8", contains: "Mo 12:00")
     }
 
@@ -201,7 +289,7 @@ final class BakeScheduleScreenTests: SourdoughUITestCase {
         // Switching keeps the plan: the field takes the start (the picker shows
         // 16:26), and the result is the end, Saturday 18:00, as before.
         choose("schedule-anchor", "Sauerteig ansetzen")
-        assertPicker("16:26", "13. Nov")
+        assertPicker(moment(13, 16, 26))
         assertText("schedule-result", "Anschnittfertig: Sa 18:00")
         let reference = ["Fr 16:26", "Fr 16:36", "Sa 08:04", "Sa 08:24", "Sa 09:25", "Sa 09:40", "Sa 10:25",
                          "Sa 11:10", "Sa 12:00"]
@@ -211,29 +299,25 @@ final class BakeScheduleScreenTests: SourdoughUITestCase {
         assertLabel("schedule-place-sourdough", contains: "Kühl (16 °C)")
         assertLabel("schedule-place-bulk", contains: "Warm (27 °C)")
         // A day later: every rest keeps its place and time, so the plan moves
-        // by a day. The picker, however, hands over whole minutes: the start
-        // was 16:26:27 (Saturday 09:25 less 16 h 58 min 33 s, see the unit
-        // tests of the package), now it is 16:26:00, and every step is 27 s
-        // earlier than a day later: the sourdough ends at 16:36:00 + 15 h 27 min
-        // 56 s = Sunday 08:03:56, the warm bulk rest (1 h 0 min 37 s) ends 09:24:33,
-        // the proof 11:09:33, baking 11:59:33, ready at 17:59:33.
+        // by exactly a day, as the plan lies on whole minutes: Saturday 16:26
+        // + 10 min = 16:36; + 928 min = Sunday 08:04; + 20 min kneading = 08:24;
+        // + 61 min = 09:25; + 15 min shaping = 09:40; + 90 min = 11:10
+        // (preheating 10:25); baking 50 min to 12:00; + 6 h cooling = 18:00.
         dateButton.tap()
-        let day = app.buttons.matching(NSPredicate(format: "label ENDSWITH %@", "14. November")).firstMatch
-        XCTAssertTrue(day.waitForExistence(timeout: 5))
-        day.tap()
+        tapDay(moment(14, 16, 26))
         closePopover()
-        assertPicker("16:26", "14. Nov")
-        assertText("schedule-result", "Anschnittfertig: So 17:59")
-        let later = ["Sa 16:26", "Sa 16:36", "So 08:03", "So 08:23", "So 09:24", "So 09:39", "So 10:24",
-                     "So 11:09", "So 11:59"]
+        assertPicker(moment(14, 16, 26))
+        assertText("schedule-result", "Anschnittfertig: So 18:00")
+        let later = ["Sa 16:26", "Sa 16:36", "So 08:04", "So 08:24", "So 09:25", "So 09:40", "So 10:25",
+                     "So 11:10", "So 12:00"]
         for (index, time) in later.enumerated() {
             assertLabel("schedule-step-\(index)", contains: time)
         }
         assertLabel("schedule-place-sourdough", contains: "Kühl (16 °C)")
-        // And back: the field takes the end (17:59:33), the start is the
+        // And back: the field takes the end (Sunday 18:00), the start is the
         // result and is where it was.
         choose("schedule-anchor", "Anschnittfertig")
-        assertPicker("17:59", "15. Nov")
+        assertPicker(moment(15, 18, 0))
         assertText("schedule-result", "Sauerteig ansetzen: Sa 16:26")
         for (index, time) in later.enumerated() {
             assertLabel("schedule-step-\(index)", contains: time)
@@ -256,7 +340,7 @@ final class BakeScheduleScreenTests: SourdoughUITestCase {
         // 35 min, within 0.85 × 1.75 h = 1 h 29 min and 1.2 × 1.75 h. The
         // sourdough ends at 08:00 and takes 8 × 3^0.6 = 15 h 28 min at the cool
         // place: from Friday 16:32, mixed at 16:22.
-        assertPicker("18:30", "14. Nov")
+        assertPicker(moment(14, 18, 30))
         let expected = ["Fr 16:22", "Fr 16:32", "Sa 08:00", "Sa 08:20", "Sa 09:55", "Sa 10:10", "Sa 10:55",
                         "Sa 11:40", "Sa 12:30"]
         for (index, time) in expected.enumerated() {

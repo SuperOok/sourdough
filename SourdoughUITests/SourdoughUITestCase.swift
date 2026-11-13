@@ -18,7 +18,7 @@ class SourdoughUITestCase: XCTestCase {
 
     func launch(skipSplash: Bool = true, reset: Bool = true, splashSeconds: Int? = nil,
                 seedEquipment: Bool = false, seedStarters: Bool = false, now: String? = nil,
-                seedRun: String? = nil) {
+                seedRun: String? = nil, extraArguments: [String] = []) {
         app = XCUIApplication()
         var arguments: [String] = []
         if skipSplash { arguments.append("-skipSplash") }
@@ -28,7 +28,7 @@ class SourdoughUITestCase: XCTestCase {
         if seedStarters { arguments += ["-seedStarters", "demo"] }
         if let now { arguments += ["-now", now] }
         if let seedRun { arguments += ["-seedRun", seedRun] }
-        app.launchArguments = arguments
+        app.launchArguments = arguments + extraArguments
         app.launch()
     }
 
