@@ -418,6 +418,9 @@ struct BakePlanScheduleTests {
         #expect(model.chosenTime == .distantPast)
         model.chosenTime = nov(15, 12)
         #expect(model.anchorTime == nov(15, 12))
+        // The date picker knows only minutes: 12:00:40 is kept as 12:01.
+        model.chosenTime = nov(15, 12) + 40
+        #expect(model.anchorTime == nov(15, 12) + 60)
         model.anchorTime = nil
         #expect(model.schedule(calendar: utc) == nil)
         #expect(model.target(calendar: utc) == nil)
@@ -437,6 +440,9 @@ struct BakePlanScheduleTests {
         // 8 × 3^0.6 h at the cool place, bulk 1.75 / √3 h warm, proof 1.5 h at
         // room temperature; mixed on Friday at 09:25 on Saturday minus
         // 1.75 / √3 h, 20 min, 8 × 3^0.6 h and 10 min.
+        // On whole minutes (see `ScheduleTests`): the start 16:26:27 becomes
+        // 16:26, the sourdough runs 16:36 to 08:04, 928 min, the bulk rest
+        // 08:24 to 09:25, 61 min, the proof 90 min; ready at 18:00 as before.
         let model = BakePlanModel()
         model.proposeSetup(from: [pot])
         model.proposeTarget(now: nov(13, 9), calendar: utc)
@@ -445,28 +451,58 @@ struct BakePlanScheduleTests {
         #expect(abs(before.start.timeIntervalSince(start)) < 0.001)
         model.setAnchor(.start, calendar: utc)
         #expect(model.anchor == .start)
-        #expect(model.anchorTime == before.start)
-        #expect(model.choices[.sourdough]?.place == .cool && model.choices[.bulk]?.place == .warm
-                && model.choices[.proof]?.place == .room)
+        let sixteen26 = nov(13, 16) + 26 * 60
+        #expect(model.anchorTime == sixteen26)
+        #expect(model.choices == [.sourdough: RestChoice(place: .cool, hours: 928.0 / 60),
+                                  .bulk: RestChoice(place: .warm, hours: 61.0 / 60),
+                                  .proof: RestChoice(place: .room, hours: 90.0 / 60)])
         let after = model.schedule(calendar: utc)!
         for (step, old) in zip(after.steps, before.steps) {
-            #expect(step.kind == old.kind && abs(step.start.timeIntervalSince(old.start)) < 0.001)
+            #expect(step.kind == old.kind && abs(step.start.timeIntervalSince(old.start)) <= 30)
         }
         #expect(abs(model.target(calendar: utc)!.timeIntervalSince(nov(14, 18))) < 0.001)
+        // The date picker sets what it shows, 16:26: nothing moves.
+        model.chosenTime = model.chosenTime
+        #expect(model.schedule(calendar: utc) == after)
         model.setAnchor(.start, calendar: utc)
-        #expect(model.anchorTime == before.start)
-        // Forwards, half an hour more for the sourdough (15.97 h, still at the
-        // cool place, 12.37 to 19.33 h) moves the rest: ready at 18:30.
+        #expect(model.anchorTime == sixteen26)
+        // Forwards, half an hour more for the sourdough (958 min = 15.97 h,
+        // still at the cool place, 12.37 to 19.33 h) moves the rest: ready at
+        // 18:30.
         model.stepHours(0.5, of: .sourdough, calendar: utc)
         #expect(model.choices[.sourdough]?.place == .cool)
         #expect(abs(model.target(calendar: utc)!.timeIntervalSince(nov(14, 18) + 1800)) < 0.001)
-        #expect(model.schedule(calendar: utc)!.start == before.start)
+        #expect(model.schedule(calendar: utc)!.start == sixteen26)
         #expect(model.schedule(calendar: utc)!.conflicts.isEmpty)
-        // Back to planning backwards: the field takes the new target.
+        // Back to planning backwards: the field takes the new target, 18:30,
+        // and back from it with the same rests the plan starts at 16:26.
         model.setAnchor(.ready, calendar: utc)
         #expect(model.anchor == .ready)
-        #expect(abs(model.anchorTime!.timeIntervalSince(nov(14, 18) + 1800)) < 0.001)
-        #expect(abs(model.schedule(calendar: utc)!.start.timeIntervalSince(before.start)) < 0.001)
+        #expect(model.anchorTime == nov(14, 18) + 1800)
+        #expect(abs(model.schedule(calendar: utc)!.start.timeIntervalSince(sixteen26)) < 0.001)
+    }
+
+    @Test func switchingTheAnchorForgetsTheWishes() {
+        // Saturday 18:00: the proof at room temperature, 1.5 h. Plus half an
+        // hour asks for 2 h; the room gives at most 1.8 h, the plan keeps that
+        // and remembers the wish.
+        let model = BakePlanModel()
+        model.proposeSetup(from: [pot])
+        model.proposeTarget(now: nov(13, 9), calendar: utc)
+        model.stepHours(0.5, of: .proof, calendar: utc)
+        #expect(model.wishes == [.proof: 2])
+        // Switched, the proof is fixed at what the plan has, 1.8 h = 108 min,
+        // and the wish is gone.
+        model.setAnchor(.start, calendar: utc)
+        #expect(model.wishes.isEmpty)
+        #expect(model.choices[.proof] == RestChoice(place: .room, hours: 108.0 / 60))
+        // So plus steps from the 1.8 h, not from the 2 h asked before: 2.3 h.
+        // No place gives that (room up to 1.8 h, cool from 0.85 × 1.5 × 3^0.6
+        // = 2.46 h); the closest by ratio is the cool place (nominal 2.90 h,
+        // ln(2.90 / 2.3) = 0.23 against ln(2.3 / 1.5) = 0.43 at room).
+        model.stepHours(0.5, of: .proof, calendar: utc)
+        #expect(model.choices[.proof]?.place == .cool)
+        #expect(abs(model.wishes[.proof]! - 2.3) < 1e-9)
     }
 
     @Test func forwardsTheStartOfTheProposedPlanIsProposed() {
@@ -481,11 +517,13 @@ struct BakePlanScheduleTests {
         model.setAnchor(.start, calendar: utc)
         model.proposeSetup(from: [pot])
         model.proposeTarget(now: nov(13, 9), calendar: utc)
-        let start = referenceStart
-        #expect(abs(model.anchorTime!.timeIntervalSince(start)) < 0.001)
+        // The start, 16:26:27, is proposed on the minute, 16:26, as the date
+        // picker shows it; the plan from there is 27 s earlier.
+        let sixteen26 = nov(13, 16) + 26 * 60
+        #expect(model.anchorTime == sixteen26)
         let schedule = model.schedule(calendar: utc)!
         #expect(schedule.rest(.bulk)?.kind == .rest(.bulk, .room))
-        let later = (1.75 - 1.75 / 3.0.squareRoot()) * 3600
+        let later = (1.75 - 1.75 / 3.0.squareRoot()) * 3600 - referenceStart.timeIntervalSince(sixteen26)
         #expect(abs(model.target(calendar: utc)!.timeIntervalSince(nov(14, 18) + later)) < 0.001)
     }
 

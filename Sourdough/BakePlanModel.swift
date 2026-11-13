@@ -187,22 +187,28 @@ final class BakePlanModel {
     /// what the places allow: the plan shows the temperature it would need.
     private(set) var wishes: [RestKind: Double] = [:]
 
-    /// The time for the date picker, which only shows once there is one.
+    /// The time for the date picker, which only shows once there is one. It
+    /// knows only whole minutes; what it sets is kept on one.
     var chosenTime: Date {
         get { anchorTime ?? .distantPast }
-        set { anchorTime = newValue }
+        set { anchorTime = Schedule.wholeMinute(newValue) }
     }
 
-    /// Fixes the other end of the plan. The plan stays as it is: every rest
-    /// keeps its place and time (they become choices), and the date field
-    /// takes the time of the new end. Forwards, the bread cools only as long
-    /// as it must, so "ready" may come earlier than it was.
+    /// Fixes the other end of the plan. The plan stays as it is, moved onto
+    /// whole minutes (`Schedule.onWholeMinutes`, no step by more than half a
+    /// minute): every rest keeps its place and time (they become choices),
+    /// and the date field takes the time of the new end, so that using the
+    /// date picker without changing it changes nothing. Forwards, the bread
+    /// cools only as long as it must, so "ready" may come earlier than it
+    /// was. The wishes go: they were asked of the plan before.
     func setAnchor(_ new: ScheduleAnchor, calendar: Calendar) {
         guard new != anchor else { return }
         if let schedule = schedule(calendar: calendar) {
-            choices = schedule.restChoices
-            anchorTime = schedule.time(of: new)
+            let fixed = schedule.onWholeMinutes(fixing: new)
+            choices = fixed.choices
+            anchorTime = fixed.time
         }
+        wishes = [:]
         anchor = new
     }
 
@@ -229,14 +235,15 @@ final class BakePlanModel {
     }
 
     /// Proposes a time for the field unless there is one: the proposed target
-    /// (`Schedule.proposedTarget`), or for `.start` the start of its plan.
+    /// (`Schedule.proposedTarget`, on the hour), or for `.start` the start of
+    /// its plan on the nearest whole minute, as the date picker shows it.
     func proposeTarget(now: Date, calendar: Calendar) {
         guard anchorTime == nil, let setup else { return }
         let target = Schedule.proposedTarget(after: now, ryeShare: effectiveMix.ryeShare, vessel: setup.vessel,
                                              temperatures: temperatures, window: window, calendar: calendar)
         anchorTime = anchor == .ready ? target
-            : Schedule(target: target, ryeShare: effectiveMix.ryeShare, vessel: setup.vessel,
-                       temperatures: temperatures, window: window, calendar: calendar).start
+            : Schedule.wholeMinute(Schedule(target: target, ryeShare: effectiveMix.ryeShare, vessel: setup.vessel,
+                                            temperatures: temperatures, window: window, calendar: calendar).start)
     }
 
     func schedule(calendar: Calendar) -> Schedule? {

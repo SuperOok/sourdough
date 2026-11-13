@@ -25,7 +25,7 @@ enum BakeRunText {
             .addIns: addIns(recipe),
         ]
         if let rest = BakeProcess.followingRest(step), let resting = schedule.rest(rest) {
-            values[.restTemperature] = restTemperature(run.celsius(rest))
+            values[.restTemperature] = restTemperature(run.celsius(rest, in: schedule))
             values[.restDuration] = ScheduleText.duration(hours: resting.hours)
             values[.restUntil] = ScheduleText.time(resting.end, calendar: calendar)
         } else {

@@ -337,7 +337,9 @@ struct BakePlanRunTests {
     @Test func aBakePlannedForwardsKeepsItsStart() {
         // Switched to the start, the plan keeps its rests and its target,
         // Saturday 18:00; the bake starts where the plan does and aims for the
-        // same temperatures: the sourdough 16 °C.
+        // same temperatures. On whole minutes the sourdough takes 928 min
+        // instead of 8 × 3^0.6 h = 927.93 min at 16 °C: 22 − 10 × log₃(928 /
+        // 60 / 8) = 15.9993 °C, still 16 °C in whole degrees.
         let model = BakePlanModel()
         model.proposeSetup(from: EquipmentDemo.items())
         model.useTemperatures(Temperatures())
@@ -348,7 +350,9 @@ struct BakePlanRunTests {
         #expect(bake?.anchor == .start)
         #expect(bake?.schedule.start == model.anchorTime)
         #expect(bake.map { abs($0.target.timeIntervalSince(nov(14, 18))) < 0.001 } == true)
-        #expect(bake.map { abs($0.celsius(.sourdough) - 16) < 1e-9 } == true)
+        let sourdough = 22 - 10 * log(928.0 / 60 / 8) / log(3)
+        #expect(bake.map { abs($0.celsius(.sourdough) - sourdough) < 1e-9 } == true)
+        #expect(bake.map { BakeRunText.restTemperature($0.celsius(.sourdough)) } == "bei etwa 16 °C")
         #expect(bake?.choices == model.choices)
     }
 

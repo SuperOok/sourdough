@@ -451,17 +451,23 @@ Rechnungen liegen im Package, jede Konstante als Richtwert an einer Stelle:
    „Anschnittfertig“ oder „Sauerteig ansetzen“) das Ende, darunter steht der
    kompakte `DatePicker` (`schedule-time`) und in grau das berechnete andere Ende
    („Anschnittfertig: Sa 18:00“, `schedule-result`). Der `DatePicker` liefert
-   ganze Minuten: Wer ihn bedient, rundet die Sekunden des Plans ab, und das
-   berechnete Ende kann dadurch Sekunden früher liegen (Referenzplan: Start
-   Fr 16:26:27, nach einer Bedienung 16:26:00, „anschnittfertig“ 17:59:33).
-   `ScheduleText.time` rundet vorher auf ganze Sekunden, damit Rechenreste wie
+   ganze Minuten; deshalb liegt das Feld immer auf einer ganzen Minute
+   (`Schedule.wholeMinute`: Vorschlag, Setter `chosenTime`, `setAnchor`), und
+   Bedienen ohne Änderung verschiebt den Plan nicht. `ScheduleText.time` rundet vorher auf ganze Sekunden, damit Rechenreste wie
    17:59:59,9999 nicht als „17:59“ erscheinen. UI-Tests bedienen den
    `DatePicker` über seine Knöpfe: Datum = Tag im Popover antippen (Label endet
    auf „14. November“), Zeit = `pickerWheels` (Werte „00“ bis „59“), Schließen
    mit einem Tipp neben das Popover (`PopoverDismissRegion`); gelesen wird der
    Wert des Pickers („18:00, 14. Nov 2026“, sprachabhängig).
-   `setAnchor` behält den Plan: alle Ruhen werden mit Ort und Dauer fest
-   (`Schedule.restChoices`), das Feld übernimmt die Zeit des anderen Endes.
+   `setAnchor` behält den Plan, auf ganze Minuten gelegt
+   (`Schedule.onWholeMinutes`): jede Ruhe läuft zwischen ihren auf die Minute
+   gerundeten Enden und wird mit Ort und Dauer fest, das Feld übernimmt die
+   gerundete Zeit des anderen Endes; kein Schritt wandert um mehr als eine
+   halbe Minute (Referenzplan: Start Fr 16:26:27 wird 16:26, Sauerteig 928 min,
+   Stockgare 61 min, „anschnittfertig“ bleibt Sa 18:00). Die Wünsche aus „+“
+   und „−“ verfallen dabei. Weil alle Ruhen fest sind, stellt eine danach
+   geänderte Raumtemperatur keine Orte mehr neu vor; „Vorschlag
+   wiederherstellen“ (`schedule-reset`) gibt sie frei.
    **Zieltemperatur je Ruhe** (`ScheduleStep.celsius`, `Schedule.restCelsius`):
    die Temperatur, bei der die geplante Dauer der Regel entspricht
    (`ScheduleRules.celsius`); bei der Nennzeit die des Ortes.
