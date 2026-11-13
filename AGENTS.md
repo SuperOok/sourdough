@@ -425,7 +425,13 @@ Rechnungen liegen im Package, jede Konstante als Richtwert an einer Stelle:
    Bezeichner `schedule-needed-<ruhe>`): trifft kein Ort die gewünschte Zeit,
    gilt sie der gewünschten Dauer (`BakePlanModel.temperatureHint`), sonst der
    geplanten. Die Zeile ist immer da und einzeilig, und der Ortswähler
-   (`fixedSize`) bleibt einzeilig, damit „+“ und „−“ nicht springen. Die
+   (`fixedSize`) bleibt einzeilig, damit „+“ und „−“ nicht springen. Das gilt
+   bis zu den normalen Schriftgrößen; ab den Bedienungshilfe-Größen
+   (`dynamicTypeSize.isAccessibilitySize`) brechen „Sinnvoll: …“ und die
+   Temperaturzeile um, und der Stepper steht unter dem Ortswähler
+   (UI-Test `testTheRestControlsWrapAndStayReachableAtAccessibilitySizes`,
+   gestartet mit `launch(extraArguments:)` und dem Argument
+   `-UIPreferredContentSizeCategoryName UICTContentSizeCategoryAccessibilityL`). Die
    **Bereichsleiste** (`RangeBar`) zeigt die Spanne des gewählten Ortes auf einer
    **logarithmischen Skala, die alle Orte der Ruhe teilen** (`RangeScale`,
    `ScheduleRules.scale`: von der kleinsten Untergrenze bis zur größten
@@ -455,10 +461,18 @@ Rechnungen liegen im Package, jede Konstante als Richtwert an einer Stelle:
    (`Schedule.wholeMinute`: Vorschlag, Setter `chosenTime`, `setAnchor`), und
    Bedienen ohne Änderung verschiebt den Plan nicht. `ScheduleText.time` rundet vorher auf ganze Sekunden, damit Rechenreste wie
    17:59:59,9999 nicht als „17:59“ erscheinen. UI-Tests bedienen den
-   `DatePicker` über seine Knöpfe: Datum = Tag im Popover antippen (Label endet
-   auf „14. November“), Zeit = `pickerWheels` (Werte „00“ bis „59“), Schließen
-   mit einem Tipp neben das Popover (`PopoverDismissRegion`); gelesen wird der
-   Wert des Pickers („18:00, 14. Nov 2026“, sprachabhängig).
+   `DatePicker` über seine Knöpfe, ohne Text der Gerätesprache im Quelltext:
+   der Picker enthält den äußeren Knopf, den Datumsknopf und den Zeitknopf in
+   dieser Reihenfolge (`buttons.element(boundBy:)`). Der Test legt den festen
+   Zeitpunkt an (`moment(14, 18, 0)`) und prüft nur, was in jeder Sprache gleich
+   ist: die Uhrzeit, vom System geschrieben (`.formatted(.dateTime.hour().minute())`),
+   sowie Tageszahl und Jahr als Ziffern; der Monatsname ist es nicht, denn
+   Testprozess und App können verschiedene Sprachen haben („Nov.“ gegenüber
+   „Nov“). Das Label des Tags im Popover endet auf `.day().month(.wide)`
+   („14. November“). Datum = Tag im Popover antippen (`tapDay`), Zeit =
+   `pickerWheels` (Werte „00“ bis „59“), Schließen mit einem Tipp neben das
+   Popover (`PopoverDismissRegion`); gelesen wird der Wert des Pickers
+   (`assertPicker(moment)`).
    `setAnchor` behält den Plan, auf ganze Minuten gelegt
    (`Schedule.onWholeMinutes`): jede Ruhe läuft zwischen ihren auf die Minute
    gerundeten Enden und wird mit Ort und Dauer fest, das Feld übernimmt die
@@ -492,7 +506,9 @@ Schritt 2 `setup-vessel`, `setup-pan`, `setup-pot`, `setup-basket`,
 `schedule-time` (der kompakte `DatePicker`, die Zeit des einen Datumsfelds:
 Datum und Uhrzeit öffnen je ein Popover), `schedule-result` (das berechnete
 andere Ende), `schedule-room` mit der Glühbirne
-`schedule-tip-temperature` (Seite „Temperatur und Zeit“), `schedule-fridge`,
+`schedule-tip-temperature` (Seite „Temperatur und Zeit“; sie steht zwischen
+Beschriftung und Feld, als `accessory` des `NumberField`, sodass das Feld wie
+bei `schedule-fridge` rechtsbündig 96 pt breit bleibt), `schedule-fridge`,
 `schedule-error`, `schedule-conflict-<n>`, `schedule-chart`,
 `schedule-step-<n>`, `schedule-range-<ruhe>`, `schedule-place-<ruhe>`,
 `schedule-stepper-<ruhe>`, `schedule-reset`. `<mehl>` ist der Rohwert von
