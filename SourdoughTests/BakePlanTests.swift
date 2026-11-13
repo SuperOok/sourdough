@@ -8,6 +8,13 @@ import SourdoughKit
 private func close(_ a: Double?, _ b: Double) -> Bool { a.map { abs($0 - b) < 1e-9 } ?? false }
 
 struct BakeTextTests {
+    @Test func theStarterRowNamesTheStarter() {
+        let starter = Starter(name: "Opa", flour: .rye, createdAt: Date(timeIntervalSinceReferenceDate: 0),
+                              feedings: [], inFridge: false, fridgeCelsius: 5)
+        #expect(BakeText.starterRowTitle(starter) == "Anstellgut „Opa“")
+        #expect(BakeText.starterRowTitle(nil) == "Anstellgut")
+    }
+
     @Test func flourNames() {
         #expect(Flour.allCases.map(\.germanName) == [
             "Roggen 997", "Roggen 1150", "Roggen 1370", "Roggenvollkorn",

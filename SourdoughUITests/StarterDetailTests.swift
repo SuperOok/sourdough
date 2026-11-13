@@ -35,6 +35,8 @@ final class StarterDetailTests: SourdoughUITestCase {
     func testFeedingStartsTheCycleAgain() {
         open("Weizensauerteig")
         tapButton("detail-feed")
+        // The sheet says which starter is fed.
+        assertLabel("feed-name", contains: "Weizensauerteig")
         // The sheet starts with the amounts of the last feeding.
         XCTAssertEqual(element(app.textFields, "feed-starter").value as? String, "20")
         XCTAssertEqual(element(app.textFields, "feed-flour").value as? String, "50")

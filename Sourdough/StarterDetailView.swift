@@ -93,7 +93,7 @@ struct StarterDetailView: View {
             }
         }
         .sheet(isPresented: $showFeed) {
-            FeedView(previous: starter.lastFeeding) { store.feed(id, with: $0) }
+            FeedView(starterName: starter.name, previous: starter.lastFeeding) { store.feed(id, with: $0) }
         }
         .alert("Starter löschen?", isPresented: $confirmDelete) {
             Button("Löschen", role: .destructive) {

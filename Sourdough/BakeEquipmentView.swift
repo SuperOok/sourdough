@@ -155,7 +155,8 @@ struct BakeEquipmentView: View {
                 amountRow(portion.flour.germanName, portion.grams, id: "recipe-sour-\(portion.flour.rawValue)")
             }
             amountRow("Wasser", recipe.sourdoughWater, id: "recipe-sour-water")
-            amountRow("Anstellgut", recipe.starterGrams, id: "recipe-starter")
+            amountRow(BakeText.starterRowTitle(model.starter(in: starterStore.starters)), recipe.starterGrams,
+                      id: "recipe-starter")
         } header: {
             Text("Sauerteigstufe")
         } footer: {

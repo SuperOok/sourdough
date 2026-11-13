@@ -93,6 +93,12 @@ enum BakeText {
         return "Aus der Bodenfläche von „\(item.name)“: Ein runder Bräter mit 27 cm Durchmesser fasst etwa 1 kg Teig."
     }
 
+    /// The row of the starter in the recipe: "Anstellgut „Roggensauerteig“",
+    /// or only "Anstellgut" while no starter is chosen.
+    static func starterRowTitle(_ starter: Starter?) -> String {
+        starter.map { "Anstellgut „\($0.name)“" } ?? "Anstellgut"
+    }
+
     /// "30 %", "28,5 %"
     static func percent(_ value: Double) -> String {
         StarterText.number((value * 10).rounded() / 10) + " %"

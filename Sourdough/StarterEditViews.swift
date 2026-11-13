@@ -17,9 +17,14 @@ struct AddStarterView: View {
             NumberForm(fields: ["add-flour-grams", "add-water-grams",
                                 model.inFridge ? "add-fridge-temp" : "add-room-temp"]) { focus in
                 Section("Sauerteig") {
-                    TextField(model.flour.starterName, text: $model.name)
-                        .textFieldStyle(.roundedBorder)
-                        .accessibilityIdentifier("add-name")
+                    // Labelled, so that it reads as a field for the name; the grey
+                    // placeholder is the name the starter gets without one.
+                    LabeledContent("Name") {
+                        TextField(model.flour.starterName, text: $model.name)
+                            .textFieldStyle(.roundedBorder)
+                            .multilineTextAlignment(.trailing)
+                            .accessibilityIdentifier("add-name")
+                    }
                     Picker("Mehl", selection: $model.flour) {
                         ForEach(FlourType.starterGrains, id: \.self) { flour in
                             Text(flour.germanName).tag(flour)
@@ -100,14 +105,23 @@ struct FeedView: View {
     private let onSave: (Feeding) -> Void
     @Environment(\.dismiss) private var dismiss
 
-    init(previous: Feeding?, onSave: @escaping (Feeding) -> Void) {
+    /// The name of the starter that is fed, shown above the fields.
+    private let starterName: String
+
+    init(starterName: String, previous: Feeding?, onSave: @escaping (Feeding) -> Void) {
         _model = State(initialValue: FeedFormModel(previous: previous))
+        self.starterName = starterName
         self.onSave = onSave
     }
 
     var body: some View {
         NavigationStack {
             NumberForm(fields: ["feed-starter", "feed-flour", "feed-water"]) { focus in
+                Section {
+                    LabeledContent("Starter", value: starterName)
+                        .accessibilityElement(children: .combine)
+                        .accessibilityIdentifier("feed-name")
+                }
                 Section {
                     NumberField(title: "Behaltener Starter (g)", text: $model.starterText,
                                 id: "feed-starter", focus: focus)

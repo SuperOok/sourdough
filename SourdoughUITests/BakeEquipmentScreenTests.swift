@@ -17,6 +17,15 @@ final class BakeEquipmentScreenTests: SourdoughUITestCase {
         element(app.segmentedControls, "setup-vessel").buttons[name].tap()
     }
 
+    func testTheRecipeNamesTheChosenStarter() {
+        launch(seedEquipment: true, seedStarters: true)
+        openBake()
+        choose("plan-starter", "Roggensauerteig (Roggen)")
+        tapButton("plan-next")
+        _ = element(app.segmentedControls, "setup-vessel")
+        assertLabel("recipe-starter", contains: "Anstellgut „Roggensauerteig“")
+    }
+
     func testThePotIsProposedWithItsAmountAndRecipe() {
         openEquipmentStep()
         XCTAssertTrue(element(app.segmentedControls, "setup-vessel").buttons["Bräter"].isSelected)
