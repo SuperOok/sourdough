@@ -35,15 +35,18 @@ final class BakeScheduleScreenTests: SourdoughUITestCase {
         Calendar.current.date(from: DateComponents(year: 2026, month: 11, day: day, hour: hour, minute: minute))!
     }
 
-    /// How the picker writes a moment in the language of the device: the time
-    /// and the date as the system formats them, and the label of the day in the
-    /// month grid of its popover ("14. November"). The expected values are the
-    /// fixed moment, written by the system, not read from the app.
+    /// How the picker writes a moment, as far as it does not depend on the
+    /// language: the time as the system writes it, the day and the year as
+    /// digits. The month is a name in the language of the app, which the test
+    /// process need not share ("Nov." and "Nov"); the days planned here are
+    /// all in November. The label of a day in the month grid of the popover
+    /// ends on the day and the month in full ("14. November").
     private func timeText(_ moment: Date) -> String {
         moment.formatted(.dateTime.hour().minute())
     }
-    private func dateText(_ moment: Date) -> String {
-        moment.formatted(.dateTime.day().month(.abbreviated).year())
+    private func digits(_ moment: Date) -> [String] {
+        let parts = Calendar.current.dateComponents([.day, .year], from: moment)
+        return [String(parts.day!), String(parts.year!)]
     }
     private func dayText(_ moment: Date) -> String {
         moment.formatted(.dateTime.day().month(.wide))
@@ -52,7 +55,7 @@ final class BakeScheduleScreenTests: SourdoughUITestCase {
     /// Waits until the picker shows this time and this date.
     private func assertPicker(_ moment: Date, line: UInt = #line) {
         let value = picker.buttons.firstMatch
-        for part in [timeText(moment), dateText(moment)] {
+        for part in [timeText(moment)] + digits(moment) {
             let done = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value CONTAINS %@", part),
                                                  object: value)
             XCTAssertEqual(XCTWaiter().wait(for: [done], timeout: 5), .completed,
@@ -89,7 +92,7 @@ final class BakeScheduleScreenTests: SourdoughUITestCase {
         let saturday = moment(14, 18, 0)
         assertPicker(saturday)
         // The two buttons inside the picker are the date and the time.
-        XCTAssertEqual(dateButton.label, dateText(saturday))
+        for part in digits(saturday) { XCTAssertTrue(dateButton.label.contains(part), dateButton.label) }
         XCTAssertEqual(timeButton.label, timeText(saturday))
         XCTAssertTrue(any("schedule-chart").exists)
         let expected = [
@@ -296,27 +299,25 @@ final class BakeScheduleScreenTests: SourdoughUITestCase {
         assertLabel("schedule-place-sourdough", contains: "Kühl (16 °C)")
         assertLabel("schedule-place-bulk", contains: "Warm (27 °C)")
         // A day later: every rest keeps its place and time, so the plan moves
-        // by a day. The picker, however, hands over whole minutes: the start
-        // was 16:26:27 (Saturday 09:25 less 16 h 58 min 33 s, see the unit
-        // tests of the package), now it is 16:26:00, and every step is 27 s
-        // earlier than a day later: the sourdough ends at 16:36:00 + 15 h 27 min
-        // 56 s = Sunday 08:03:56, the warm bulk rest (1 h 0 min 37 s) ends 09:24:33,
-        // the proof 11:09:33, baking 11:59:33, ready at 17:59:33.
+        // by exactly a day, as the plan lies on whole minutes: Saturday 16:26
+        // + 10 min = 16:36; + 928 min = Sunday 08:04; + 20 min kneading = 08:24;
+        // + 61 min = 09:25; + 15 min shaping = 09:40; + 90 min = 11:10
+        // (preheating 10:25); baking 50 min to 12:00; + 6 h cooling = 18:00.
         dateButton.tap()
         tapDay(moment(14, 16, 26))
         closePopover()
         assertPicker(moment(14, 16, 26))
-        assertText("schedule-result", "Anschnittfertig: So 17:59")
-        let later = ["Sa 16:26", "Sa 16:36", "So 08:03", "So 08:23", "So 09:24", "So 09:39", "So 10:24",
-                     "So 11:09", "So 11:59"]
+        assertText("schedule-result", "Anschnittfertig: So 18:00")
+        let later = ["Sa 16:26", "Sa 16:36", "So 08:04", "So 08:24", "So 09:25", "So 09:40", "So 10:25",
+                     "So 11:10", "So 12:00"]
         for (index, time) in later.enumerated() {
             assertLabel("schedule-step-\(index)", contains: time)
         }
         assertLabel("schedule-place-sourdough", contains: "Kühl (16 °C)")
-        // And back: the field takes the end (17:59:33), the start is the
+        // And back: the field takes the end (Sunday 18:00), the start is the
         // result and is where it was.
         choose("schedule-anchor", "Anschnittfertig")
-        assertPicker(moment(15, 17, 59))
+        assertPicker(moment(15, 18, 0))
         assertText("schedule-result", "Sauerteig ansetzen: Sa 16:26")
         for (index, time) in later.enumerated() {
             assertLabel("schedule-step-\(index)", contains: time)
