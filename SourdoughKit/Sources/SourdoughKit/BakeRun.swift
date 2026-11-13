@@ -78,9 +78,13 @@ public struct BakeRun: Codable, Equatable, Identifiable, Sendable {
     public var anchor: ScheduleAnchor { scheduleAnchor ?? .ready }
 
     /// The temperature `rest` aims for, as planned; for a bake saved before
-    /// there was one, that of its place.
-    public func celsius(_ rest: RestKind) -> Double {
-        restCelsius?[rest] ?? temperatures.celsius(schedule.rest(rest)!.place!)
+    /// there was one, that of its place in `schedule` (built here if not
+    /// given, so pass it where it is at hand), and room temperature should
+    /// the plan lack that rest.
+    public func celsius(_ rest: RestKind, in schedule: Schedule? = nil) -> Double {
+        if let planned = restCelsius?[rest] { return planned }
+        let place = (schedule ?? self.schedule).rest(rest)?.place
+        return place.map(temperatures.celsius) ?? temperatures.roomCelsius
     }
 
     public var calendar: Calendar { Self.calendar(timeZone) }

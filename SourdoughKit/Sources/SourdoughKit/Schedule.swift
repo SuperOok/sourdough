@@ -537,6 +537,35 @@ public struct Schedule: Equatable, Sendable {
         })
     }
 
+    /// `date` on the nearest whole minute.
+    public static func wholeMinute(_ date: Date) -> Date {
+        Date(timeIntervalSinceReferenceDate: (date.timeIntervalSinceReferenceDate / 60).rounded() * 60)
+    }
+
+    /// This plan on whole minutes, to fix `anchor` with: the time of that end
+    /// and every rest as a choice. The actions take whole minutes, so with
+    /// whole-minute rests every step of the new plan lies on a whole minute,
+    /// and a date picker, which only knows minutes, leaves it as it is.
+    ///
+    /// Each rest runs from its start to its end, both rounded to the nearest
+    /// minute: no step of the new plan moves by more than half a minute,
+    /// where rounding each duration alone could add up to more. A rest that
+    /// would leave its range that way (it was at a bound) takes the whole
+    /// minute just inside it. A bound a float rest away from a whole minute
+    /// (1.5 h × 1.2 is 1.799 999 999 999 999 8 h) counts as that minute.
+    public func onWholeMinutes(fixing anchor: ScheduleAnchor) -> (time: Date, choices: [RestKind: RestChoice]) {
+        let slack = 1e-6
+        let choices = Dictionary(uniqueKeysWithValues: steps.compactMap { step -> (RestKind, RestChoice)? in
+            guard case .rest(let rest, let place) = step.kind else { return nil }
+            var minutes = Self.wholeMinute(step.end).timeIntervalSince(Self.wholeMinute(step.start)) / 60
+            let range = step.hourRange ?? step.hours...step.hours
+            minutes = min(max(minutes, (range.lowerBound * 60 - slack).rounded(.up)),
+                          (range.upperBound * 60 + slack).rounded(.down))
+            return (rest, RestChoice(place: place, hours: minutes / 60))
+        })
+        return (Self.wholeMinute(time(of: anchor)), choices)
+    }
+
     /// The rest of `kind`.
     public func rest(_ kind: RestKind) -> ScheduleStep? {
         steps.first { step in

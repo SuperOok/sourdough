@@ -477,6 +477,78 @@ struct ForwardScheduleTests {
         #expect(schedule.conflicts.isEmpty)
     }
 
+    /// Whether `date` lies on a whole minute, give or take float rests.
+    private func onMinute(_ date: Date) -> Bool {
+        let seconds = date.timeIntervalSinceReferenceDate
+        return abs(seconds - (seconds / 60).rounded() * 60) < 0.001
+    }
+
+    @Test func aTimeIsRoundedToTheNearestMinute() {
+        #expect(Schedule.wholeMinute(nov(13, 16, 26) + 27.1) == nov(13, 16, 26))
+        #expect(Schedule.wholeMinute(nov(13, 16, 26) + 30.5) == nov(13, 16, 27))
+        #expect(Schedule.wholeMinute(nov(14, 18)) == nov(14, 18))
+    }
+
+    @Test func theReferencePlanOnWholeMinutesStaysWithinHalfAMinute() {
+        // Backwards from Saturday 18:00 (see above): shaping 09:25, the warm
+        // bulk rest 1.75 / √3 h = 60.622 min = 1 h 0 min 37.3 s from 08:24:22.7,
+        // kneading from 08:04:22.7, the sourdough 8 × 3^0.6 h = 15.465 46 h =
+        // 15 h 27 min 55.6 s from Friday 16:36:27.1, mixing from 16:26:27.1.
+        let backward = Schedule(target: nov(14, 18), ryeShare: 50, vessel: .pot, temperatures: kitchen,
+                                calendar: utc)
+        let fixed = backward.onWholeMinutes(fixing: .start)
+        // The start 16:26:27.1 rounds to 16:26. The rests run between their
+        // rounded ends: the sourdough 16:36 to 08:04, 15 h 28 min = 928 min;
+        // the bulk rest 08:24 to 09:25, 61 min; the proof 09:40 to 11:10,
+        // 90 min. All within their ranges (cool sourdough 12.37 to 19.33 h,
+        // warm bulk 0.859 to 1.212 h, proof at room 1.275 to 1.8 h).
+        #expect(fixed.time == nov(13, 16, 26))
+        #expect(fixed.choices == [.sourdough: RestChoice(place: .cool, hours: 928.0 / 60),
+                                  .bulk: RestChoice(place: .warm, hours: 61.0 / 60),
+                                  .proof: RestChoice(place: .room, hours: 90.0 / 60)])
+        // Forwards with them: mixing 16:26 to 16:36, kneading 08:04 to 08:24,
+        // shaping 09:25 to 09:40, preheating 10:25, baking 11:10 to 12:00 and
+        // ready at 18:00 as before. Every step on a whole minute and within
+        // half a minute of where it was.
+        let forward = forward(fixed.time, choices: fixed.choices)
+        #expect(close(forward.target, nov(14, 18)))
+        #expect(close(forward.steps[2].start, nov(14, 8, 4)))
+        #expect(close(forward.steps[4].start, nov(14, 9, 25)))
+        #expect(forward.steps.map(\.kind) == backward.steps.map(\.kind))
+        for (step, before) in zip(forward.steps, backward.steps) {
+            #expect(onMinute(step.start) && onMinute(step.end), "\(step.kind)")
+            #expect(abs(step.start.timeIntervalSince(before.start)) <= 30, "\(step.kind)")
+            #expect(abs(step.end.timeIntervalSince(before.end)) <= 30, "\(step.kind)")
+        }
+        #expect(forward.conflicts.isEmpty)
+        // Fixing the target instead: 18:00, and the same rests.
+        let ready = backward.onWholeMinutes(fixing: .ready)
+        #expect(ready.time == nov(14, 18))
+        #expect(ready.choices == fixed.choices)
+    }
+
+    @Test func aRestAtABoundOfItsRangeStaysInsideIt() {
+        // The sourdough at the cool place takes 8 × 3^0.6 = 15.465 46 h, its
+        // range 0.8 to 1.25 times that: 12.372 37 h = 742.342 min to
+        // 19.331 82 h = 1159.909 min. From Friday 08:00 (mixing until 08:10) a
+        // sourdough fixed far too long is clamped to the top: until Saturday
+        // 03:29:54.6, which rounds to 03:30, 1160 min — beyond the range, so
+        // it takes 1159 min.
+        let long = forward(nov(13, 8), choices: [.sourdough: RestChoice(place: .cool, hours: 100)])
+        #expect(long.onWholeMinutes(fixing: .start).choices[.sourdough] == RestChoice(place: .cool, hours: 1159.0 / 60))
+        // Far too short is clamped to the bottom: until 20:32:20.5, rounded
+        // 20:32, 742 min — below the range, so it takes 743 min.
+        let short = forward(nov(13, 8), choices: [.sourdough: RestChoice(place: .cool, hours: 1)])
+        #expect(short.onWholeMinutes(fixing: .start).choices[.sourdough] == RestChoice(place: .cool, hours: 743.0 / 60))
+        #expect(short.onWholeMinutes(fixing: .start).time == nov(13, 8))
+        // A bound on a whole minute stays that minute: the proof at room
+        // temperature, fixed at 2 h, is clamped to 1.5 × 1.2 = 1.8 h = 108 min
+        // (in floats a hair less), from 09:22 to 11:10, and keeps 108 min.
+        let proof = Schedule(target: nov(14, 18), ryeShare: 50, vessel: .pot, temperatures: kitchen,
+                             choices: [.proof: RestChoice(place: .room, hours: 2)], calendar: utc)
+        #expect(proof.onWholeMinutes(fixing: .start).choices[.proof] == RestChoice(place: .room, hours: 108.0 / 60))
+    }
+
     @Test func forwardsEachRestTakesThePlaceThatPutsTheNextActionIntoTheWindow() {
         // From Friday 16:30: mixing until 16:40. The sourdough at room
         // temperature (6.4 to 10 h) would put kneading (20 min) between 23:04

@@ -402,5 +402,41 @@ struct BakeRunTests {
         #expect(old.celsius(.proof) == 22)
         #expect(old.anchor == .ready)
         #expect(old.target == nov(14, 18))
+        // The same with the plan given. With the proof 1.8 h from 09:22,
+        // shaping starts at 09:07; no place brings kneading into the window
+        // (even warm at its shortest, 0.859 h, it would start 07:55), so the
+        // bulk rest keeps room temperature, 22 °C. The sourdough before
+        // kneading at 07:02 goes to the cool place, 16 °C.
+        let schedule = old.schedule
+        #expect(old.celsius(.proof, in: schedule) == 22)
+        #expect(old.celsius(.sourdough, in: schedule) == 16)
+        #expect(old.celsius(.bulk, in: schedule) == 22)
+    }
+
+    @Test func aBakeWhoseSavedTemperaturesLackARestTakesThatOfItsPlace() throws {
+        // A file with target temperatures, but none for any rest: each rest
+        // falls back to its place, the proof at room temperature 22 °C. One
+        // that has the value keeps it, given a plan or not (20.340 °C, above).
+        let bake = run(anchor: .ready, time: nov(14, 18))
+        var object = try #require(try JSONSerialization.jsonObject(with: JSONEncoder().encode(bake))
+                                  as? [String: Any])
+        object["restCelsius"] = [Any]()
+        let partial = try JSONDecoder().decode(BakeRun.self, from: JSONSerialization.data(withJSONObject: object))
+        #expect(partial.celsius(.proof) == 22)
+        #expect(abs(bake.celsius(.proof, in: bake.schedule) - 20.340) < 0.001)
+    }
+
+    @Test func aForwardBakeSavedBeforeItsAnchorHadStartAndTargetLoads() throws {
+        // A forward bake from a file of that time has neither anchor nor
+        // start: it is read as planned backwards from its target, Saturday
+        // 03:08 (see `aBakePlannedForwardsKeepsItsStartAndKnowsItsTarget`).
+        var object = try #require(try JSONSerialization.jsonObject(
+            with: JSONEncoder().encode(run(anchor: .start, time: nov(13, 8)))) as? [String: Any])
+        #expect(object["startTime"] != nil)
+        for key in ["scheduleAnchor", "startTime", "restCelsius"] { object[key] = nil }
+        let old = try JSONDecoder().decode(BakeRun.self, from: JSONSerialization.data(withJSONObject: object))
+        #expect(old.anchor == .ready)
+        #expect(abs(old.schedule.target.timeIntervalSince(nov(14, 3, 8))) < 0.001)
+        #expect(old.celsius(.proof) == 22)
     }
 }
