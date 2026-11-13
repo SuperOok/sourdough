@@ -50,14 +50,17 @@ final class ScreenTipsTests: SourdoughUITestCase {
         _ = element(app.buttons, "schedule-reset")
     }
 
-    func testTheLogAndAnEntryOfItShareThePageAboutTheLog() {
+    func testTheLogAndAnEntryOfItHaveTheirOwnPages() {
         launch(seedEquipment: true, seedStarters: true, now: Self.friday, seedRun: "finished")
         tapButton("start-log")
         assertPage(bulb: "tips-button", title: "Das Backprotokoll")
         tapButton("log-row-0")
         _ = element(app.buttons, "log-delete")
-        assertPage(bulb: "tips-button", title: "Das Backprotokoll")
+        assertPage(bulb: "tips-button", title: "Ein Durchgang im Protokoll")
         _ = element(app.buttons, "log-delete")
+        // The list is still on the page about the list after coming back.
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        assertPage(bulb: "tips-button", title: "Das Backprotokoll")
     }
 
     func testTheEquipmentListHasItsOwnPage() {

@@ -36,6 +36,7 @@ struct IngredientIconTests {
             .temperature: .symbol("thermometer.medium"), .schedule: .asset("ScheduleIcon"),
             .start: .symbol("house"), .planFlours: .asset("FlourSackIcon"), .planSetup: .symbol("scalemass"),
             .planSchedule: .asset("ScheduleIcon"), .run: .asset("BreadIcon"), .log: .symbol("book"),
+            .logDetail: .symbol("doc.text"),
             .equipmentList: .asset("PotIcon"), .starterNew: .asset("StarterJarIcon"),
             .starterFeed: .symbol("drop"),
         ]
