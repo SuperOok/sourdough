@@ -34,7 +34,7 @@ struct StartView: View {
                     option("Meine Backutensilien", subtitle: store.startSubtitle,
                            icon: CustomIcon(name: "PotIcon"), destination: .equipment, id: "start-equipment")
                     option("Sauerteigstarter", subtitle: starterStore.startSubtitle,
-                           icon: SystemIcon(name: "drop"), destination: .starters, id: "start-starters")
+                           icon: CustomIcon(name: "StarterJarIcon"), destination: .starters, id: "start-starters")
                     Button { showTips = true } label: {
                         card("Tipps und Tricks", subtitle: "Hilfe zu Utensilien und mehr",
                              icon: SystemIcon(name: "lightbulb"))
