@@ -5,7 +5,7 @@ import Foundation
 enum AppInfo {
     static let fontCredit = "Schrift: Caveat, The Caveat Project Authors, SIL OFL 1.1"
 
-    /// "Version 1.0 (3)" from `CFBundleShortVersionString` and `CFBundleVersion`.
+    /// "Version 1.1 (1)" from `CFBundleShortVersionString` and `CFBundleVersion`.
     /// `info` is a parameter so that tests do not depend on the bundle they run
     /// in; a missing value is left out ("Version 1.0") or, without any, "Version unbekannt".
     static func versionLine(info: [String: Any]? = Bundle.main.infoDictionary) -> String {
