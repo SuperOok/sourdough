@@ -773,6 +773,7 @@ der View erneut und würde die Demo-Starter mit neuen Ids neu anlegen. Die Param
 | Einstellung | Wert |
 | --- | --- |
 | Bundle-Identifier | `de.superook.Sourdough` |
+| Name unter dem Icon | „Sauerteig“ (`INFOPLIST_KEY_CFBundleDisplayName`; Target, Produkt und Titel „Sourdough“ bleiben) |
 | Unterstützte Plattformen | `iphoneos iphonesimulator` |
 | Gerätefamilie | nur iPhone (`TARGETED_DEVICE_FAMILY = 1`) |
 | `SDKROOT` | `auto` |
