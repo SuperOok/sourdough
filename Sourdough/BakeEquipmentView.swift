@@ -41,9 +41,11 @@ struct BakeEquipmentView: View {
                 recipeSections(recipe)
             }
             Section {
-                NavigationLink("Weiter: Zeitplan") {
+                NavigationLink {
                     BakeScheduleView(model: model, starterStore: starterStore, kitchenStore: kitchenStore,
                                      now: now, onStart: onStart)
+                } label: {
+                    NextStepLabel(title: "Weiter: Zeitplan")
                 }
                 .accessibilityIdentifier("setup-next")
             }
