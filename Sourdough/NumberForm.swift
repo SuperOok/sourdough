@@ -86,8 +86,7 @@ struct NumberField<Accessory: View>: View {
                         for: UITextField.textDidBeginEditingNotification)) { note in
                         DispatchQueue.main.async { (note.object as? UITextField)?.selectAll(nil) }
                     }
-                    // The system's own box, which marks the value as an input.
-                    .textFieldStyle(.roundedBorder)
+                    .inputBox()
                     .frame(width: 96)
             }
         }
@@ -98,5 +97,18 @@ struct NumberField<Accessory: View>: View {
 extension NumberField where Accessory == EmptyView {
     init(title: String, text: Binding<String>, id: String, focus: FocusState<String?>.Binding) {
         self.init(title: title, text: text, id: id, focus: focus) { EmptyView() }
+    }
+}
+
+extension View {
+    /// Marks a text field as an input: the grey capsule of the compact
+    /// `DatePicker`, which stands out from the form row in light and dark mode
+    /// alike. The system's `.roundedBorder` is white on white (light) and black
+    /// on anthracite (dark), and sits next to the grey date capsules as an odd one out.
+    func inputBox() -> some View {
+        textFieldStyle(.plain)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .background(Color(.secondarySystemFill), in: Capsule())
     }
 }

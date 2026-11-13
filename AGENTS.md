@@ -790,12 +790,16 @@ mit UI-Tests abgedeckt werden müsste. `SourdoughKit` gilt mit
   zwingt.
 - **Formulare mit Zahlen** sind ein `NumberForm` (`NumberForm.swift`) mit
   `NumberField`s. Eingabefelder tragen einen sichtbaren Hintergrund, der den
-  Wert als Eingabe kennzeichnet (Kapsel oder Kasten); die Zahlenfelder und die
-  Namensfelder nehmen dafür `.textFieldStyle(.roundedBorder)` (Systemstil, 96
-  pt breit bei Zahlen; hell weiß mit feinem Rand, dunkel schwarz);
-  berechnete Werte stehen ohne Hintergrund in grauer Schrift. Wo es ein System-Widget gibt, liefert es den Hintergrund
-  selbst: der kompakte `DatePicker` (Wert als Kapsel in der Akzentfarbe, Auswahl
-  im Popover) statt eines Buttons mit Text, der nicht nach Eingabe aussieht.
+  Wert als Eingabe kennzeichnet; die Zahlenfelder und die Namensfelder nehmen
+  dafür `.inputBox()` (`NumberForm.swift`: graue Kapsel in
+  `Color(.secondarySystemFill)`, 96 pt breit bei Zahlen), dieselbe Anmutung wie
+  die Kapseln des kompakten `DatePicker`. Der Systemstil `.roundedBorder` ist
+  dafür ungeeignet: hell weiß auf dem weißen Formularfeld, dunkel schwarz auf
+  Anthrazit, ohne Kontrast zum Feld und uneinheitlich neben dem `DatePicker`.
+  Berechnete Werte stehen ohne Hintergrund in grauer Schrift. Wo es ein
+  System-Widget gibt, liefert es den Hintergrund selbst: der kompakte
+  `DatePicker` (Auswahl im Popover) statt eines Buttons mit Text, der nicht nach
+  Eingabe aussieht.
   Über dem Ziffernblock steht „Weiter“
   (`keyboard-next`, zum nächsten Feld aus `fields`) und „Fertig“
   (`keyboard-done`); das Feld mit dem Fokus rollt in die Mitte. Ohne das lag

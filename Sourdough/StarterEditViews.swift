@@ -21,7 +21,7 @@ struct AddStarterView: View {
                     // placeholder is the name the starter gets without one.
                     LabeledContent("Name") {
                         TextField(model.flour.starterName, text: $model.name)
-                            .textFieldStyle(.roundedBorder)
+                            .inputBox()
                             .multilineTextAlignment(.trailing)
                             .accessibilityIdentifier("add-name")
                     }
