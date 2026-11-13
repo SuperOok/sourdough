@@ -60,7 +60,7 @@ Sourdough/             Quellcode der App
   TipsView.swift       Tipps und Tricks: Inhaltsverzeichnis, Seite, Button;
                        am Ende der Seite „Willkommen“ der Fußbereich mit Version
                        und Schriftnachweis (`TipsStartFooter`)
-  AppInfo.swift        Versionszeile („Version 1.0 (3)“) und Schriftnachweis
+  AppInfo.swift        Versionszeile („Version 1.1 (1)“) und Schriftnachweis
   IngredientIcon.swift Icons der Mehle (Ähre je Getreide), Zusätze und Tipps-Themen
   TipsText.swift       Inline-Markdown und `tip:`-Links
   StretchFoldView.swift  Animation „Dehnen und Falten“ (Zeichnung; Takt in `StretchFold`)
