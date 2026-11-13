@@ -76,6 +76,7 @@ enum TipsIcon {
         case .planSchedule: .asset("ScheduleIcon")
         case .run: .asset("BreadIcon")
         case .log: .symbol("book")
+        case .logDetail: .symbol("doc.text")
         case .equipmentList: .asset("PotIcon")
         case .starterNew: .asset("StarterJarIcon")
         case .starterFeed: .symbol("drop")

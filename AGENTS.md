@@ -686,7 +686,8 @@ braucht er einen eigenen `identifier`. Die Tipps-Ansicht selbst hat keinen.
 | Utensilien und Menge | `planSetup` | `tips-button` |
 | Zeitplan | `planSchedule` | `tips-button` |
 | Durchgang | `run` | `tips-button` |
-| Backprotokoll, Liste und Durchgang | `log` | `tips-button` |
+| Backprotokoll (Liste) | `log` | `tips-button` |
+| Backprotokoll (Durchgang) | `logDetail` | `tips-button` |
 | Backutensilien (Liste) | `equipmentList` | `tips-button` |
 | Utensil (Formular) | Seite der Art | `item-tips` |
 | Mehl (Sheet) | Seite des Getreides | `flour-tips` |
@@ -696,8 +697,9 @@ braucht er einen eigenen `identifier`. Die Tipps-Ansicht selbst hat keinen.
 | Füttern | `starterFeed` | `feed-tips` |
 
 **Kategorie „Die App“** (`TipsTopic.Category.app`, zuletzt im Inhaltsverzeichnis):
-je eine kurze Seite zu dem, was man auf einer Ansicht tut. Liste und Detail
-des Backprotokolls teilen sich `log`, Liste und Detail der Starter `starter`:
+je eine kurze Seite zu dem, was man auf einer Ansicht tut. Das Backprotokoll
+hat zwei Seiten, `log` für die Liste und `logDetail` für einen Durchgang, weil
+die Einzelansicht wächst; Liste und Detail der Starter teilen sich `starter`:
 eine Seite je Ansicht wäre doppelt gewesen. Die Seiten verweisen auf die
 Sachseiten (`temperature`, `proofing`, `schedule`, Utensilien, Mehle).
 

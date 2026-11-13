@@ -33,24 +33,24 @@ struct TipsCatalogTests {
                 == [.flours, .wheat, .rye, .spelt, .buckwheat, .seeds, .nuts, .driedFruit, .roastedOnions, .herbs])
         #expect(TipsCatalog.topics(in: .baking).map(\.id) == [.kneading, .proofing, .freeStanding, .temperature, .schedule])
         #expect(TipsCatalog.topics(in: .app).map(\.id)
-                == [.start, .planFlours, .planSetup, .planSchedule, .run, .log, .equipmentList,
+                == [.start, .planFlours, .planSetup, .planSchedule, .run, .log, .logDetail, .equipmentList,
                     .starterNew, .starterFeed])
         #expect(TipsTopic.Category.allCases == [.utensils, .starters, .ingredients, .baking, .app])
     }
 
     @Test func everyTopicBelongsToExactlyOneCategory() {
-        // 4 utensils + 1 starter + 10 ingredients + 5 baking + 9 app pages, counted by hand.
-        #expect(TipsTopic.ID.allCases.count == 29)
+        // 4 utensils + 1 starter + 10 ingredients + 5 baking + 10 app pages, counted by hand.
+        #expect(TipsTopic.ID.allCases.count == 30)
         let grouped = TipsTopic.Category.allCases.flatMap { TipsCatalog.topics(in: $0).map(\.id) }
-        #expect(grouped.count == 29)
-        #expect(Set(grouped).count == 29)
+        #expect(grouped.count == 30)
+        #expect(Set(grouped).count == 30)
     }
 
     @Test func titlesOfTheAppTopics() {
-        #expect([TipsTopic.ID.start, .planFlours, .planSetup, .planSchedule, .run, .log, .equipmentList,
-                 .starterNew, .starterFeed].map { TipsCatalog.topic($0).title }
+        #expect([TipsTopic.ID.start, .planFlours, .planSetup, .planSchedule, .run, .log, .logDetail,
+                 .equipmentList, .starterNew, .starterFeed].map { TipsCatalog.topic($0).title }
                 == ["Willkommen", "Mehle wählen", "Utensilien und Menge", "Zeitplan einstellen", "Der Durchgang",
-                    "Das Backprotokoll", "Backutensilien verwalten", "Neuen Starter anlegen", "Starter füttern"])
+                    "Das Backprotokoll", "Ein Durchgang im Protokoll", "Backutensilien verwalten", "Neuen Starter anlegen", "Starter füttern"])
     }
 
     @Test func theAppPagesLeadOnToTheSubjectPagesTheyAreAbout() {
@@ -59,6 +59,8 @@ struct TipsCatalogTests {
         #expect(links(in: .planSetup).isSuperset(of: ["pan", "pot", "basket", "kneader", "freeStanding", "planSchedule"]))
         #expect(links(in: .equipmentList).isSuperset(of: ["kneader", "pot", "pan", "basket"]))
         #expect(links(in: .starterNew).contains("starterFeed"))
+        #expect(links(in: .log).contains("logDetail"))
+        #expect(links(in: .logDetail).isSuperset(of: ["run", "log", "planFlours"]))
         #expect(links(in: .run).isSuperset(of: ["kneading", "log", "planSchedule"]))
         #expect(links(in: .start).isSuperset(of: ["planFlours", "planSetup", "planSchedule", "run", "log",
                                                    "equipmentList", "starter"]))

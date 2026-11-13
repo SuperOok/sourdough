@@ -83,7 +83,7 @@ struct BakeLogDetailView: View {
         }
         .navigationTitle(run.bread.germanName)
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar { TipsButton(topic: .log) }
+        .toolbar { TipsButton(topic: .logDetail) }
         .alert("Durchgang löschen?", isPresented: $confirmDelete) {
             Button("Löschen", role: .destructive) {
                 store.remove(id)

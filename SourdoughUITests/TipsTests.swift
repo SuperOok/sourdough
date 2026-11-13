@@ -18,7 +18,7 @@ final class TipsTests: SourdoughUITestCase {
             XCTAssertTrue(element(app.buttons, "tips-topic-\(id)").exists, id)
         }
         // The pages about the screens of the app come last.
-        for id in ["start", "planFlours", "planSetup", "planSchedule", "run", "log", "equipmentList",
+        for id in ["start", "planFlours", "planSetup", "planSchedule", "run", "log", "logDetail", "equipmentList",
                    "starterNew", "starterFeed"] {
             XCTAssertTrue(element(app.buttons, "tips-topic-\(id)").exists, id)
         }
