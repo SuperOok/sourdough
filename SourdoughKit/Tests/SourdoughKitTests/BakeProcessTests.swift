@@ -619,6 +619,14 @@ struct BakeRunTests {
         #expect(old.celsius(.bulk, in: schedule) == 22)
     }
 
+    @Test func aRestWithoutPlaceFallsBackToTheRoom() {
+        // A plan always has every rest; without a place the room counts.
+        let kitchen = Temperatures(roomCelsius: 20, fridgeCelsius: 4, coolCelsius: 15)
+        #expect(BakeRun.celsius(at: nil, temperatures: kitchen) == 20)
+        #expect(BakeRun.celsius(at: .cool, temperatures: kitchen) == 15)
+        #expect(BakeRun.celsius(at: .fridge, temperatures: kitchen) == 4)
+    }
+
     @Test func aBakeWhoseSavedTemperaturesLackARestTakesThatOfItsPlace() throws {
         // A file with target temperatures, but none for any rest: each rest
         // falls back to its place, the proof at room temperature 22 °C. One

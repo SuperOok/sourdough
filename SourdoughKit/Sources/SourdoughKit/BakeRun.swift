@@ -103,8 +103,14 @@ public struct BakeRun: Codable, Equatable, Identifiable, Sendable {
     /// the plan lack that rest.
     public func celsius(_ rest: RestKind, in schedule: Schedule? = nil) -> Double {
         if let planned = restCelsius?[rest] { return planned }
-        let place = (schedule ?? self.schedule).rest(rest)?.place
-        return place.map(temperatures.celsius) ?? temperatures.roomCelsius
+        return Self.celsius(at: (schedule ?? self.schedule).rest(rest)?.place, temperatures: temperatures)
+    }
+
+    /// The temperature of `place`, or of the room if there is none: a plan
+    /// always has every rest, so the room is only a guard.
+    static func celsius(at place: Place?, temperatures: Temperatures) -> Double {
+        guard let place else { return temperatures.roomCelsius }
+        return temperatures.celsius(place)
     }
 
     public var calendar: Calendar { Self.calendar(timeZone) }

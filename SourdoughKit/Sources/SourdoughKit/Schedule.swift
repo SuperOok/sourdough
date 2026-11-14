@@ -746,9 +746,9 @@ public struct Schedule: Equatable, Sendable {
     public func onWholeMinutes(fixing anchor: ScheduleAnchor) -> (time: Date, choices: [RestKind: RestChoice]) {
         let slack = 1e-6
         let choices = Dictionary(uniqueKeysWithValues: steps.compactMap { step -> (RestKind, RestChoice)? in
-            guard case .rest(let rest, let place) = step.kind else { return nil }
+            // Every rest has its range; a step without one is no rest to fix.
+            guard case .rest(let rest, let place) = step.kind, let range = step.hourRange else { return nil }
             var minutes = Self.wholeMinute(step.end).timeIntervalSince(Self.wholeMinute(step.start)) / 60
-            let range = step.hourRange ?? step.hours...step.hours
             minutes = min(max(minutes, (range.lowerBound * 60 - slack).rounded(.up)),
                           (range.upperBound * 60 + slack).rounded(.down))
             return (rest, RestChoice(place: place, hours: minutes / 60))
