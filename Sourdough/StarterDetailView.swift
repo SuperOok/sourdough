@@ -26,13 +26,31 @@ struct StarterDetailView: View {
                 Button("Füttern") { showFeed = true }
                     .accessibilityIdentifier("detail-feed")
             }
-            Section("Zustand") {
+            Section {
                 infoRow("Zustand", summary.stateTitle, id: "detail-state")
                 Text(summary.hint).foregroundStyle(.secondary)
                     .accessibilityIdentifier("detail-hint")
-                infoRow("Angesetzt vor", summary.age, id: "detail-age")
-                infoRow("Füttern oder verwenden bis", summary.feedBy, id: "detail-feedby")
-                infoRow("Beste Zeit", summary.bestWindow, id: "detail-window")
+                if let establishing = summary.establishing {
+                    infoRow("Erwartete Phase", establishing.phase, id: "detail-phase")
+                    infoRow("Verdoppelt", establishing.doubled, id: "detail-doubled")
+                    infoRow("Meist bereit bis", establishing.usuallyReadyBy, id: "detail-ready-by")
+                }
+                infoRow(summary.ageTitle, summary.age, id: "detail-age")
+                infoRow(summary.feedByTitle, summary.feedBy, id: "detail-feedby")
+                if summary.establishing == nil {
+                    infoRow("Beste Zeit", summary.bestWindow, id: "detail-window")
+                }
+                if let readySince = summary.readySince {
+                    infoRow("Bereit seit", readySince, id: "detail-ready")
+                }
+            } header: {
+                Text("Zustand")
+            } footer: {
+                if summary.establishing != nil {
+                    Text("Die Phase ist nur eine Erwartung nach Tagen und Temperatur. "
+                         + "Bereit ist er, wenn er sich zweimal hintereinander verdoppelt hat.")
+                        .accessibilityIdentifier("detail-establishing-note")
+                }
             }
             Section("Aufbewahrung") {
                 Picker("Ort", selection: storage(starter)) {
@@ -93,7 +111,8 @@ struct StarterDetailView: View {
             }
         }
         .sheet(isPresented: $showFeed) {
-            FeedView(starterName: starter.name, previous: starter.lastFeeding) { store.feed(id, with: $0) }
+            FeedView(starterName: starter.name, previous: starter.lastFeeding,
+                     asksRise: starter.isEstablishing) { store.feed(id, with: $0) }
         }
         .alert("Starter löschen?", isPresented: $confirmDelete) {
             Button("Löschen", role: .destructive) {

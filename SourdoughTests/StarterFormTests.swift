@@ -12,6 +12,12 @@ struct NumberInputTests {
     @Test(arguments: ["abc", "1.2.3", "-5", "inf", "nan"])
     func rejectsInvalidInput(text: String) {
         #expect(NumberInput.parse(text) == nil)
+        #expect(NumberInput.grams(text) == 0)
+    }
+
+    @Test func gramsOfAValidField() {
+        #expect(NumberInput.grams("12,5") == 12.5)
+        #expect(NumberInput.grams("") == 0)
     }
 }
 
@@ -20,8 +26,13 @@ struct StarterFormModelTests {
 
     @Test func startsWithSensibleDefaults() {
         let model = StarterFormModel(now: now)
+        #expect(model.origin == .existing)
         #expect(model.flour == .rye)
         #expect(model.createdAt == now)
+        #expect(model.lastFedAt == now)
+        #expect(model.lastFeedingKnown)
+        #expect(model.amountText == "50")
+        #expect(model.sampleText == "20")
         #expect(model.flourText == "50")
         #expect(model.waterText == "50")
         #expect(model.inFridge)
@@ -53,6 +64,7 @@ struct StarterFormModelTests {
 
     @Test func rejectsTextInTheAmounts() {
         let model = StarterFormModel(now: now)
+        model.origin = .spontaneous
         model.flourText = "x"
         #expect(model.errorText == StarterFormModel.numbersOnly)
         model.flourText = "50"
@@ -63,6 +75,7 @@ struct StarterFormModelTests {
 
     @Test func rejectsAFirstMixWithoutFood() {
         let model = StarterFormModel(now: now)
+        model.origin = .inoculated
         model.flourText = "0"
         model.waterText = ""
         #expect(model.errorText == StarterFormModel.needsFood)
@@ -88,6 +101,8 @@ struct StarterFormModelTests {
 
     @Test func eachMessageBelongsToItsSection() {
         let model = StarterFormModel(now: now)
+        model.origin = .inoculated
+        model.inFridge = true
         model.flourText = "0"
         model.waterText = "0"
         model.fridgeText = "30"
@@ -126,6 +141,8 @@ struct StarterFormModelTests {
 
     @Test func buildsTheStarterWithItsFirstFeeding() throws {
         let model = StarterFormModel(now: now)
+        model.origin = .spontaneous
+        model.inFridge = true
         model.name = "Opa"
         model.flour = .wheat
         model.flourText = "40,5"
@@ -145,6 +162,8 @@ struct StarterFormModelTests {
         #expect(first.starterGrams == 0)
         #expect(first.flourGrams == 40.5)
         #expect(first.waterGrams == 30)
+        #expect(starter.origin == .spontaneous)
+        #expect(starter.isEstablishing)
     }
 
     @Test func aStarterAtRoomTemperatureKeepsTheDefaultFridgeValue() throws {
@@ -167,8 +186,117 @@ struct StarterFormModelTests {
 
     @Test func anInvalidFormMakesNoStarter() {
         let model = StarterFormModel(now: now)
-        model.flourText = "x"
+        model.amountText = "x"
         #expect(model.makeStarter() == nil)
+    }
+
+    @Test func anExistingStarterGetsAnEstimatedLastFeeding() throws {
+        let model = StarterFormModel(now: now)
+        model.lastFedAt = now - 3600
+        model.amountText = "120"
+        // A fresh mix's fields do not count for an existing starter.
+        model.flourText = "x"
+        #expect(model.isValid)
+        let starter = try #require(model.makeStarter())
+        #expect(starter.origin == .existing)
+        // It is "bei dir" from now on, whenever it was first mixed.
+        #expect(starter.createdAt == now)
+        #expect(starter.feedings == [Feeding.estimate(id: starter.feedings[0].id, date: now - 3600, grams: 120)])
+    }
+
+    @Test func anExistingStarterWithoutAKnownFeedingHasNone() throws {
+        let model = StarterFormModel(now: now)
+        model.lastFeedingKnown = false
+        // The amount is not asked then.
+        model.amountText = "0"
+        #expect(model.amountError == nil)
+        let starter = try #require(model.makeStarter())
+        #expect(starter.feedings.isEmpty)
+        #expect(starter.condition(at: now) == .notFed)
+    }
+
+    @Test func anExistingStarterNeedsAnAmount() {
+        let model = StarterFormModel(now: now)
+        model.amountText = "0"
+        #expect(model.errorText == StarterFormModel.needsAmount)
+        model.amountText = "abc"
+        #expect(model.errorText == StarterFormModel.numbersOnly)
+        model.amountText = "80"
+        #expect(model.amountError == nil)
+        // The other ways ask no amount.
+        model.amountText = "0"
+        model.origin = .inoculated
+        #expect(model.amountError == nil)
+    }
+
+    @Test func anInoculatedMixKeepsTheSampleAsItsStarter() throws {
+        let model = StarterFormModel(now: now)
+        model.origin = .inoculated
+        model.createdAt = now - 600
+        model.sampleText = "15"
+        model.flourText = "45"
+        model.waterText = "45"
+        let starter = try #require(model.makeStarter())
+        #expect(starter.origin == .inoculated)
+        #expect(starter.createdAt == now - 600)
+        let first = try #require(starter.feedings.first)
+        #expect(first.starterGrams == 15)
+        // The dilution follows from real numbers: (15 + 45 + 45) / 15 = 7.
+        #expect(StarterModel.dilution(of: first) == 7)
+        #expect(!first.isEstimate)
+    }
+
+    @Test func anInoculatedMixNeedsASample() {
+        let model = StarterFormModel(now: now)
+        model.origin = .inoculated
+        model.sampleText = "0"
+        #expect(model.errorText == StarterFormModel.needsSample)
+        model.sampleText = "x"
+        #expect(model.errorText == StarterFormModel.numbersOnly)
+        // A spontaneous mix has no sample.
+        model.origin = .spontaneous
+        #expect(model.errorText == nil)
+    }
+
+    @Test func aSpontaneousMixStartsAtRoomTemperature() {
+        let model = StarterFormModel(now: now)
+        #expect(model.inFridge)
+        model.origin = .spontaneous
+        #expect(!model.inFridge)
+        // Moving it to the fridge by hand stays possible.
+        model.inFridge = true
+        model.origin = .spontaneous
+        #expect(!model.inFridge)
+        model.inFridge = true
+        model.origin = .inoculated
+        #expect(model.inFridge)
+    }
+
+    @Test func aSpontaneousMixColderThanTwentyTwoDegreesGetsAHint() {
+        let model = StarterFormModel(now: now)
+        model.origin = .spontaneous
+        #expect(model.coldHint == nil)          // 22 °C
+        model.roomText = "21,5"
+        #expect(model.coldHint == StarterFormModel.coldHint)
+        model.roomText = "40"
+        // A wrong temperature is an error, not a hint.
+        #expect(model.coldHint == nil)
+        model.inFridge = true                   // 5 °C
+        #expect(model.coldHint == StarterFormModel.coldHint)
+        // Only for a spontaneous mix.
+        model.origin = .inoculated
+        #expect(model.coldHint == nil)
+    }
+
+    @Test func theFieldsFollowTheWay() {
+        let model = StarterFormModel(now: now)
+        #expect(model.fields == ["add-amount", "add-fridge-temp"])
+        model.lastFeedingKnown = false
+        #expect(model.fields == ["add-fridge-temp"])
+        model.origin = .inoculated
+        #expect(model.fields == ["add-sample", "add-flour-grams", "add-water-grams", "add-fridge-temp"])
+        model.origin = .spontaneous
+        #expect(model.fields == ["add-flour-grams", "add-water-grams", "add-room-temp"])
     }
 }
 
@@ -225,6 +353,38 @@ struct FeedFormModelTests {
         #expect(feeding == Feeding(id: id, date: now, starterGrams: 10, flourGrams: 15, waterGrams: 15))
     }
 
+    @Test func afterAnEstimateTheAmountReceivedIsTheKeptStarter() {
+        let model = FeedFormModel(previous: Feeding.estimate(date: now, grams: 120), now: now)
+        #expect(model.starterText == "120")
+        // Flour and water of the estimate are unknown: the defaults.
+        #expect(model.flourText == "50")
+        #expect(model.waterText == "50")
+    }
+
+    @Test func inTheEstablishingPhaseTheRiseIsRequired() throws {
+        let model = FeedFormModel(previous: nil, asksRise: true, now: now)
+        #expect(model.rise == nil)
+        #expect(model.errorText == FeedFormModel.needsRise)
+        #expect(model.amountError == nil)
+        #expect(model.makeFeeding() == nil)
+        model.rise = .some
+        #expect(model.isValid)
+        #expect(try #require(model.makeFeeding()).rise == .some)
+        // Wrong amounts come first.
+        model.flourText = "0"
+        model.waterText = "0"
+        model.rise = nil
+        #expect(model.errorText == StarterFormModel.needsFood)
+    }
+
+    @Test func outsideTheEstablishingPhaseNoRiseIsAsked() throws {
+        let model = FeedFormModel(previous: nil, now: now)
+        #expect(!model.asksRise)
+        #expect(model.riseError == nil)
+        model.rise = .doubled
+        #expect(try #require(model.makeFeeding()).rise == nil)
+    }
+
     @Test func anInvalidFormMakesNoFeeding() {
         let model = FeedFormModel(previous: nil, now: now)
         model.waterText = "?"
@@ -237,10 +397,18 @@ struct StarterDemoTests {
 
     @Test func theDemoStartersAreInKnownStates() throws {
         let starters = StarterDemo.starters(now: now)
-        #expect(starters.map(\.name) == ["Roggensauerteig", "Weizensauerteig"])
-        #expect(starters.map(\.flour) == [.rye, .wheat])
-        #expect(starters.map(\.inFridge) == [true, false])
+        #expect(starters.map(\.name) == ["Roggensauerteig", "Weizensauerteig", "Junger Roggensauerteig"])
+        #expect(starters.map(\.flour) == [.rye, .wheat, .rye])
+        #expect(starters.map(\.inFridge) == [true, false, false])
+        #expect(starters.map(\.origin) == [.inoculated, .inoculated, .spontaneous])
         #expect(try #require(starters[0].status(at: now)).state == .rising)
         #expect(try #require(starters[1].status(at: now)).state == .neglected)
+        // Mixed 84 h = 3.5 days ago: day 4, the quiet phase (from 3 days at 22 °C),
+        // one doubling at the last feeding 12 h ago, feed by 24 h after it.
+        let young = try #require(starters[2].establishing(at: now))
+        #expect(young.day == 4)
+        #expect(young.phase == .quiet)
+        #expect(young.doublingsInARow == 1)
+        #expect(young.feedBy == now + 12 * 3600)
     }
 }

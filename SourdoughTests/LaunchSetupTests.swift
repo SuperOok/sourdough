@@ -79,7 +79,7 @@ struct LaunchSetupTests {
         let now = Date(timeIntervalSince1970: 5_000_000)
         LaunchSetup.apply(LaunchOptions(arguments: ["-resetData", "-seedStarters", "demo"]),
                           equipment: equipment, starters: starters, kitchen: kitchen, runs: runs, now: now)
-        #expect(starters.starters.map(\.name) == ["Roggensauerteig", "Weizensauerteig"])
+        #expect(starters.starters.map(\.name) == ["Roggensauerteig", "Weizensauerteig", "Junger Roggensauerteig"])
         #expect(starters.starters[0].lastFeeding?.date == now - 3600)
     }
 
@@ -89,6 +89,6 @@ struct LaunchSetupTests {
         let options = LaunchOptions(arguments: ["-seedStarters", "demo"])
         LaunchSetup.apply(options, equipment: equipment, starters: starters, kitchen: kitchen, runs: runs)
         LaunchSetup.apply(options, equipment: equipment, starters: starters, kitchen: kitchen, runs: runs)
-        #expect(starters.starters.count == 4)
+        #expect(starters.starters.count == 6)
     }
 }
