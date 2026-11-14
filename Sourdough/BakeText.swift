@@ -118,13 +118,13 @@ enum BakeText {
     /// the maker's limit in grams, else with the bowl it was estimated from.
     static func kneaderOverload(_ overload: KneaderOverload) -> String {
         let advice = "Teile ihn oder knete von Hand."
-        if overload.isMakersLimit {
-            return "Für „\(overload.kneader.name)“ nennt der Hersteller höchstens \(grams(overload.maxGrams)) "
-                + "Brotteig, dein Teig hat \(grams(overload.doughGrams)). \(advice)"
+        // Without the maker's limit the estimate came from the bowl, so it has one.
+        if !overload.isMakersLimit, let bowl = overload.kneader.bowlLiters {
+            return "Für deine \(StarterText.number(bowl))-l-Schüssel ist der Teig mit "
+                + "\(kilograms(overload.doughGrams)) wahrscheinlich zu groß. \(advice)"
         }
-        let liters = StarterText.number(overload.kneader.bowlLiters ?? 0)
-        return "Für deine \(liters)-l-Schüssel ist der Teig mit \(kilograms(overload.doughGrams)) "
-            + "wahrscheinlich zu groß. \(advice)"
+        return "Für „\(overload.kneader.name)“ nennt der Hersteller höchstens \(grams(overload.maxGrams)) "
+            + "Brotteig, dein Teig hat \(grams(overload.doughGrams)). \(advice)"
     }
 
     /// "0–40 %"

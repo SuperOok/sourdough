@@ -12,8 +12,19 @@ final class BakeRunScreenTests: SourdoughUITestCase {
         _ = element(app.buttons, "run-answer-yes")
     }
 
+    /// Marks the current step done and waits for the next one. Every step has
+    /// its own text, so the text changes; a tap that the list swallowed now
+    /// and then (seen in the full run of 2026-11-14) is repeated once.
     private func done() {
+        let before = any("run-text").label
         tapButton("run-done")
+        // After the last step there is no text any more: that counts as changed too.
+        let text = app.descendants(matching: .any)["run-text"]
+        let changed = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "exists == false OR label != %@", before), object: text)
+        if XCTWaiter().wait(for: [changed], timeout: 4) != .completed {
+            tapButton("run-done")
+        }
     }
 
     private func answer(_ answer: String) {

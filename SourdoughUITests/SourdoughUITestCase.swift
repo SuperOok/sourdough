@@ -64,6 +64,12 @@ class SourdoughUITestCase: XCTestCase {
             app.swipeDown()
             app.swipeDown()
         }
+        // After a swipe the list may still be moving; a tap then only stops
+        // it and never reaches the button. Wait until it holds still under
+        // the finger.
+        let settled = XCTNSPredicateExpectation(predicate: NSPredicate(format: "isHittable == true"),
+                                                object: element(app.buttons, id))
+        _ = XCTWaiter().wait(for: [settled], timeout: 3)
         element(app.buttons, id).tap()
     }
 
