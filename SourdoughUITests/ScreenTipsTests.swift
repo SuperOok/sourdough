@@ -18,7 +18,7 @@ final class ScreenTipsTests: SourdoughUITestCase {
         launch()
         tapButton("start-tips-bulb")
         assertTitle("Willkommen")
-        // The line comes from the bundle of the app under test: "Version 1.1 (1)".
+        // The line comes from the bundle of the app under test: "Version 1.2 (1)".
         let version = text("tips-version")
         XCTAssertTrue(version.label.hasPrefix("Version "), version.label)
         XCTAssertFalse(version.label.contains("unbekannt"), version.label)
