@@ -7,8 +7,11 @@ eingetragen.
 ## Zeitrahmen
 
 - Start nach Klärung der Fragen (etwa 12 Uhr).
-- **Stichzeit Funktionen: 15:30.** Was dann nicht fertig und grün ist, kommt
-  nicht in 1.2 (bleibt auf seinem Branch, Status in der VB-Datei).
+- Keine harte Stichzeit mehr (Nachricht des Entwicklers): nach hinten offen,
+  nichts wegen der Zeit abbrechen; alle Verbesserungen vollständig umsetzen.
+- Lange UI-Testläufe bündeln: je Arbeit die nötigen UI-Klassen in einem
+  `xcodebuild`-Aufruf mit mehreren `-only-testing:`, nur Fehlschläge einzeln
+  wiederholen; am Ende ein einziger voller Lauf mit Abdeckung.
 - 15:30–17:00: voller UI-Lauf mit Abdeckung (`tools/coverage.sh`, über 1 h),
   Korrekturen, Version 1.2 (Build 1), Release-Build, Installation.
 
@@ -86,3 +89,10 @@ Reihenfolge der Merges: 007, 006, 001/002, 003, 004/005.
 - **Optional, beides mit hinein:** VB-007 B („Fütterung eintragen“ im Schritt
   „Sauerteigstufe ansetzen“) und VB-005 Schüsselvolumen (Hinweis bei zu viel
   Teig, etwa 0,4 kg je Liter, optionale Herstellerangabe).
+
+## Stand
+
+- 14:1x: VB-007 in `release/1.2` (41f8e1e). Offen aus dem Bericht:
+  `BakeRunScreenTests.testDecisionsWaitOrGoOnAndStepsNameTheAmounts` scheiterte
+  zweimal („run-answer-yes fehlt“) und bestand beim dritten Einzellauf; im vollen
+  Lauf beobachten.
