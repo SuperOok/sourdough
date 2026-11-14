@@ -183,10 +183,13 @@ struct StarterModelTests {
         #expect(status.feedBy == t0.addingTimeInterval(15 * 3600))
     }
 
-    @Test func datesStretchInTheFridge() throws {
-        // 12 °C: peak after 18 h, feed by 2.5 × 18 = 45 h.
-        let status = try #require(wheat(inFridge: true, celsius: 12).status(at: t0))
-        #expect(status.feedBy == t0.addingTimeInterval(45 * 3600))
+    @Test func datesStretchWhenColder() throws {
+        // A room at 12 °C: peak after 18 h, feed by 2.5 × 18 = 45 h.
+        var starter = wheat()
+        starter.roomCelsius = 12
+        let status = try #require(starter.status(at: t0))
+        #expect(abs(status.feedBy.timeIntervalSince(t0) - 45 * 3600) < 1e-6)
+        #expect(status.refreshTwiceFrom == nil)
     }
 
     @Test(arguments: [
@@ -374,5 +377,91 @@ struct StarterEstablishingTests {
     @Test func aStarterNeverFedHasNoCondition() {
         #expect(Starter(name: "A", flour: .rye, createdAt: t0).condition(at: t0) == .notFed)
         #expect(Starter(name: "A", flour: .rye, createdAt: t0, origin: .existing).condition(at: t0) == .notFed)
+    }
+}
+
+// Expected values are worked out by hand from `StarterFridge`: at 4 °C refresh
+// from 7 days = 168 h, twice from 21 days = 504 h; 3 times as long per 10 °C
+// colder, a third per 10 °C warmer.
+struct StarterFridgeTests {
+    private let t0 = Date(timeIntervalSince1970: 1_000_000)
+    private let hour: TimeInterval = 3600
+
+    private func rye(celsius: Double, starter: Double = 20, flour: Double = 50, water: Double = 50) -> Starter {
+        Starter(name: "R", flour: .rye, createdAt: t0,
+                feedings: [Feeding(date: t0, starterGrams: starter, flourGrams: flour, waterGrams: water)],
+                inFridge: true, fridgeCelsius: celsius)
+    }
+
+    @Test func theConstantsAreTheRulesOfThumb() {
+        #expect(StarterFridge.referenceCelsius == 4)
+        #expect(StarterFridge.refreshDays == 7)
+        #expect(StarterFridge.refreshTwiceDays == 21)
+    }
+
+    @Test func limitsAtFourAndFourteenDegrees() {
+        #expect(StarterFridge.factor(celsius: 4) == 1)
+        #expect(StarterFridge.refreshHours(celsius: 4) == 168)
+        #expect(StarterFridge.refreshTwiceHours(celsius: 4) == 504)
+        // 14 °C: a third, 56 h and 168 h.
+        #expect(abs(StarterFridge.refreshHours(celsius: 14) - 56) < 1e-9)
+        #expect(abs(StarterFridge.refreshTwiceHours(celsius: 14) - 168) < 1e-9)
+    }
+
+    @Test func limitsAtFiveDegrees() {
+        // 3^(−0.1) ≈ 0.89596: 168 h × 0.89596 ≈ 150.5 h (6.3 days),
+        // 504 h × 0.89596 ≈ 451.6 h (18.8 days).
+        #expect(abs(StarterFridge.refreshHours(celsius: 5) - 150.52) < 0.01)
+        #expect(abs(StarterFridge.refreshTwiceHours(celsius: 5) - 451.56) < 0.01)
+        // 0 °C: 3^0.4 ≈ 1.5518, 168 h × 1.5518 ≈ 260.7 h.
+        #expect(abs(StarterFridge.refreshHours(celsius: 0) - 260.7) < 0.1)
+    }
+
+    @Test(arguments: [
+        (0.0, StarterState.resting), (167.9, .resting), (168.0, .refreshRecommended),
+        (503.9, .refreshRecommended), (504.0, .refreshTwice), (2000.0, .refreshTwice),
+    ])
+    func statesAtFourDegrees(hours: Double, expected: StarterState) throws {
+        let status = try #require(rye(celsius: 4).status(at: t0.addingTimeInterval(hours * hour)))
+        #expect(status.state == expected)
+    }
+
+    @Test func aWeekAtFiveDegreesIsNotNeglectedAnyMore() throws {
+        // FB-003: fed a week (168 h) ago at 5 °C. Refresh is recommended from
+        // ≈ 150.5 h on, twice only from ≈ 451.6 h.
+        let status = try #require(rye(celsius: 5).status(at: t0.addingTimeInterval(168 * hour)))
+        #expect(status.state == .refreshRecommended)
+        // Ten days (240 h) are still one refresh, three weeks (504 h) two.
+        #expect(try #require(rye(celsius: 5).status(at: t0.addingTimeInterval(240 * hour))).state
+                == .refreshRecommended)
+        #expect(try #require(rye(celsius: 5).status(at: t0.addingTimeInterval(504 * hour))).state == .refreshTwice)
+    }
+
+    @Test func theDatesInTheFridge() throws {
+        let status = try #require(rye(celsius: 14).status(at: t0))
+        #expect(status.state == .resting)
+        #expect(abs(status.feedBy.timeIntervalSince(t0) - 56 * hour) < 1e-6)
+        #expect(abs(try #require(status.refreshTwiceFrom).timeIntervalSince(t0) - 168 * hour) < 1e-6)
+    }
+
+    @Test func theAmountsDoNotChangeTheFridgeLimits() throws {
+        let small = try #require(rye(celsius: 4, starter: 50, flour: 25, water: 25).status(at: t0))
+        let large = try #require(rye(celsius: 4, starter: 10, flour: 100, water: 100).status(at: t0))
+        #expect(small.feedBy == large.feedBy)
+        #expect(small.refreshTwiceFrom == large.refreshTwiceFrom)
+        // The peak is still worked out, for the explanation.
+        #expect(small.peakHours < large.peakHours)
+    }
+
+    @Test func atFifteenDegreesTheFridgeAndTheRoomRulesMeet() throws {
+        // Fridge: 168 h × 3^(−1.1) ≈ 168 × 0.29865 ≈ 50.17 h to refresh.
+        // Room rule at 15 °C, rye 20 + 50 + 50: dilution 6, log2 6 ≈ 2.585
+        // doublings of 2.4 h × 3^0.7 ≈ 5.18 h, peak ≈ 13.39 h, neglected at
+        // 4 × ≈ 53.6 h. The two lie within a few hours of each other.
+        let refresh = StarterFridge.refreshHours(celsius: 15)
+        #expect(abs(refresh - 50.17) < 0.01)
+        let peak = StarterModel.peakHours(of: Feeding(date: t0, starterGrams: 20, flourGrams: 50, waterGrams: 50),
+                                          celsius: 15, flour: .rye)
+        #expect(abs(peak * StarterModel.neglectedAt - 53.6) < 0.1)
     }
 }

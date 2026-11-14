@@ -12,6 +12,12 @@ public enum StarterState: Equatable, Sendable {
     case hungry
     /// Fed so long ago that it needs refreshing first.
     case neglected
+    /// In the fridge: resting, fine to keep.
+    case resting
+    /// In the fridge: time to refresh it.
+    case refreshRecommended
+    /// In the fridge so long that it wants two refreshes before baking.
+    case refreshTwice
 }
 
 /// The state of a starter at one moment and the dates that follow from it.
@@ -24,8 +30,47 @@ public struct StarterStatus: Equatable, Sendable {
     public let bestFrom: Date
     /// … and ends here.
     public let bestUntil: Date
-    /// Feed or use the starter by this date at the latest.
+    /// Feed or use the starter by this date at the latest; in the fridge,
+    /// refresh it from this date on.
     public let feedBy: Date
+    /// In the fridge: from this date on, refresh it twice before baking;
+    /// `nil` at room temperature.
+    public let refreshTwiceFrom: Date?
+}
+
+/// Rules of thumb for a starter in the fridge, all in one place. In the
+/// fridge the question is not when it is best to use but when to refresh it.
+/// From practice (VB-003, with sources): refreshing once a week is usual, and
+/// a healthy starter keeps two to three weeks and then wants two refreshes
+/// before baking.
+///
+/// - At 4 °C: refresh recommended from 7 days after the last feeding, refresh
+///   twice before baking from 21 days.
+/// - Warmer it is shorter, colder longer: 3 times per 10 °C (`StarterModel.q10`;
+///   below 10 °C not measured). At 15 °C, the warmest fridge, refreshing comes
+///   after ≈ 2.1 days, close to where the room-temperature model calls a
+///   starter neglected, so the two rules meet.
+/// - The amounts of the last feeding do not count: in the fridge it hardly
+///   grows.
+public enum StarterFridge {
+    public static let referenceCelsius = 4.0
+    public static let refreshDays = 7.0
+    public static let refreshTwiceDays = 21.0
+
+    /// How much longer than at 4 °C everything lasts at `celsius`.
+    public static func factor(celsius: Double) -> Double {
+        pow(StarterModel.q10, (referenceCelsius - celsius) / 10)
+    }
+
+    /// Hours from the last feeding to "refresh recommended" at `celsius`.
+    public static func refreshHours(celsius: Double) -> Double {
+        refreshDays * 24 * factor(celsius: celsius)
+    }
+
+    /// Hours from the last feeding to "refresh twice before baking" at `celsius`.
+    public static func refreshTwiceHours(celsius: Double) -> Double {
+        refreshTwiceDays * 24 * factor(celsius: celsius)
+    }
 }
 
 /// A rule-of-thumb model of how fast a starter ripens. It is an estimate, not
@@ -41,6 +86,8 @@ public struct StarterStatus: Equatable, Sendable {
 /// - The peak is reached after `doublings × doubling time`. The best window is
 ///   0.75 to 1.5 times that, the starter is hungry at 2.5 times and neglected
 ///   at 4 times.
+/// - In the fridge the states are those of `StarterFridge` instead: resting,
+///   refresh recommended, refresh twice before baking.
 public enum StarterModel {
     public static let referenceCelsius = 22.0
     public static let referenceDoublingHours = 3.0
@@ -77,17 +124,26 @@ extension Starter {
         guard !isEstablishing, let last = lastFeeding else { return nil }
         let peak = StarterModel.peakHours(of: last, celsius: celsius, flour: flour)
         let hours = max(0, now.timeIntervalSince(last.date) / 3600)
+        func date(_ factor: Double) -> Date { last.date.addingTimeInterval(peak * factor * 3600) }
+        if inFridge {
+            let refresh = StarterFridge.refreshHours(celsius: celsius)
+            let twice = StarterFridge.refreshTwiceHours(celsius: celsius)
+            let state: StarterState = hours >= twice ? .refreshTwice : hours >= refresh ? .refreshRecommended : .resting
+            return StarterStatus(state: state, hoursSinceFeeding: hours, peakHours: peak,
+                                 bestFrom: date(StarterModel.peakStart), bestUntil: date(StarterModel.peakEnd),
+                                 feedBy: last.date.addingTimeInterval(refresh * 3600),
+                                 refreshTwiceFrom: last.date.addingTimeInterval(twice * 3600))
+        }
         let state: StarterState =
             hours >= peak * StarterModel.neglectedAt ? .neglected
             : hours >= peak * StarterModel.hungryAt ? .hungry
             : hours >= peak * StarterModel.peakEnd ? .pastPeak
             : hours >= peak * StarterModel.peakStart ? .peak
             : .rising
-        func date(_ factor: Double) -> Date { last.date.addingTimeInterval(peak * factor * 3600) }
         return StarterStatus(state: state, hoursSinceFeeding: hours, peakHours: peak,
                              bestFrom: date(StarterModel.peakStart),
                              bestUntil: date(StarterModel.peakEnd),
-                             feedBy: date(StarterModel.hungryAt))
+                             feedBy: date(StarterModel.hungryAt), refreshTwiceFrom: nil)
     }
 }
 

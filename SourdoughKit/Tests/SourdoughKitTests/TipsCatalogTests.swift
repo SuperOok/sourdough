@@ -78,6 +78,21 @@ struct TipsCatalogTests {
         #expect(TipsCatalog.topic(.starterFromScratch).title == "Starter selbst ansetzen")
     }
 
+    @Test func theStarterPageNamesTheFridgeLimitsOfTheModel() {
+        // At 4 °C 7 and 21 days. At 5 °C 7 × 3^(−0.1) ≈ 6.27 days ("gut 6") and
+        // 21 × 0.896 ≈ 18.8 days ("knapp 19"); at 14 °C 7 / 3 ≈ 2.33 days ("gut 2").
+        let text = plainText(.starter)
+        for part in ["Bei 4 °C empfiehlt sie das Auffrischen 7 Tage", "bei 5 °C nach gut 6 Tagen",
+                     "Ab 21 Tagen bei 4 °C (bei 5 °C knapp 19 Tagen)", "Bei 14 °C kommt das Auffrischen schon nach gut 2 Tagen",
+                     "Ruht:", "Auffrischen empfohlen:", "Vor dem Backen zweimal auffrischen:"] {
+            #expect(text.contains(part), "\(part)")
+        }
+        #expect(StarterFridge.refreshDays == 7 && StarterFridge.refreshTwiceDays == 21)
+        #expect(abs(StarterFridge.refreshHours(celsius: 5) / 24 - 6.27) < 0.01)
+        #expect(abs(StarterFridge.refreshTwiceHours(celsius: 5) / 24 - 18.8) < 0.05)
+        #expect(abs(StarterFridge.refreshHours(celsius: 14) / 24 - 2.33) < 0.01)
+    }
+
     @Test func theStartingFromScratchPageIsLinkedFromTheOtherStarterPages() {
         for id in [TipsTopic.ID.starter, .starterNew, .starterFeed] {
             #expect(links(in: id).contains("starterFromScratch"), "\(id)")
@@ -106,8 +121,9 @@ struct TipsCatalogTests {
         let headings = TipsCatalog.topic(.starter).blocks.compactMap { block -> String? in
             if case .heading(let text) = block { text } else { nil }
         }
-        #expect(headings == ["Gut zu wissen", "Was in die Rechnung eingeht", "Die Zustände", "Die Ansetzphase",
-                             "Übernommene Starter", "Das Datum"])
+        #expect(headings == ["Gut zu wissen", "Was in die Rechnung eingeht", "Im Kühlschrank", "Die Zustände",
+                             "Die Ansetzphase", "Übernommene Starter", "Das Datum", "Prüf selbst"])
+        #expect(!plainText(.starter).contains("Platzhalter"))
         #expect(TipsTopic.ID(rawValue: "starterStates") == nil)
     }
 
