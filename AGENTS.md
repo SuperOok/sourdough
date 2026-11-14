@@ -401,7 +401,8 @@ Füttern `feed-name`, `feed-starter`, `feed-flour`, `feed-water`, `feed-date`,
 `feed-rise`, `feed-rise-hint`, `feed-error`, `feed-save`, `feed-cancel`,
 `feed-tips`; Detail `detail-feed`, `detail-state`, `detail-hint`,
 `detail-phase`, `detail-doubled`, `detail-ready-by`, `detail-age`,
-`detail-feedby`, `detail-window`, `detail-ready`, `detail-establishing-note`,
+`detail-feedby`, `detail-window`, `detail-refresh-twice`, `detail-ready`,
+`detail-establishing-note`, `detail-why`, `detail-check`,
 `detail-storage`, `detail-fridge-temp`, `detail-room-temp`, `feeding-<n>`,
 `detail-delete`, `detail-tips`; Liste `starter-row-<name>`, `starter-add`,
 `starters-empty`.
@@ -418,6 +419,23 @@ Der Zeitpunkt „füttern oder verwenden bis“ ist die Hungrig-Grenze. Alle
 Konstanten stehen an einer Stelle in `StarterModel`. Sie sind Richtwerte und
 nicht an echten Startern gemessen; wer sie ändert, ändert die Sollwerte in
 `StarterTests` von Hand nach.
+
+**Im Kühlschrank** (VB-003, `StarterFridge`, Quellen in VB-003) gelten eigene
+Zustände, weil dort die Frage das Auffrischen ist und nicht der beste
+Zeitpunkt zum Verwenden: „Ruht“ (`.resting`), „Auffrischen empfohlen“
+(`.refreshRecommended`) ab 7 Tagen nach der letzten Fütterung bei 4 °C,
+„Vor dem Backen zweimal auffrischen“ (`.refreshTwice`) ab 21 Tagen bei 4 °C;
+je 10 °C wärmer ein Drittel so lang (Q10 = 3, unter 10 °C nicht belegt), bei
+5 °C also ≈ 6,3 und ≈ 18,8 Tage. Die Mengen der Fütterung zählen dort nicht.
+Bei 15 °C kommt das Auffrischen nach ≈ 50 h, nahe der Grenze „lange nicht
+gefüttert“ der Raumrechnung (≈ 54 h für Roggen 20 + 50 + 50): Die beiden Regeln
+gehen ohne Sprung ineinander über. `StarterStatus.feedBy` ist im Kühlschrank
+„Auffrischen ab“, `refreshTwiceFrom` „Zweimal auffrischen ab“; die beste Zeit
+entfällt. Das Detail sagt unter dem Zustand, wie die App darauf kommt
+(`StarterText.explanation`, `detail-why`: Temperatur, Verhältnis der letzten
+Fütterung, Höhepunkt und Grenzen bzw. die Kühlschrank-Grenzen), und darunter
+„Prüf selbst“ mit den Erkennungszeichen (`StarterText.checkYourself`,
+`detail-check`).
 
 Ohne Kühlschrank steht der Starter bei seiner eigenen Raumtemperatur
 (`Starter.roomCelsius`, 10 bis 35 °C, Voreinstellung 22 °C; ältere
@@ -811,7 +829,7 @@ Jeder UI-Test startet die App in einem definierten Zustand:
 - `-splashSeconds <n>` dehnt die Startanimation, damit ein Test sie sicher
   sieht.
 - `-seedStarters demo` speichert drei Starter in bekannten Zuständen
-  (Roggen im Kühlschrank, vor einer Stunde gefüttert: „Reift“; Weizen bei
+  (Roggen im Kühlschrank, vor einer Stunde gefüttert: „Ruht“; Weizen bei
   Raumtemperatur, vor drei Tagen gefüttert: „Lange nicht gefüttert“;
   „Junger Roggensauerteig“, spontan angesetzt vor 3,5 Tagen bei 22 °C:
   „Ansetzphase · Tag 4“, Ruhephase, eine Verdopplung).
