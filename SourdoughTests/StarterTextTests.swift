@@ -64,13 +64,18 @@ struct StarterTextTests {
     }
 
     @Test func stateTitlesAndHints() {
-        let states: [StarterState] = [.rising, .peak, .pastPeak, .hungry, .neglected]
+        let states: [StarterState] = [.rising, .peak, .pastPeak, .hungry, .neglected,
+                                      .resting, .refreshRecommended, .refreshTwice]
         #expect(states.map(\.title) ==
-                ["Reift", "Am Höhepunkt", "Über dem Höhepunkt", "Hungrig", "Lange nicht gefüttert"])
+                ["Reift", "Am Höhepunkt", "Über dem Höhepunkt", "Hungrig", "Lange nicht gefüttert",
+                 "Ruht", "Auffrischen empfohlen", "Vor dem Backen zweimal auffrischen"])
         #expect(states.map(\.hint) == [
             "Der Starter geht noch auf.", "Jetzt ist er am besten zum Verwenden.",
             "Bald füttern oder verwenden.", "Jetzt füttern oder verwenden.",
             "Erst auffrischen, dann verwenden.",
+            "Im Kühlschrank ruht er. Vor dem Backen einmal auffrischen.",
+            "Frisch ihn bald auf, dann hält er wieder eine Weile.",
+            "Er hat lange geruht. Vor dem Backen zweimal auffrischen, dann ist er wieder kräftig.",
         ])
     }
 
@@ -86,6 +91,58 @@ struct StarterTextTests {
         #expect(summary.age == "3 Std. 0 Min.")
         #expect(summary.feedBy == "01.01.1970 15:00")
         #expect(summary.bestWindow == "01.01.1970 04:30 – 01.01.1970 09:00")
+        #expect(summary.refreshTwice == nil)
+        // 10 + 15 + 15: 1 : 1,5 : 1,5; peak 6 h, hungry 2,5 × 6 = 15 h, neglected 4 × 6 = 24 h.
+        #expect(summary.why == "Bei 22 °C und einem Verhältnis von 1 : 1,5 : 1,5 (Starter : Mehl : Wasser) "
+                + "erwartet die App den Höhepunkt nach etwa 6 Std. 0 Min.; hungrig ist er nach etwa "
+                + "15 Std. 0 Min., lange nicht gefüttert nach etwa 1 Tag 0 Std., jeweils ab der Fütterung. "
+                + "Das sind Richtwerte, keine Messung.")
+    }
+
+    @Test func summaryInTheFridge() {
+        // Rye at 14 °C: refresh from 7 days / 3 = 56 h (03.01. 08:00), twice
+        // from 21 days / 3 = 168 h = 7 days (08.01. 00:00).
+        let starter = Starter(
+            name: "R", flour: .rye, createdAt: epoch,
+            feedings: [Feeding(date: epoch, starterGrams: 20, flourGrams: 50, waterGrams: 50)],
+            inFridge: true, fridgeCelsius: 14)
+        let summary = StarterSummary(starter, now: epoch + 3600, timeZone: utc)
+        #expect(summary.stateTitle == "Ruht")
+        #expect(summary.feedByTitle == "Auffrischen ab")
+        #expect(summary.feedBy == "03.01.1970 08:00")
+        #expect(summary.feedByLine == "Auffrischen ab 03.01.1970 08:00")
+        #expect(summary.refreshTwice == "08.01.1970 00:00")
+        #expect(summary.bestWindow == "—")
+        #expect(summary.why == "Bei 14 °C im Kühlschrank wächst der Starter kaum, die Mengen der Fütterung "
+                + "zählen deshalb nicht. Die App empfiehlt das Auffrischen nach etwa 2 Tage 8 Std. und zweimal "
+                + "Auffrischen vor dem Backen nach etwa 7 Tage 0 Std., jeweils ab der letzten Fütterung. "
+                + "Das sind Richtwerte aus der Praxis, keine Messung.")
+    }
+
+    @Test func ratiosOfAFeeding() {
+        #expect(StarterText.ratio(Feeding(date: epoch, starterGrams: 20, flourGrams: 50, waterGrams: 50))
+                == "einem Verhältnis von 1 : 2,5 : 2,5")
+        // 40 / 15 ≈ 2,67, to one decimal 2,7.
+        #expect(StarterText.ratio(Feeding(date: epoch, starterGrams: 15, flourGrams: 40, waterGrams: 30))
+                == "einem Verhältnis von 1 : 2,7 : 2")
+        #expect(StarterText.ratio(Feeding.estimate(date: epoch, grams: 100)) == "dem angenommenen Verhältnis 1 : 1 : 1")
+        #expect(StarterText.ratio(Feeding(date: epoch, starterGrams: 0, flourGrams: 50, waterGrams: 50))
+                == "dem angenommenen Verhältnis 1 : 1 : 1")
+    }
+
+    @Test func theCheckNamesTheSigns() {
+        for part in ["angenehm säuerlich", "Graue Flüssigkeit", "Nagellack", "Schimmel", "rosa und orange"] {
+            #expect(StarterText.checkYourself.contains(part), "\(part)")
+        }
+    }
+
+    @Test func noExplanationWithoutAFeeding() {
+        // Only reachable with a status, which needs a feeding; the text guards anyway.
+        let fed = Starter(name: "W", flour: .wheat, createdAt: epoch,
+                          feedings: [Feeding(date: epoch, starterGrams: 10, flourGrams: 15, waterGrams: 15)],
+                          inFridge: false)
+        let status = fed.status(at: epoch)!
+        #expect(StarterText.explanation(Starter(name: "A", flour: .rye, createdAt: epoch), status: status) == nil)
     }
 
     @Test func originsRisesAndPhases() {
@@ -159,5 +216,7 @@ struct StarterTextTests {
         #expect(summary.bestWindow == "—")
         #expect(summary.feedByLine == "Füttern oder verwenden bis —")
         #expect(summary.establishing == nil)
+        #expect(summary.why == nil)
+        #expect(summary.refreshTwice == nil)
     }
 }

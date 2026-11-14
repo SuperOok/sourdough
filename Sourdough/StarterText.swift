@@ -30,6 +30,9 @@ extension StarterState {
         case .pastPeak: "Über dem Höhepunkt"
         case .hungry: "Hungrig"
         case .neglected: "Lange nicht gefüttert"
+        case .resting: "Ruht"
+        case .refreshRecommended: "Auffrischen empfohlen"
+        case .refreshTwice: "Vor dem Backen zweimal auffrischen"
         }
     }
 
@@ -40,6 +43,9 @@ extension StarterState {
         case .pastPeak: "Bald füttern oder verwenden."
         case .hungry: "Jetzt füttern oder verwenden."
         case .neglected: "Erst auffrischen, dann verwenden."
+        case .resting: "Im Kühlschrank ruht er. Vor dem Backen einmal auffrischen."
+        case .refreshRecommended: "Frisch ihn bald auf, dann hält er wieder eine Weile."
+        case .refreshTwice: "Er hat lange geruht. Vor dem Backen zweimal auffrischen, dann ist er wieder kräftig."
         }
     }
 }
@@ -129,6 +135,40 @@ enum StarterText {
         number(value) + " g"
     }
 
+    /// What to look at oneself, whatever the app estimates.
+    static let checkYourself = "Riecht er angenehm säuerlich und verdoppelt er sich nach dem Auffrischen "
+        + "in einigen Stunden, ist er gesund. Graue Flüssigkeit obenauf oder ein Geruch nach Nagellack heißen: "
+        + "hungrig, abgießen oder unterrühren und auffrischen, wenn nötig mehrmals. "
+        + "Schimmel oder rosa und orange Stellen: wegwerfen und neu beginnen."
+
+    /// "einem Verhältnis von 1 : 2,5 : 2,5" (starter : flour : water) of the
+    /// feeding, or the assumed one where the amounts say nothing.
+    static func ratio(_ feeding: Feeding) -> String {
+        guard !feeding.isEstimate, feeding.starterGrams > 0 else { return "dem angenommenen Verhältnis 1 : 1 : 1" }
+        let flour = number((feeding.flourGrams / feeding.starterGrams * 10).rounded() / 10)
+        let water = number((feeding.waterGrams / feeding.starterGrams * 10).rounded() / 10)
+        return "einem Verhältnis von 1 : \(flour) : \(water)"
+    }
+
+    /// Why the app says what it says about a fed starter.
+    static func explanation(_ starter: Starter, status: StarterStatus) -> String? {
+        guard let last = starter.lastFeeding else { return nil }
+        let celsius = "\(number((starter.celsius * 10).rounded() / 10)) °C"
+        func after(_ hours: Double) -> String { duration(hours * 3600) }
+        if starter.inFridge {
+            return "Bei \(celsius) im Kühlschrank wächst der Starter kaum, die Mengen der Fütterung zählen "
+                + "deshalb nicht. Die App empfiehlt das Auffrischen nach etwa "
+                + "\(after(StarterFridge.refreshHours(celsius: starter.celsius))) und zweimal Auffrischen vor "
+                + "dem Backen nach etwa \(after(StarterFridge.refreshTwiceHours(celsius: starter.celsius))), "
+                + "jeweils ab der letzten Fütterung. Das sind Richtwerte aus der Praxis, keine Messung."
+        }
+        return "Bei \(celsius) und \(ratio(last)) (Starter : Mehl : Wasser) erwartet die App den Höhepunkt "
+            + "nach etwa \(after(status.peakHours)); hungrig ist er nach etwa "
+            + "\(after(status.peakHours * StarterModel.hungryAt)), lange nicht gefüttert nach etwa "
+            + "\(after(status.peakHours * StarterModel.neglectedAt)), jeweils ab der Fütterung. "
+            + "Das sind Richtwerte, keine Messung."
+    }
+
     /// One line of the feeding log.
     static func feedingLine(_ feeding: Feeding, timeZone: TimeZone = .current) -> String {
         let food = "\(grams(feeding.flourGrams)) Mehl + \(grams(feeding.waterGrams)) Wasser"
@@ -162,6 +202,10 @@ struct StarterSummary: Equatable {
     let feedByTitle: String
     let feedBy: String
     let bestWindow: String
+    /// In the fridge: from when to refresh twice before baking; `nil` elsewhere.
+    let refreshTwice: String?
+    /// Why the app says so; `nil` without an estimate.
+    let why: String?
     let establishing: Establishing?
     /// When a spontaneous starter became ready; `nil` for others and before.
     let readySince: String?
@@ -178,6 +222,8 @@ struct StarterSummary: Equatable {
             feedByTitle = "Füttern oder verwenden bis"
             feedBy = Self.none
             bestWindow = Self.none
+            refreshTwice = nil
+            why = nil
             establishing = nil
         case .establishing(let status):
             stateTitle = "Ansetzphase · Tag \(status.day)"
@@ -185,6 +231,8 @@ struct StarterSummary: Equatable {
             feedByTitle = "Füttern bis"
             feedBy = format(status.feedBy)
             bestWindow = Self.none
+            refreshTwice = nil
+            why = nil
             establishing = Establishing(
                 phase: status.phase.title,
                 doubled: "\(status.doublingsInARow) von \(StarterEstablishing.doublingsToBeReady)",
@@ -192,10 +240,19 @@ struct StarterSummary: Equatable {
         case .fed(let status):
             stateTitle = status.state.title
             hint = status.state.hint
-            feedByTitle = "Füttern oder verwenden bis"
             feedBy = format(status.feedBy)
-            bestWindow = "\(format(status.bestFrom)) – \(format(status.bestUntil))"
+            why = StarterText.explanation(starter, status: status)
             establishing = nil
+            if let twice = status.refreshTwiceFrom {
+                // In the fridge it is not used from the jar: no best window.
+                feedByTitle = "Auffrischen ab"
+                bestWindow = Self.none
+                refreshTwice = format(twice)
+            } else {
+                feedByTitle = "Füttern oder verwenden bis"
+                bestWindow = "\(format(status.bestFrom)) – \(format(status.bestUntil))"
+                refreshTwice = nil
+            }
         }
     }
 

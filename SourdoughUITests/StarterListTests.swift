@@ -35,12 +35,12 @@ final class StarterListTests: SourdoughUITestCase {
         element(app.segmentedControls, "add-flour").buttons["Weizen"].tap()
         tapButton("add-save")
 
-        // Fed just now as assumed 1 : 1 : 1: still rising.
-        XCTAssertTrue(row("Opa").label.contains("Weizen · Reift"), row("Opa").label)
+        // Fed just now, in the fridge: resting.
+        XCTAssertTrue(row("Opa").label.contains("Weizen · Ruht"), row("Opa").label)
         row("Opa").tap()
-        assertText("detail-state", "Reift")
+        assertText("detail-state", "Ruht")
         XCTAssertTrue(app.staticTexts["Bei dir seit"].exists)
-        XCTAssertNotEqual(text("detail-window").label, "—")
+        XCTAssertNotEqual(text("detail-refresh-twice").label, "—")
         XCTAssertTrue(text("feeding-0").label.hasSuffix("Übernommen: 120 g, Fütterung geschätzt"),
                       text("feeding-0").label)
         XCTAssertEqual(element(app.textFields, "detail-fridge-temp").value as? String, "7")
@@ -53,7 +53,7 @@ final class StarterListTests: SourdoughUITestCase {
         relaunch()
         XCTAssertTrue(app.staticTexts["1 angelegt"].waitForExistence(timeout: 10))
         openStarters()
-        XCTAssertTrue(row("Opa").label.contains("Weizen · Reift"), row("Opa").label)
+        XCTAssertTrue(row("Opa").label.contains("Weizen · Ruht"), row("Opa").label)
     }
 
     func testAnExistingStarterWithoutAKnownFeedingWaitsForTheFirstOne() {
@@ -78,11 +78,12 @@ final class StarterListTests: SourdoughUITestCase {
         replaceText("add-flour-grams", with: "60")
         replaceText("add-water-grams", with: "40")
         tapButton("add-save")
-        XCTAssertTrue(row("Roggensauerteig").label.contains("Roggen · Reift"), row("Roggensauerteig").label)
+        XCTAssertTrue(row("Roggensauerteig").label.contains("Roggen · Ruht"), row("Roggensauerteig").label)
         row("Roggensauerteig").tap()
+        // Above the log, which may be scrolled to and push the state section away.
+        XCTAssertTrue(app.staticTexts["Angesetzt vor"].waitForExistence(timeout: 5))
         XCTAssertTrue(text("feeding-0").label.hasSuffix("15 g Starter + 60 g Mehl + 40 g Wasser"),
                       text("feeding-0").label)
-        XCTAssertTrue(app.staticTexts["Angesetzt vor"].exists)
 
         relaunch()
         openStarters()
@@ -177,7 +178,8 @@ final class StarterListTests: SourdoughUITestCase {
         launch(seedStarters: true)
         XCTAssertTrue(app.staticTexts["3 angelegt"].waitForExistence(timeout: 10))
         openStarters()
-        XCTAssertTrue(row("Roggensauerteig").label.contains("Roggen · Reift"), row("Roggensauerteig").label)
+        XCTAssertTrue(row("Roggensauerteig").label.contains("Roggen · Ruht"), row("Roggensauerteig").label)
+        XCTAssertTrue(row("Roggensauerteig").label.contains("Auffrischen ab"), row("Roggensauerteig").label)
         XCTAssertTrue(row("Weizensauerteig").label.contains("Weizen · Lange nicht gefüttert"),
                       row("Weizensauerteig").label)
         XCTAssertTrue(row("Junger Roggensauerteig").label.contains("Roggen · Ansetzphase · Tag 4"),

@@ -2,8 +2,8 @@ import Foundation
 import SourdoughKit
 
 /// Three starters in known states for the UI tests (`-seedStarters demo`),
-/// relative to `now`: a rye starter in the fridge, fed an hour ago, which is
-/// still rising, a wheat starter at room temperature, fed three days ago,
+/// relative to `now`: a rye starter in the fridge, fed an hour ago, which
+/// rests, a wheat starter at room temperature, fed three days ago,
 /// which is long overdue, and a young rye starter mixed spontaneously three
 /// and a half days ago, on day 4 of its establishing phase, with one doubling.
 enum StarterDemo {

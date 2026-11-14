@@ -401,7 +401,8 @@ struct StarterDemoTests {
         #expect(starters.map(\.flour) == [.rye, .wheat, .rye])
         #expect(starters.map(\.inFridge) == [true, false, false])
         #expect(starters.map(\.origin) == [.inoculated, .inoculated, .spontaneous])
-        #expect(try #require(starters[0].status(at: now)).state == .rising)
+        // In the fridge at 5 °C, fed an hour ago: resting.
+        #expect(try #require(starters[0].status(at: now)).state == .resting)
         #expect(try #require(starters[1].status(at: now)).state == .neglected)
         // Mixed 84 h = 3.5 days ago: day 4, the quiet phase (from 3 days at 22 °C),
         // one doubling at the last feeding 12 h ago, feed by 24 h after it.

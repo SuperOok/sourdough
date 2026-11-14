@@ -37,7 +37,9 @@ struct StarterDetailView: View {
                 }
                 infoRow(summary.ageTitle, summary.age, id: "detail-age")
                 infoRow(summary.feedByTitle, summary.feedBy, id: "detail-feedby")
-                if summary.establishing == nil {
+                if let twice = summary.refreshTwice {
+                    infoRow("Zweimal auffrischen ab", twice, id: "detail-refresh-twice")
+                } else if summary.establishing == nil {
                     infoRow("Beste Zeit", summary.bestWindow, id: "detail-window")
                 }
                 if let readySince = summary.readySince {
@@ -50,7 +52,13 @@ struct StarterDetailView: View {
                     Text("Die Phase ist nur eine Erwartung nach Tagen und Temperatur. "
                          + "Bereit ist er, wenn er sich zweimal hintereinander verdoppelt hat.")
                         .accessibilityIdentifier("detail-establishing-note")
+                } else if let why = summary.why {
+                    Text(why).accessibilityIdentifier("detail-why")
                 }
+            }
+            Section("Prüf selbst") {
+                Text(StarterText.checkYourself)
+                    .accessibilityIdentifier("detail-check")
             }
             Section("Aufbewahrung") {
                 Picker("Ort", selection: storage(starter)) {
