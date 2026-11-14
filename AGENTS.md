@@ -588,7 +588,8 @@ Handgriffen zwischen den Ruhen); eigene Zuordnungen gibt es nicht mehr.
 
 **Bedingungen sind Daten** (`BakeProcess.Condition`): Roggenanteil ab, Gefäß,
 Kastenform mit Deckel, Bräter mit/ohne Deckel, längliches/rundes
-Gärkörbchen, Antwort einer Entscheidung, und `all` für mehrere. Jede hat eine
+Gärkörbchen, Knetwerkzeug der Küchenmaschine (`kneadingTool`: Knethaken oder
+Messer; von Hand gilt keins), Antwort einer Entscheidung, und `all` für mehrere. Jede hat eine
 deutsche Bezeichnung (`label`) und wird gegen `BakeProcess.Context` (Setup,
 Roggenanteil, Antworten; im Durchgang `BakeRun.context`) ausgewertet
 (`holds`). Wo ein Schritt sich unterscheidet, hat er Regeln (`Choice`):

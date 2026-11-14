@@ -189,6 +189,8 @@ struct BakeProcessTests {
             (.potWithoutLid, "Bräter ohne Deckel"),
             (.basket(long: true), "längliches Gärkörbchen"),
             (.basket(long: false), "rundes Gärkörbchen"),
+            (.kneadingTool(.hook), "Küchenmaschine mit Knethaken"),
+            (.kneadingTool(.blade), "Küchenmaschine mit Messer"),
             (.answer(.checkProof, .overRim), "Antwort „Am Deckel oder darüber“"),
             (.all([.panWithLid, .answer(.checkProof, .belowRim)]), "Kastenform mit Deckel und Antwort „Unter dem Rand“"),
         ]
@@ -211,6 +213,14 @@ struct BakeProcessTests {
         #expect(!BakeProcess.Condition.panWithLid.holds(in: .init(setup: panWithoutLid)))
         #expect(!BakeProcess.Condition.basket(long: false).holds(in: tray))
         #expect(BakeProcess.Condition.basket(long: false).holds(in: .init(setup: potAndBasket)))
+        // The tool of the kneading machine; by hand there is none.
+        let hook = BakeSetup(vessel: .tray, kneader: EquipmentItem(kind: .kneader, name: "Bosch"))
+        let blade = BakeSetup(vessel: .tray, kneader: EquipmentItem(kind: .kneader, name: "TM", kneadingTool: .blade))
+        #expect(BakeProcess.Condition.kneadingTool(.hook).holds(in: .init(setup: hook)))
+        #expect(!BakeProcess.Condition.kneadingTool(.blade).holds(in: .init(setup: hook)))
+        #expect(BakeProcess.Condition.kneadingTool(.blade).holds(in: .init(setup: blade)))
+        #expect(!BakeProcess.Condition.kneadingTool(.hook).holds(in: tray))
+        #expect(!BakeProcess.Condition.kneadingTool(.blade).holds(in: tray))
         let overRim = BakeProcess.Context(setup: panWithLid, answers: [.checkProof: .overRim])
         #expect(BakeProcess.Condition.all([.panWithLid, .answer(.checkProof, .overRim)]).holds(in: overRim))
         #expect(!BakeProcess.Condition.all([.vessel(.pot), .answer(.checkProof, .overRim)]).holds(in: overRim))

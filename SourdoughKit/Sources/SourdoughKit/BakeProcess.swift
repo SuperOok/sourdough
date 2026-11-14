@@ -118,6 +118,8 @@ public enum BakeProcess {
         case potWithoutLid
         /// A free-standing loaf proofs in a banneton, long or round.
         case basket(long: Bool)
+        /// Kneaded by a machine with this tool; by hand is neither.
+        case kneadingTool(EquipmentItem.KneadingTool)
         /// The decision was answered so.
         case answer(StepID, Answer)
         /// All of them.
@@ -132,6 +134,7 @@ public enum BakeProcess {
             case .potWithLid: return setup.vessel == .pot && setup.pot?.hasLid != false
             case .potWithoutLid: return setup.vessel == .pot && setup.pot?.hasLid == false
             case .basket(let long): return setup.basket.map { $0.isLong == long } ?? false
+            case .kneadingTool(let tool): return setup.kneader?.kneadingTool == tool
             case .answer(let step, let answer): return context.answers[step] == answer
             case .all(let conditions): return conditions.allSatisfy { $0.holds(in: context) }
             }
@@ -149,6 +152,8 @@ public enum BakeProcess {
             case .potWithoutLid: "Bräter ohne Deckel"
             case .basket(long: true): "längliches Gärkörbchen"
             case .basket(long: false): "rundes Gärkörbchen"
+            case .kneadingTool(.hook): "Küchenmaschine mit Knethaken"
+            case .kneadingTool(.blade): "Küchenmaschine mit Messer"
             case .answer(_, let answer): "Antwort „\(answer.label)“"
             case .all(let conditions): conditions.map(\.label).joined(separator: " und ")
             }
