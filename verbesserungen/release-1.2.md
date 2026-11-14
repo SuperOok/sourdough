@@ -103,3 +103,8 @@ Reihenfolge der Merges: 007, 006, 001/002, 003, 004/005.
 - 14:10–14:20: Nutzungslimit; VB-005 (Commit 5db44b3) und VB-001/002
   (unkommittiert im Worktree) hielten an und sind fortgesetzt; VB-005 führt
   danach `release/1.2` zusammen und setzt VB-004 um.
+- 15:0x: VB-001, VB-002 und VB-003 in `release/1.2` (Merge b55fad1). Konflikte
+  mit VB-007 aufgelöst: Kategorie „Sauerteigstarter“ jetzt `starter`,
+  `starterFromScratch`, `starterCare` (32 Themen); Package 282 Tests, App 263
+  Tests grün. Offen bis zum vollen Lauf: UI-Klassen außerhalb der Starter-Tests
+  nach dem Merge.
