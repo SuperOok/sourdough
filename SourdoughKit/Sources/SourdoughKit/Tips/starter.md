@@ -63,3 +63,7 @@ Die App schätzt nur. Wie es deinem Starter geht, zeigt er selbst:
 - **Gesund:** Er riecht angenehm säuerlich, hat Blasen und verdoppelt sich nach dem Auffrischen in einigen Stunden.
 - **Hungrig, aber zu retten:** Graue bis dunkle Flüssigkeit steht obenauf, er riecht nach Nagellack oder Essig und geht kaum noch auf. Gieß die Flüssigkeit ab oder rühr sie unter und frisch ihn auf, wenn nötig mehrmals über ein paar Tage.
 - **Verdorben:** Schimmel (pelzig, in jeder Farbe), rosa oder orange Stellen oder ein muffiger, fauliger Geruch. Dann wegwerfen, das Glas gründlich reinigen und neu beginnen.
+
+![Vorher: frisch gefütterter Starter, dicht und flach im Glas. Eigenes Foto.](StarterBeforePhoto)
+
+![Nachher: derselbe Starter einige Stunden später, aufgegangen, mit Blasen an der Oberfläche. Eigenes Foto.](StarterAfterPhoto)
