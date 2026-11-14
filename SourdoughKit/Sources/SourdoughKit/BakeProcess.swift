@@ -21,7 +21,7 @@ public enum BakeProcess {
     /// The steps in their order. The raw values are stored in the files of
     /// bakes (`BakeRun`) and must stay.
     public enum StepID: String, Codable, CaseIterable, Sendable {
-        case checkStarter, mixSourdough, checkSourdough, knead, shape, checkProof, preheat, bake, cool
+        case checkStarter, mixSourdough, checkSourdough, knead, fold, shape, checkProof, preheat, bake, cool
     }
 
     /// What a decision can be answered. The raw values are stored.
@@ -46,6 +46,7 @@ public enum BakeProcess {
     public enum Text: String, CaseIterable, Sendable {
         case checkStarter, mixSourdough, checkSourdough
         case kneadFold, kneadRye
+        case fold, foldHook, foldBlade
         case shapePan, shapeBasketRound, shapeBasketLong, shapeBowl
         case checkProofRim, checkProofRipe
         case preheatPot, preheatPotOpen, preheatTray, preheatPan
@@ -84,6 +85,13 @@ public enum BakeProcess {
         /// How long that rest takes, and until when.
         case restDuration
         case restUntil
+        /// The rounds of stretching and folding in the bulk rest, with their
+        /// times, or that the rest is too short for them.
+        case folding
+        /// For a dough carried by spelt: to stretch it gently; else nothing.
+        case foldGentle
+        /// After a round: when the next one is, or what to do after the last.
+        case afterFold
     }
 
     // MARK: Conditions
@@ -233,11 +241,23 @@ public enum BakeProcess {
             case beforeNextAction
             /// The cooling at the end, after the last action.
             case cooling
+            /// Rounds of an action within a rest (folding in the bulk rest),
+            /// as many as the schedule plans (`Schedule.folds`).
+            case withinRest(RestKind)
         }
 
         public let id: StepID
         public let timing: Timing
         public let variants: Choice<Variant>
+        /// When the step is left out altogether; `nil` if never.
+        public let skippedWhen: Condition?
+
+        init(id: StepID, timing: Timing, variants: Choice<Variant>, skippedWhen: Condition? = nil) {
+            self.id = id
+            self.timing = timing
+            self.variants = variants
+            self.skippedWhen = skippedWhen
+        }
     }
 
     /// A node of the process: a step, or a rest of the dough between steps
@@ -261,6 +281,14 @@ public enum BakeProcess {
             .step(Step(id: .knead, timing: .action(.knead),
                        variants: Choice([(.ryeShareAtLeast(BakeRules.freeStandingRyeMax), Variant(.kneadRye))],
                                         otherwise: Variant(.kneadFold)))),
+            // Rounds of folding at the start of the bulk rest (`Folding`). With
+            // a hook, a short run of the machine can stand in for a round;
+            // a blade would knead the dough through again.
+            .step(Step(id: .fold, timing: .withinRest(.bulk),
+                       variants: Choice([(.kneadingTool(.hook), Variant(.foldHook)),
+                                         (.kneadingTool(.blade), Variant(.foldBlade))],
+                                        otherwise: Variant(.fold)),
+                       skippedWhen: .ryeShareAtLeast(BakeRules.freeStandingRyeMax))),
             .rest(.bulk, "Stockgare"),
             .step(Step(id: .shape, timing: .action(.shape),
                        variants: Choice([(.vessel(.loafPan), Variant(.shapePan)),
@@ -329,6 +357,8 @@ public enum BakeProcess {
     public enum TimelineItem: Equatable, Sendable {
         case action(ActionKind, overlapsRest: Bool)
         case rest(RestKind)
+        /// The rounds of folding lie within this rest.
+        case folding(RestKind)
         case cooling
     }
 
@@ -342,6 +372,7 @@ public enum BakeProcess {
             case .action(let action, let overlaps): .action(action, overlapsRest: overlaps)
             case .beforeNextAction: nil
             case .cooling: .cooling
+            case .withinRest(let rest): .folding(rest)
             }
         }
     }
@@ -351,27 +382,44 @@ public enum BakeProcess {
     /// starts when baking ends.
     public static func plannedAction(_ step: StepID) -> ActionKind? {
         let due = steps.drop { $0.id != step }.first { $0.timing != .beforeNextAction }!
-        if case .action(let action, _) = due.timing { return action }
-        return nil
+        switch due.timing {
+        case .action(let action, _): return action
+        case .withinRest: return .fold
+        default: return nil
+        }
     }
 
-    /// The planned time of `step` in `schedule`.
-    public static func plannedTime(_ step: StepID, in schedule: Schedule) -> Date {
+    /// The planned time of `step` in `schedule`; for rounds within a rest,
+    /// that of round `round` (from 1), the first if not given, and the start
+    /// of the rest if it has none.
+    public static func plannedTime(_ step: StepID, round: Int? = nil, in schedule: Schedule) -> Date {
+        if case .withinRest(let rest) = self.step(step).timing {
+            let index = (round ?? 1) - 1
+            if schedule.folds.indices.contains(index) { return schedule.folds[index].start }
+            return schedule.rest(rest)!.start
+        }
         guard let action = plannedAction(step) else {
             return schedule.steps.first { $0.kind == .cooling }!.start
         }
         return schedule.steps.first { $0.kind == .action(action) }!.start
     }
 
-    /// The rest that directly follows `step`, whose temperature and time its
-    /// text names.
+    /// The rest that follows `step`, whose temperature and time its text
+    /// names: the next node, past steps that lie within that rest.
     public static func followingRest(_ step: StepID) -> RestKind? {
         let index = nodes.firstIndex { node in
             if case .step(let candidate) = node { return candidate.id == step }
             return false
         }!
-        guard index + 1 < nodes.count, case .rest(let rest, _) = nodes[index + 1] else { return nil }
-        return rest
+        for node in nodes[(index + 1)...] {
+            switch node {
+            case .rest(let rest, _): return rest
+            case .step(let next):
+                if case .withinRest = next.timing { continue }
+                return nil
+            }
+        }
+        return nil
     }
 
     // MARK: Texts

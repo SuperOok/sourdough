@@ -13,6 +13,7 @@ Der dritte Schritt: Du legst fest, wann es losgehen oder das Brot fertig sein so
 - Jede Ruhe findet an einem Ort statt: warm, im Raum, kühl oder im Kühlschrank. Wie die Temperatur die Dauer ändert, erklärt [Temperatur und Zeit](tip:temperature).
 - Mit „+“ und „−“ verlängerst oder verkürzt du eine Ruhe. Reicht die Spanne dafür nicht, wechselt die App den Ort oder nennt die nötige Temperatur.
 - Der Balken bei jeder Ruhe zeigt, wie weit sich ihre Dauer verschieben lässt. Mit „Vorschlag wiederherstellen“ kehrst du zum Ausgangsplan zurück.
+- Unter der Stockgare stehen die Uhrzeiten der Runden „Dehnen und Falten“; in der Zeitleiste sind sie kleine Striche. Wie viele es sind, erklärt [Kneten](tip:kneading).
 
 ## Was die Ruhen sind
 

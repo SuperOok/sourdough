@@ -65,8 +65,8 @@ struct BakeProcessTextTests {
 
 struct BakeProcessTests {
     @Test func stepsInTheirOrder() {
-        #expect(BakeProcess.StepID.allCases == [.checkStarter, .mixSourdough, .checkSourdough, .knead, .shape,
-                                               .checkProof, .preheat, .bake, .cool])
+        #expect(BakeProcess.StepID.allCases == [.checkStarter, .mixSourdough, .checkSourdough, .knead, .fold,
+                                               .shape, .checkProof, .preheat, .bake, .cool])
     }
 
     @Test func decisionsAndTheirAnswers() {
@@ -75,7 +75,7 @@ struct BakeProcessTests {
         #expect(BakeProcess.answers(.checkProof, in: .init(setup: panWithLid)) == [.belowRim, .overRim])
         #expect(BakeProcess.answers(.checkProof, in: .init(setup: panWithoutLid)) == [.yes, .notYet])
         #expect(BakeProcess.answers(.checkProof, in: .init(setup: potAndBasket)) == [.yes, .notYet])
-        for step in [BakeProcess.StepID.mixSourdough, .knead, .shape, .preheat, .bake, .cool] {
+        for step in [BakeProcess.StepID.mixSourdough, .knead, .fold, .shape, .preheat, .bake, .cool] {
             #expect(BakeProcess.answers(step, in: .init(setup: panWithLid)).isEmpty)
         }
         #expect(BakeProcess.Answer.allCases.filter(\.waits) == [.notYet])
@@ -141,7 +141,7 @@ struct BakeProcessTests {
 
     @Test func onlyDecisionsHaveSomethingToDoWhileWaiting() {
         #expect(BakeProcess.StepID.allCases.map { BakeProcess.waitText($0, in: .init(setup: trayAndBowl)) } == [
-            .waitStarter, nil, .waitSourdough, nil, nil, .waitProof, nil, nil, nil])
+            .waitStarter, nil, .waitSourdough, nil, nil, nil, .waitProof, nil, nil, nil])
         // The rim cannot be answered "not yet", so there is nothing to wait for.
         #expect(BakeProcess.waitText(.checkProof, in: .init(setup: panWithLid)) == nil)
     }
@@ -149,8 +149,8 @@ struct BakeProcessTests {
     @Test func theStoredNamesOfStepsAndAnswersStay() {
         // Files of bakes hold these raw values; renaming one would lose them.
         #expect(BakeProcess.StepID.allCases.map(\.rawValue) == [
-            "checkStarter", "mixSourdough", "checkSourdough", "knead", "shape", "checkProof", "preheat", "bake",
-            "cool"])
+            "checkStarter", "mixSourdough", "checkSourdough", "knead", "fold", "shape", "checkProof", "preheat",
+            "bake", "cool"])
         #expect(BakeProcess.Answer.allCases.map(\.rawValue) == ["yes", "notYet", "belowRim", "overRim"])
         #expect(BakeProcess.Answer.allCases.map(\.label) == ["Ja", "Noch nicht", "Unter dem Rand",
                                                             "Am Deckel oder darüber"])
@@ -161,17 +161,39 @@ struct BakeProcessTests {
         #expect(BakeProcess.step(.preheat).timing == .action(.preheat, overlapsRest: true))
         #expect(BakeProcess.step(.checkProof).timing == .beforeNextAction)
         #expect(BakeProcess.step(.cool).timing == .cooling)
+        #expect(BakeProcess.step(.fold).timing == .withinRest(.bulk))
+        #expect(BakeProcess.step(.fold).skippedWhen == .ryeShareAtLeast(50))
+        #expect(BakeProcess.step(.knead).skippedWhen == nil)
+    }
+
+    @Test func foldingOffersTheMachineOnlyWithAHook() {
+        let hook = BakeSetup(vessel: .tray, kneader: EquipmentItem(kind: .kneader, name: "Bosch"))
+        let blade = BakeSetup(vessel: .tray, kneader: EquipmentItem(kind: .kneader, name: "TM", kneadingTool: .blade))
+        #expect(BakeProcess.text(.fold, setup: hook, ryeShare: 0, answers: [:]) == .foldHook)
+        #expect(BakeProcess.text(.fold, setup: blade, ryeShare: 0, answers: [:]) == .foldBlade)
+        #expect(BakeProcess.text(.fold, setup: trayAndBowl, ryeShare: 0, answers: [:]) == .fold)
+        #expect(BakeProcess.markdown(.foldHook).contains("niedrigsten Stufe"))
+        #expect(!BakeProcess.markdown(.foldBlade).contains("niedrigsten Stufe"))
+        #expect(!BakeProcess.markdown(.fold).contains("Maschine"))
+        // Each its own title, so that the branches of the diagram differ.
+        #expect([BakeProcess.Text.fold, .foldHook, .foldBlade].map(BakeProcess.title)
+                == ["Dehnen und Falten", "Dehnen und Falten oder kurz kneten", "Dehnen und Falten von Hand"])
+        for text in [BakeProcess.Text.fold, .foldHook, .foldBlade] {
+            #expect(BakeProcess.markdown(text).contains("{afterFold}"))
+        }
+        #expect(BakeProcess.markdown(.kneadFold).contains("{folding}"))
     }
 
     @Test func theScheduleTakesItsActionsAndRestsFromTheDefinition() {
         // Decisions are left out; preheating runs during the end of the proof.
         #expect(BakeProcess.timeline == [
             .action(.mixSourdough, overlapsRest: false), .rest(.sourdough),
-            .action(.knead, overlapsRest: false), .rest(.bulk),
+            .action(.knead, overlapsRest: false), .folding(.bulk), .rest(.bulk),
             .action(.shape, overlapsRest: false), .rest(.proof),
             .action(.preheat, overlapsRest: true), .action(.bake, overlapsRest: false), .cooling])
         let layout = Schedule.layout
         #expect(layout.rests == [.sourdough, .bulk, .proof])
+        #expect(layout.foldingRest == .bulk)
         #expect(layout.blocks == [Schedule.Block(following: [.mixSourdough]), Schedule.Block(following: [.knead]),
                                   Schedule.Block(following: [.shape]),
                                   Schedule.Block(overlapping: [.preheat], following: [.bake])])
@@ -228,15 +250,17 @@ struct BakeProcessTests {
 
     @Test func stepsAreDueAtTheirActionsAndRestsFollowThem() {
         #expect(BakeProcess.StepID.allCases.map(BakeProcess.plannedAction) == [
-            .mixSourdough, .mixSourdough, .knead, .knead, .shape, .preheat, .preheat, .bake, nil])
+            .mixSourdough, .mixSourdough, .knead, .knead, .fold, .shape, .preheat, .preheat, .bake, nil])
+        // Kneading is followed by the bulk rest, past the folds within it.
         #expect(BakeProcess.StepID.allCases.map(BakeProcess.followingRest) == [
-            nil, .sourdough, nil, .bulk, .proof, nil, nil, nil, nil])
+            nil, .sourdough, nil, .bulk, .bulk, .proof, nil, nil, nil, nil])
         // The schedule of the first ScheduleTests case: mixed 08:10, kneaded
         // 16:20, shaped 18:25, preheated 19:25, baked 20:10, cooling from 21:00.
+        // Without folds, folding is due when the bulk rest starts: 16:20 + 20 min.
         let schedule = Schedule(target: nov(15, 12), ryeShare: 50, vessel: .pot,
                                 temperatures: Temperatures(), calendar: utc)
         #expect(BakeProcess.StepID.allCases.map { BakeProcess.plannedTime($0, in: schedule) } == [
-            nov(14, 8, 10), nov(14, 8, 10), nov(14, 16, 20), nov(14, 16, 20), nov(14, 18, 25),
+            nov(14, 8, 10), nov(14, 8, 10), nov(14, 16, 20), nov(14, 16, 20), nov(14, 16, 40), nov(14, 18, 25),
             nov(14, 19, 25), nov(14, 19, 25), nov(14, 20, 10), nov(14, 21)])
     }
 
@@ -306,10 +330,13 @@ struct BakeProcessTests {
             }
         }
         // Worked out from the rules of shaping, the proof check, preheating,
-        // baking and kneading.
+        // baking, kneading and folding.
         #expect(Set(used.map(\.label)) == ["Roggen ab 50 %", "Kastenform", "längliches Gärkörbchen",
                                            "rundes Gärkörbchen", "Kastenform mit Deckel", "Bräter mit Deckel",
-                                           "Bräter ohne Deckel", "Antwort „Am Deckel oder darüber“"])
+                                           "Bräter ohne Deckel", "Antwort „Am Deckel oder darüber“",
+                                           "Küchenmaschine mit Knethaken", "Küchenmaschine mit Messer"])
+        // A step that can be left out says when.
+        #expect(diagram.contains("if (Roggen ab 50 %) then (ja)\nelse (sonst)\n  repeat\n"))
         for answer in BakeProcess.Answer.allCases {
             #expect(diagram.contains("(\(answer.label))"), "\(answer) fehlt.")
         }

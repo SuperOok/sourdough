@@ -88,7 +88,9 @@ struct BakeScheduleView: View {
                     // explanation sits below the list. Above the list it moved
                     // the whole screen whenever it appeared or went away.
                     VStack(alignment: .leading, spacing: 2) {
-                        ForEach(Array(schedule.steps.filter(\.outsideWindow).enumerated()), id: \.offset) { index, step in
+                        // The rounds of folding after the steps they lie between.
+                        let outside = schedule.steps.filter(\.outsideWindow) + schedule.folds.filter(\.outsideWindow)
+                        ForEach(Array(outside.enumerated()), id: \.offset) { index, step in
                             Text(ScheduleText.conflict(step, vessel: schedule.vessel, window: model.window,
                                                        calendar: calendar))
                                 .accessibilityIdentifier("schedule-conflict-\(index)")
@@ -150,6 +152,14 @@ struct BakeScheduleView: View {
                 }
             }
             if case .rest(let rest, let place) = step.kind, let range = step.hourRange {
+                if rest == Schedule.foldingRest,
+                   let folds = ScheduleText.folds(schedule, folding: model.folding, calendar: calendar) {
+                    // Being there in these hours belongs to the plan.
+                    Text(folds)
+                        .font(.footnote)
+                        .foregroundStyle(schedule.folds.contains(where: \.outsideWindow) ? Color.orange : Color.secondary)
+                        .accessibilityIdentifier("schedule-folds")
+                }
                 restControls(rest, place: place, step: step, range: range, schedule: schedule, ryeShare: ryeShare)
             }
         }
@@ -160,8 +170,8 @@ struct BakeScheduleView: View {
                               schedule: Schedule, ryeShare: Double) -> some View {
         // One scale for every place of the rest, so that the coloured range
         // moves when the place changes.
-        RangeBar(scale: ScheduleRules.scale(rest, ryeShare: ryeShare,
-                                            temperatures: model.temperatures),
+        RangeBar(scale: ScheduleRules.scale(rest, ryeShare: ryeShare, temperatures: model.temperatures,
+                                            foldHours: model.foldHours(rest)),
                  range: range, value: step.hours, color: ScheduleStrip.color(step.kind))
             .frame(height: 6)
         // One line each at the usual sizes; at the accessibility sizes the
@@ -295,6 +305,13 @@ struct ScheduleStrip: View {
                     }
                     ForEach(day.segments, id: \.stepIndex) { segment in
                         bar(segment, width: width)
+                    }
+                    // The rounds of folding: thin marks in the lane of the actions.
+                    ForEach(Array(day.folds.enumerated()), id: \.offset) { _, mark in
+                        Rectangle().fill(Color.red)
+                            .overlay { if mark.outsideWindow { Rectangle().strokeBorder(.primary, lineWidth: 1) } }
+                            .frame(width: 3, height: Self.laneHeight)
+                            .offset(x: x(mark.position, in: width) - 1.5)
                     }
                     if let target = day.target {
                         Rectangle().fill(.primary).frame(width: 2, height: Self.rowHeight)

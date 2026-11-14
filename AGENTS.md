@@ -472,7 +472,27 @@ Rechnungen liegen im Package, jede Konstante als Richtwert an einer Stelle:
    `schedule-cool`, 16 °C voreingestellt, nur wirksam, wenn kühler als der
    Raum); ältere gespeicherte Temperaturen ohne ihn bekommen die Voreinstellung.
    Handgriffe liegen zwischen 8 und 21 Uhr; sonst wählt der Plan
-   einen anderen Ort oder meldet einen Konflikt. Auskühlen 2 h, ab 50 %
+   einen anderen Ort oder meldet einen Konflikt. **Dehnen und Falten**
+   (`Folding`, Richtwerte aus `verbesserungen/VB-004.md`): Runden nach der
+   Hydration (unter 65 % 2 im Abstand von 45 min, bis 75 % 3, darüber 4, je
+   30 min), Dinkel (mehr Dinkel als Weizen) höchstens 3, ab 20 % Roggen und
+   mit Küchenmaschine je eine weniger, mindestens 1, ab 50 % Roggen keine.
+   Die Runden beginnen ein Intervall nach dem Kneten, die letzte Stunde der
+   Stockgare bleibt frei (`Folding.roundHours`, Runden fallen von hinten weg).
+   Sie stehen nicht in `Schedule.steps`, sondern in `Schedule.folds`
+   (`.action(.fold)`, 5 min) und zählen zum Zeitfenster: Der Block vor der
+   Stockgare reicht für die Ortswahl bis zum Ende der letzten Runde
+   (`foldSpan`), eine Runde außerhalb ist ein Konflikt, das Kneten wird nur
+   markiert, wenn es selbst außerhalb liegt. Liegt die Stockgare kühler als
+   der Raum, wird zuerst bei Raumtemperatur gefaltet (`foldsAtRoomFirst`):
+   Nennzeit `Phase + (1 − Phase / Zeit im Raum) × Zeit am Ort`
+   (`ScheduleRules.nominalHours`, `range`, `scale`, `place(forHours:)` mit
+   `foldHours`), Zieltemperatur die des Rests (`ScheduleRules.celsius(…,
+   place:…, foldHours:)`). Unter der Stockgare steht die Zeile
+   „Dehnen und Falten: 17:00, 17:30, 18:00“ (`schedule-folds`, orange bei einer
+   Runde außerhalb, „bei Raumtemperatur …, danach kühl stellen“ bei kühler
+   Stockgare), in der Zeitleiste ein Strich je Runde (`ScheduleDays.Day.folds`).
+   Auskühlen 2 h, ab 50 %
    Roggen 6 h, ab 80 % einen Tag. Der Vorschlag ist der erste Mittag oder
    Abend, dessen Plan nach „jetzt“ beginnt und ohne Konflikt ist.
    **Zwei Richtungen** (`ScheduleAnchor`, im Modell `BakePlanModel.anchor`):
@@ -541,7 +561,7 @@ Beschriftung und Feld, als `accessory` des `NumberField`, sodass das Feld wie
 bei `schedule-fridge` rechtsbündig 96 pt breit bleibt), `schedule-fridge`,
 `schedule-error`, `schedule-conflict-<n>`, `schedule-chart`,
 `schedule-step-<n>`, `schedule-range-<ruhe>`, `schedule-place-<ruhe>`,
-`schedule-stepper-<ruhe>`, `schedule-reset`. `<mehl>` ist der Rohwert von
+`schedule-stepper-<ruhe>`, `schedule-folds`, `schedule-reset`. `<mehl>` ist der Rohwert von
 `Flour` (`rye1150`, `speltWholeGrain` …), `<ruhe>` der von `RestKind`
 (`sourdough`, `bulk`, `proof`).
 
@@ -570,17 +590,30 @@ Durchgang eine JSON-Datei unter Application Support/`bakes/`
 (`BakeRunStore`), nicht in `UserDefaults`, weil später Fotos dazukommen.
 Der Durchgang merkt sich Richtung (`anchor`), bei `.start` die Startzeit, und
 die Zieltemperatur je Ruhe (`BakeRun.celsius(_:)`); ältere Dateien ohne diese
-Werte gelten als rückwärts geplant mit der Temperatur des Ortes. Die Anleitung
+Werte gelten als rückwärts geplant mit der Temperatur des Ortes. Er merkt sich
+auch das Falten (`folding`, `foldRounds`) und je Runde die erledigte Zeit
+(`foldsDone`, Schlüssel ist die Runde ab 1); ältere Dateien ohne diese Werte
+haben keine Runden. Im Ablauf ist jede Runde eine eigene Zeile
+(`BakeRun.entries`, `Entry` aus Schritt und Runde), „Erledigt“ hakt die
+aktuelle Runde ab (`currentRound`), die letzte den Schritt; „Zurück zu …“
+öffnet die zuletzt erledigte Runde (`previousRound`). Die Anleitung
 nennt bei jeder Ruhe nur die Temperatur, keinen Ort (`{restTemperature}`,
 „bei etwa 19 °C“, ganze Grad).
 
 **Der Ablauf ist Daten** (`BakeProcess`): **eine** Definition für Durchgang
-und Zeitplan, `BakeProcess.nodes`, die Knoten in ihrer Reihenfolge: neun
+und Zeitplan, `BakeProcess.nodes`, die Knoten in ihrer Reihenfolge: zehn
 Schritte (`Step`, Id `StepID`) und dazwischen die drei Ruhen (`.rest`, mit
 `RestKind` und deutschem Namen). Jeder Schritt hat ein `timing`: ein Handgriff
 des Zeitplans (`.action(ActionKind)`, Vorheizen mit `overlapsRest`, weil es
 schon während der Stückgare läuft), eine Entscheidung, die mit dem nächsten
-Handgriff fällig ist (`.beforeNextAction`), oder das Auskühlen (`.cooling`).
+Handgriff fällig ist (`.beforeNextAction`), das Auskühlen (`.cooling`) oder
+Runden innerhalb einer Ruhe (`.withinRest(.bulk)`: Dehnen und Falten, `fold`
+zwischen `knead` und der Stockgare; so viele Runden, wie `Schedule.folds`
+plant). Ein Schritt kann ganz entfallen (`skippedWhen`: `fold` ab 50 %
+Roggen). Das Falten hat drei Texte: `foldHook` (Knethaken: kurzes
+Laufenlassen als Ersatz), `foldBlade` (Messer: von Hand falten), sonst `fold`;
+Platzhalter `{folding}` (Runden im Knetschritt), `{foldGentle}` (Dinkel),
+`{afterFold}` (nächste Runde oder was nach der letzten kommt).
 Daraus folgen geplante Zeit (`plannedTime`, `plannedAction`), die Ruhe nach
 einem Schritt (`followingRest`) und die Folge von Handgriffen und Ruhen, die
 `Schedule` plant (`BakeProcess.timeline`, in `Schedule.Layout` als Blöcke von
@@ -637,16 +670,11 @@ Konflikt, feste Ruhen aus `choices`); wer `Schedule.place` oder die Richtungen
 ändert, zieht es nach. `docs/ablauf.md` erklärt beide; die SVGs zeichnet
 `tools/diagrams.sh`.
 
-**Erweiterungen auf diesem Modell** (Vorbereitung für VB-004/005): Ein
-Knetwerkzeug wird ein weiterer `Condition`-Fall (und ein Feld in `Context`,
-falls es nicht im Setup steht); Falt-Runden werden ein eigener Schritt mit
-eigenem `timing` innerhalb der Stockgare, Zeitplan und Diagramm lesen ihn aus
-`nodes`.
-
 **Backprotokoll** (`BakeLogView`, `BakeLogDetailView`): alle Durchgänge,
 neueste zuerst, mit Brotart, Status, Starter, Utensilien, Temperaturen,
 Mehlen in Gramm, Hydration, Sauerteigstufe, Salz und je Schritt geplanter
-und erledigter Zeit samt Antwort, bei Schritten vor einer Ruhe deren
+und erledigter Zeit samt Antwort (jede Runde Dehnen und Falten eine Zeile),
+bei Schritten vor einer Ruhe deren
 Zieltemperatur („Ruhe bei etwa 16 °C“); ein Durchgang lässt sich löschen.
 
 **Fütterung eintragen:** Im Schritt „Sauerteigstufe ansetzen“ (`mixSourdough`)

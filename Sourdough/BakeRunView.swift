@@ -46,8 +46,9 @@ struct BakeRunView: View {
                 }
             }
             Section("Ablauf") {
-                ForEach(Array(run.steps.enumerated()), id: \.offset) { index, step in
-                    stepRow(run, step)
+                // Every round of folding is a line of its own.
+                ForEach(Array(run.entries.enumerated()), id: \.offset) { index, entry in
+                    stepRow(run, entry)
                         .accessibilityElement(children: .combine)
                         .accessibilityIdentifier("run-step-\(index)")
                 }
@@ -85,11 +86,13 @@ struct BakeRunView: View {
     @ViewBuilder
     private func currentSection(_ run: BakeRun, _ step: BakeProcess.StepID) -> some View {
         let answers = run.possibleAnswers(step)
+        let round = run.currentRound
+        let planned = BakeProcess.plannedTime(step, round: round, in: run.schedule)
         Section {
-            Text("Geplant: \(ScheduleText.time(BakeProcess.plannedTime(step, in: run.schedule), calendar: run.calendar))")
+            Text("Geplant: \(ScheduleText.time(planned, calendar: run.calendar))")
                 .foregroundStyle(.secondary)
                 .accessibilityIdentifier("run-planned")
-            MarkdownBlocks(markdown: BakeRunText.markdown(run, step), id: "run-text")
+            MarkdownBlocks(markdown: BakeRunText.markdown(run, step, round: round), id: "run-text")
             if run.isWaiting, let wait = BakeRunText.waitMarkdown(run, step) {
                 MarkdownBlocks(markdown: wait, id: "run-hint")
                     .padding(.vertical, 4)
@@ -126,7 +129,8 @@ struct BakeRunView: View {
             Button {
                 store.undo(id)
             } label: {
-                Label(BakeRunText.undoLabel(run, previous), systemImage: "arrow.uturn.backward")
+                Label(BakeRunText.undoLabel(run, previous, round: run.previousRound),
+                      systemImage: "arrow.uturn.backward")
                     .font(.subheadline)
             }
             .foregroundStyle(.secondary)
@@ -134,14 +138,15 @@ struct BakeRunView: View {
         }
     }
 
-    private func stepRow(_ run: BakeRun, _ step: BakeProcess.StepID) -> some View {
-        let planned = BakeProcess.plannedTime(step, in: run.schedule)
-        let done = run.done[step]
+    private func stepRow(_ run: BakeRun, _ entry: BakeRun.Entry) -> some View {
+        let planned = BakeProcess.plannedTime(entry.step, round: entry.round, in: run.schedule)
+        let done = run.doneAt(entry)
+        let isCurrent = entry.step == run.current && entry.round == run.currentRound
         return HStack(alignment: .firstTextBaseline) {
-            Image(systemName: done == nil ? (step == run.current ? "circle.inset.filled" : "circle") : "checkmark.circle.fill")
+            Image(systemName: done == nil ? (isCurrent ? "circle.inset.filled" : "circle") : "checkmark.circle.fill")
                 .foregroundStyle(done == nil ? Color.secondary : Color.green)
             VStack(alignment: .leading, spacing: 2) {
-                Text(BakeRunText.title(run, step))
+                Text(BakeRunText.title(run, entry.step, round: entry.round))
                 Text(done.map { "erledigt \(ScheduleText.time($0, calendar: run.calendar))" }
                      ?? "geplant \(ScheduleText.time(planned, calendar: run.calendar))")
                     .font(.footnote)

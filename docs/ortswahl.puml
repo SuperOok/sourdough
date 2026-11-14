@@ -12,6 +12,9 @@ note right
   dann: Kneten, Formen
   nach der Stückgare: Vorheizen (schon während
   ihres Endes) und Backen, danach Auskühlen
+  Dehnen und Falten: Runden am Anfang der Stockgare
+  (Folding); der Block davor reicht bis zum Ende
+  der letzten Runde
 end note
 
 if (Festlegen für?) then (Anschnittfertig)
@@ -46,6 +49,11 @@ if (Festlegen für?) then (Anschnittfertig)
             :Spanne = Nennzeit bei seiner Temperatur
             × Faktor 0,85–1,2, Sauerteig 0,8–1,25,
             Kühlschrank 0,7–1,5;
+            note right
+              Stockgare kühler als der Raum: erst die
+              Falt-Runden bei Raumtemperatur, Nennzeit
+              Phase + (1 − Phase / Zeit im Raum) × Zeit am Ort
+            end note
           repeat while (Legt eine Dauer in der Spanne den Block ins Zeitfenster?) is (nein, weitere Orte) not (ja, oder keine Orte mehr)
           if (ein Ort gefunden?) then (ja)
             :dieser Ort, die Dauer, deren Block
@@ -84,6 +92,9 @@ else (Sauerteig ansetzen)
   }
 endif
 :Zieltemperatur je Ruhe: die Temperatur,
-bei der die geplante Dauer der Regel entspricht;
+bei der die geplante Dauer der Regel entspricht
+(nach einer Falt-Phase im Raum die des Rests);
+:Falt-Runden in die Stockgare legen, die letzte Stunde frei.
+Runde außerhalb 8–21 Uhr: Konflikt; <<#FFD8B0>>
 stop
 @enduml

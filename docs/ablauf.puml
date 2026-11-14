@@ -19,6 +19,19 @@ case (Roggen ab 50 %)
 case (sonst)
   :Hauptteig kneten;
 endswitch
+if (Roggen ab 50 %) then (ja)
+else (sonst)
+  repeat
+    switch ()
+    case (Küchenmaschine mit Knethaken)
+      :Dehnen und Falten oder kurz kneten\n//während der Stockgare//;
+    case (Küchenmaschine mit Messer)
+      :Dehnen und Falten von Hand\n//während der Stockgare//;
+    case (sonst)
+      :Dehnen und Falten\n//während der Stockgare//;
+    endswitch
+  repeat while (weitere Runde) is (ja) not (nein)
+endif
 :Ruhe: Stockgare; <<#E8E8E8>>
 switch ()
 case (Kastenform)

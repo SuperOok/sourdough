@@ -42,7 +42,9 @@ struct BakeRunDemoTests {
     @Test func theFinishedDemoHasEveryStepDone() {
         let bake = BakeRunDemo.finished(now: nov(13, 9), starters: [], items: [], calendar: utc)
         #expect(bake.status == .finished)
-        #expect(bake.done.count == BakeProcess.StepID.allCases.count)
+        // Every step but folding, which 50 % rye leaves out.
+        #expect(bake.done.count == BakeProcess.StepID.allCases.count - 1)
+        #expect(bake.done[.fold] == nil)
         #expect(bake.starter == nil)
         #expect(bake.setup.vessel == .tray)
     }
@@ -248,18 +250,18 @@ struct BakeLogTextTests {
         var bake = demo()
         // The sourdough rests until 08:04:23 on Saturday, 15 h 27 min 56 s: it
         // starts at 16:36:27 on Friday and is mixed 10 min before, at 16:26.
-        #expect(BakeLogText.times(bake, .checkStarter) == "geplant Fr 16:26")
+        #expect(BakeLogText.times(bake, .init(step: .checkStarter)) == "geplant Fr 16:26")
         bake.answer(.yes, at: nov(13, 21))
-        #expect(BakeLogText.times(bake, .checkStarter) == "geplant Fr 16:26 · erledigt Fr 21:00 · Ja")
+        #expect(BakeLogText.times(bake, .init(step: .checkStarter)) == "geplant Fr 16:26 · erledigt Fr 21:00 · Ja")
     }
 
     @Test func stepsARestFollowsNameItsTemperature() {
         // Sourdough at the cool place (16 °C), bulk warm (27 °C, kneading
         // 08:04), proof at room temperature (22 °C, shaping 09:25).
         let bake = demo()
-        #expect(BakeLogText.times(bake, .mixSourdough) == "geplant Fr 16:26 · Ruhe bei etwa 16 °C")
-        #expect(BakeLogText.times(bake, .knead) == "geplant Sa 08:04 · Ruhe bei etwa 27 °C")
-        #expect(BakeLogText.times(bake, .shape) == "geplant Sa 09:25 · Ruhe bei etwa 22 °C")
+        #expect(BakeLogText.times(bake, .init(step: .mixSourdough)) == "geplant Fr 16:26 · Ruhe bei etwa 16 °C")
+        #expect(BakeLogText.times(bake, .init(step: .knead)) == "geplant Sa 08:04 · Ruhe bei etwa 27 °C")
+        #expect(BakeLogText.times(bake, .init(step: .shape)) == "geplant Sa 09:25 · Ruhe bei etwa 22 °C")
     }
 }
 

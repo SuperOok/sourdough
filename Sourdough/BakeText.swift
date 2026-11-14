@@ -189,6 +189,23 @@ enum ScheduleText {
         return String(format: "%@ %02d:%02d", weekdays[parts.weekday! - 1], parts.hour!, parts.minute!)
     }
 
+    /// "17:30", without the day.
+    static func clock(_ date: Date, calendar: Calendar) -> String {
+        let parts = calendar.dateComponents([.hour, .minute], from: wholeSeconds(date))
+        return String(format: "%02d:%02d", parts.hour!, parts.minute!)
+    }
+
+    /// "Dehnen und Falten: 17:00, 17:30, 18:00", with "bei Raumtemperatur"
+    /// and "danach kühl stellen" when the rest goes on at a cooler place;
+    /// `nil` without folding.
+    static func folds(_ schedule: Schedule, folding: Folding, calendar: Calendar) -> String? {
+        guard folding.rounds > 0 else { return nil }
+        guard !schedule.folds.isEmpty else { return "Für Dehnen und Falten ist die Stockgare zu kurz." }
+        let times = schedule.folds.map { clock($0.start, calendar: calendar) }.joined(separator: ", ")
+        return schedule.foldsAtRoomFirst ? "Dehnen und Falten bei Raumtemperatur: \(times), danach kühl stellen"
+            : "Dehnen und Falten: \(times)"
+    }
+
     /// "Sa"
     static func weekday(_ date: Date, calendar: Calendar) -> String {
         weekdays[calendar.component(.weekday, from: date) - 1]
@@ -229,6 +246,7 @@ enum ScheduleText {
         case .action(.shape): vessel == .loafPan ? "Teig in die Form geben" : "Teig formen"
         case .action(.preheat): "Ofen vorheizen"
         case .action(.bake): "Backen"
+        case .action(.fold): "Dehnen und Falten"
         case .rest(.sourdough, _): "Sauerteig reift"
         case .rest(.bulk, _): "Stockgare"
         case .rest(.proof, _): "Stückgare"

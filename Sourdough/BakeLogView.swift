@@ -72,8 +72,9 @@ struct BakeLogDetailView: View {
                 row("Zusätze", BakeLogText.addIns(recipe), id: "log-addins")
             }
             Section("Ablauf") {
-                ForEach(Array(run.steps.enumerated()), id: \.offset) { index, step in
-                    row(BakeRunText.title(run, step), BakeLogText.times(run, step), id: "log-step-\(index)")
+                ForEach(Array(run.entries.enumerated()), id: \.offset) { index, entry in
+                    row(BakeRunText.title(run, entry.step, round: entry.round), BakeLogText.times(run, entry),
+                        id: "log-step-\(index)")
                 }
             }
             Section {
@@ -131,12 +132,15 @@ enum BakeLogText {
     }
 
     /// "geplant Sa 08:10 · erledigt Sa 08:12", "· Über dem Rand" for an
-    /// answer, "· Ruhe bei etwa 16 °C" for a step a rest follows.
-    static func times(_ run: BakeRun, _ step: BakeProcess.StepID) -> String {
-        var parts = ["geplant \(ScheduleText.time(BakeProcess.plannedTime(step, in: run.schedule), calendar: run.calendar))"]
-        if let done = run.done[step] { parts.append("erledigt \(ScheduleText.time(done, calendar: run.calendar))") }
+    /// answer, "· Ruhe bei etwa 16 °C" for a step a rest follows (not for
+    /// the rounds within it).
+    static func times(_ run: BakeRun, _ entry: BakeRun.Entry) -> String {
+        let step = entry.step
+        let planned = BakeProcess.plannedTime(step, round: entry.round, in: run.schedule)
+        var parts = ["geplant \(ScheduleText.time(planned, calendar: run.calendar))"]
+        if let done = run.doneAt(entry) { parts.append("erledigt \(ScheduleText.time(done, calendar: run.calendar))") }
         if let answer = run.answers[step] { parts.append(BakeRunText.answer(answer)) }
-        if let rest = BakeProcess.followingRest(step) {
+        if entry.round == nil, let rest = BakeProcess.followingRest(step) {
             parts.append("Ruhe \(BakeRunText.restTemperature(run.celsius(rest)))")
         }
         return parts.joined(separator: " · ")

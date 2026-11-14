@@ -135,6 +135,8 @@ public struct RangeScale: Equatable, Sendable {
 /// What the user does at the dough.
 public enum ActionKind: String, Codable, CaseIterable, Sendable {
     case mixSourdough, knead, shape, preheat, bake
+    /// A round of stretching and folding, within the bulk rest (`Folding`).
+    case fold
 }
 
 /// The rules of thumb for the times of a bake, all in one place. Like the
@@ -160,10 +162,32 @@ public enum ScheduleRules {
         referenceHours(rest, ryeShare: ryeShare) * pow(StarterModel.q10, (referenceCelsius - celsius) / 10)
     }
 
+    /// The hours of folding a rest spends at room temperature before it goes
+    /// to `place`: all of `foldHours` at a place cooler than the room, none
+    /// elsewhere (the dough is folded where it rests).
+    public static func roomPhase(foldHours: Double, place: Place, temperatures: Temperatures) -> Double {
+        temperatures.celsius(place) < temperatures.roomCelsius ? foldHours : 0
+    }
+
+    /// The nominal hours of `rest` at `place`. With `foldHours` of folding at
+    /// the start (`Folding.phaseHours`, only for the rest that is folded) and
+    /// a place cooler than the room, the folding runs at room temperature and
+    /// does its share of the rest there: the rest at the place only does what
+    /// is left, `phase + (1 − phase / hours at room) × hours at the place`.
+    public static func nominalHours(_ rest: RestKind, ryeShare: Double, place: Place, temperatures: Temperatures,
+                                    foldHours: Double = 0) -> Double {
+        let there = hours(rest, ryeShare: ryeShare, celsius: temperatures.celsius(place))
+        let phase = roomPhase(foldHours: foldHours, place: place, temperatures: temperatures)
+        guard phase > 0 else { return there }
+        let room = hours(rest, ryeShare: ryeShare, celsius: temperatures.roomCelsius)
+        return phase + max(1 - phase / room, 0) * there
+    }
+
     /// Shortest and longest sensible hours of `rest` at `place`.
     public static func range(_ rest: RestKind, ryeShare: Double, place: Place,
-                             temperatures: Temperatures) -> ClosedRange<Double> {
-        let nominal = hours(rest, ryeShare: ryeShare, celsius: temperatures.celsius(place))
+                             temperatures: Temperatures, foldHours: Double = 0) -> ClosedRange<Double> {
+        let nominal = nominalHours(rest, ryeShare: ryeShare, place: place, temperatures: temperatures,
+                                   foldHours: foldHours)
         let factors = rest.factorRange(at: place)
         return nominal * factors.lowerBound...nominal * factors.upperBound
     }
@@ -174,11 +198,26 @@ public enum ScheduleRules {
         referenceCelsius - 10 * log(hours / referenceHours(rest, ryeShare: ryeShare)) / log(StarterModel.q10)
     }
 
+    /// The temperature `rest` aims for at `place` when it takes `hours`. After
+    /// a phase of folding at room temperature (`roomPhase`) it is the
+    /// temperature for what is left: the remaining hours do the remaining
+    /// share of the rest. A phase that did all of it, or took all the hours,
+    /// leaves the room temperature.
+    public static func celsius(_ rest: RestKind, ryeShare: Double, hours: Double, place: Place,
+                               temperatures: Temperatures, foldHours: Double) -> Double {
+        let phase = roomPhase(foldHours: foldHours, place: place, temperatures: temperatures)
+        guard phase > 0 else { return celsius(rest, ryeShare: ryeShare, hours: hours) }
+        let left = 1 - phase / self.hours(rest, ryeShare: ryeShare, celsius: temperatures.roomCelsius)
+        guard left > 0, hours > phase else { return temperatures.roomCelsius }
+        return celsius(rest, ryeShare: ryeShare, hours: (hours - phase) / left)
+    }
+
     /// The scale for the range bars of `rest`: one for all its places, so that
     /// the coloured range moves when the place changes (`RangeScale`).
-    public static func scale(_ rest: RestKind, ryeShare: Double, temperatures: Temperatures) -> RangeScale {
+    public static func scale(_ rest: RestKind, ryeShare: Double, temperatures: Temperatures,
+                             foldHours: Double = 0) -> RangeScale {
         RangeScale(covering: rest.places(for: temperatures).map {
-            range(rest, ryeShare: ryeShare, place: $0, temperatures: temperatures)
+            range(rest, ryeShare: ryeShare, place: $0, temperatures: temperatures, foldHours: foldHours)
         })
     }
 
@@ -187,15 +226,17 @@ public enum ScheduleRules {
     /// (the hours are shorter or longer than any place gives), the place whose
     /// nominal time is closest, measured as a ratio.
     public static func place(forHours hours: Double, rest: RestKind, ryeShare: Double,
-                             temperatures: Temperatures, current: Place) -> Place {
+                             temperatures: Temperatures, current: Place, foldHours: Double = 0) -> Place {
         let places = rest.places(for: temperatures)
         func holds(_ place: Place) -> Bool {
-            range(rest, ryeShare: ryeShare, place: place, temperatures: temperatures).contains(hours)
+            range(rest, ryeShare: ryeShare, place: place, temperatures: temperatures, foldHours: foldHours)
+                .contains(hours)
         }
         if places.contains(current), holds(current) { return current }
         if let fitting = places.first(where: holds) { return fitting }
         func distance(_ place: Place) -> Double {
-            abs(log(hours / self.hours(rest, ryeShare: ryeShare, celsius: temperatures.celsius(place))))
+            abs(log(hours / nominalHours(rest, ryeShare: ryeShare, place: place, temperatures: temperatures,
+                                         foldHours: foldHours)))
         }
         return places.min { distance($0) < distance($1) }!
     }
@@ -205,6 +246,7 @@ public enum ScheduleRules {
         switch action {
         case .mixSourdough: 10
         case .knead: 20
+        case .fold: 5
         case .shape: 15
         case .preheat: 45
         case .bake:
@@ -347,6 +389,12 @@ public struct ScheduleStep: Equatable, Sendable {
 /// longer or shorter rest moves every step after it.
 public struct Schedule: Equatable, Sendable {
     public let steps: [ScheduleStep]
+    /// The rounds of stretching and folding (`.action(.fold)`) within their
+    /// rest, in their order; they are not part of `steps`.
+    public let folds: [ScheduleStep]
+    /// Whether the folds run at room temperature before the dough goes to a
+    /// cooler place for the rest of its rest.
+    public let foldsAtRoomFirst: Bool
     /// What the bread bakes in; it decides some step titles.
     public let vessel: BakeSetup.Vessel
 
@@ -367,6 +415,8 @@ public struct Schedule: Equatable, Sendable {
     struct Layout: Equatable, Sendable {
         var blocks: [Block] = [Block()]
         var rests: [RestKind] = []
+        /// The rest in which the dough is stretched and folded.
+        var foldingRest: RestKind?
 
         init(_ timeline: [BakeProcess.TimelineItem]) {
             for item in timeline {
@@ -376,10 +426,20 @@ public struct Schedule: Equatable, Sendable {
                 case .rest(let rest):
                     rests.append(rest)
                     blocks.append(Block())
+                case .folding(let rest): foldingRest = rest
                 case .cooling: break
                 }
             }
         }
+    }
+
+    /// The rest in which the dough is stretched and folded.
+    public static var foldingRest: RestKind? { layout.foldingRest }
+
+    /// The hours of folding at the start of `rest` (`Folding.phaseHours`);
+    /// 0 for a rest that is not folded.
+    public static func foldHours(_ rest: RestKind, folding: Folding) -> Double {
+        rest == layout.foldingRest ? folding.phaseHours : 0
     }
 
     static let layout = Layout(BakeProcess.timeline)
@@ -430,15 +490,43 @@ public struct Schedule: Equatable, Sendable {
     /// Plans backwards from `time` for `.ready`, forwards from it for `.start`.
     public init(anchor: ScheduleAnchor, time: Date, ryeShare: Double, vessel: BakeSetup.Vessel,
                 temperatures: Temperatures, window: InteractionWindow = InteractionWindow(),
-                choices: [RestKind: RestChoice] = [:], calendar: Calendar) {
+                choices: [RestKind: RestChoice] = [:], folding: Folding = .none, calendar: Calendar) {
         switch anchor {
         case .ready:
             self.init(target: time, ryeShare: ryeShare, vessel: vessel, temperatures: temperatures,
-                      window: window, choices: choices, calendar: calendar)
+                      window: window, choices: choices, folding: folding, calendar: calendar)
         case .start:
             self.init(start: time, ryeShare: ryeShare, vessel: vessel, temperatures: temperatures,
-                      window: window, choices: choices, calendar: calendar)
+                      window: window, choices: choices, folding: folding, calendar: calendar)
         }
+    }
+
+    /// Seconds from the start of the folded rest to the end of its last
+    /// round as planned (`Folding.phaseHours` and one round); 0 without
+    /// folding. The block before that rest must leave room for them in the
+    /// interaction window.
+    private static func foldSpan(_ folding: Folding, vessel: BakeSetup.Vessel) -> TimeInterval {
+        folding.rounds > 0 ? folding.phaseHours * 3600 + ScheduleRules.minutes(.fold, vessel: vessel) * 60 : 0
+    }
+
+    /// The rounds of folding in the folded rest among `steps`, and whether
+    /// they run at room temperature first.
+    private static func folds(in steps: [ScheduleStep], folding: Folding, vessel: BakeSetup.Vessel,
+                              temperatures: Temperatures, window: InteractionWindow, calendar: Calendar)
+    -> (folds: [ScheduleStep], atRoomFirst: Bool) {
+        // The process folds within one of the rests it plans
+        // (`BakeProcessTests`), so that rest is among the steps.
+        let rest = layout.foldingRest!
+        let step = steps.first { if case .rest(rest, _) = $0.kind { true } else { false } }!
+        let place = step.place!
+        let length = ScheduleRules.minutes(.fold, vessel: vessel) * 60
+        let folds = folding.roundHours(bulkHours: step.hours).map { hours in
+            let start = step.start + hours * 3600
+            return ScheduleStep(kind: .action(.fold), start: start, end: start + length,
+                                outsideWindow: !window.contains(start, start + length, calendar: calendar))
+        }
+        let phase = ScheduleRules.roomPhase(foldHours: folding.phaseHours, place: place, temperatures: temperatures)
+        return (folds, phase > 0 && !folds.isEmpty)
     }
 
     /// The place and hours of `rest`, and whether the action next to it lies
@@ -447,14 +535,16 @@ public struct Schedule: Equatable, Sendable {
     /// hours: backwards the action before the rest, forwards the one after it.
     private static func place(_ rest: RestKind, ryeShare: Double, temperatures: Temperatures,
                               choice: RestChoice?, window: InteractionWindow, calendar: Calendar,
-                              base: Date, direction: Double, length: TimeInterval)
+                              base: Date, direction: Double, length: TimeInterval, foldHours: Double)
     -> (place: Place, hours: Double, outside: Bool) {
         func blockEnd(_ hours: Double) -> Date { base + direction * hours * 3600 }
         func range(_ place: Place) -> ClosedRange<Double> {
-            ScheduleRules.range(rest, ryeShare: ryeShare, place: place, temperatures: temperatures)
+            ScheduleRules.range(rest, ryeShare: ryeShare, place: place, temperatures: temperatures,
+                                foldHours: foldHours)
         }
         func nominal(_ place: Place) -> Double {
-            ScheduleRules.hours(rest, ryeShare: ryeShare, celsius: temperatures.celsius(place))
+            ScheduleRules.nominalHours(rest, ryeShare: ryeShare, place: place, temperatures: temperatures,
+                                       foldHours: foldHours)
         }
         let places = rest.places(for: temperatures)
         if let choice, places.contains(choice.place) {
@@ -474,17 +564,18 @@ public struct Schedule: Equatable, Sendable {
     }
 
     private static func restStep(_ rest: RestKind, place: Place, start: Date, end: Date, ryeShare: Double,
-                                 temperatures: Temperatures) -> ScheduleStep {
+                                 temperatures: Temperatures, foldHours: Double) -> ScheduleStep {
         ScheduleStep(kind: .rest(rest, place), start: start, end: end,
-                     hourRange: ScheduleRules.range(rest, ryeShare: ryeShare, place: place, temperatures: temperatures),
-                     celsius: ScheduleRules.celsius(rest, ryeShare: ryeShare,
-                                                    hours: end.timeIntervalSince(start) / 3600))
+                     hourRange: ScheduleRules.range(rest, ryeShare: ryeShare, place: place, temperatures: temperatures,
+                                                    foldHours: foldHours),
+                     celsius: ScheduleRules.celsius(rest, ryeShare: ryeShare, hours: end.timeIntervalSince(start) / 3600,
+                                                    place: place, temperatures: temperatures, foldHours: foldHours))
     }
 
     /// Plans backwards from `target`, the time the bread can be cut.
     public init(target: Date, ryeShare: Double, vessel: BakeSetup.Vessel,
                 temperatures: Temperatures, window: InteractionWindow = InteractionWindow(),
-                choices: [RestKind: RestChoice] = [:], calendar: Calendar) {
+                choices: [RestKind: RestChoice] = [:], folding: Folding = .none, calendar: Calendar) {
         func minutes(_ action: ActionKind) -> TimeInterval {
             ScheduleRules.minutes(action, vessel: vessel) * 60
         }
@@ -503,27 +594,36 @@ public struct Schedule: Equatable, Sendable {
         let closing = Self.steps(of: last, until: bakeEnd, outside: fitted == nil, minutes: minutes)
         var steps = closing.steps + [ScheduleStep(kind: .cooling, start: bakeEnd, end: target)]
 
-        // The rests, last first, each with the block before it.
+        // The rests, last first, each with the block before it. The block
+        // before the folded rest reaches on to its last round: the window
+        // must hold that too.
         var end = closing.start
         for (index, rest) in layout.rests.enumerated().reversed() {
             let block = layout.blocks[index]
+            let tail = rest == layout.foldingRest ? Self.foldSpan(folding, vessel: vessel) : 0
+            let foldHours = Self.foldHours(rest, folding: folding)
             let chosen = Self.place(rest, ryeShare: ryeShare, temperatures: temperatures, choice: choices[rest],
-                                    window: window, calendar: calendar, base: end, direction: -1,
-                                    length: length(block))
+                                    window: window, calendar: calendar, base: end + tail, direction: -1,
+                                    length: length(block) + tail, foldHours: foldHours)
             let start = end - chosen.hours * 3600
-            let before = Self.steps(of: block, until: start, outside: chosen.outside, minutes: minutes)
+            // Only the folds may be what lies outside; they are marked themselves.
+            let outside = chosen.outside && !window.contains(start - length(block), start, calendar: calendar)
+            let before = Self.steps(of: block, until: start, outside: outside, minutes: minutes)
             steps = before.steps + [Self.restStep(rest, place: chosen.place, start: start, end: end,
-                                                  ryeShare: ryeShare, temperatures: temperatures)] + steps
+                                                  ryeShare: ryeShare, temperatures: temperatures,
+                                                  foldHours: foldHours)] + steps
             end = before.start
         }
         self.steps = steps
         self.vessel = vessel
+        (folds, foldsAtRoomFirst) = Self.folds(in: steps, folding: folding, vessel: vessel,
+                                               temperatures: temperatures, window: window, calendar: calendar)
     }
 
     /// Plans forwards from `start`, the time the sourdough is mixed.
     public init(start: Date, ryeShare: Double, vessel: BakeSetup.Vessel,
                 temperatures: Temperatures, window: InteractionWindow = InteractionWindow(),
-                choices: [RestKind: RestChoice] = [:], calendar: Calendar) {
+                choices: [RestKind: RestChoice] = [:], folding: Folding = .none, calendar: Calendar) {
         func minutes(_ action: ActionKind) -> TimeInterval {
             ScheduleRules.minutes(action, vessel: vessel) * 60
         }
@@ -536,20 +636,26 @@ public struct Schedule: Equatable, Sendable {
         // Each block with the rest after it. What follows the rest is the
         // next block: after the proof preheating, which overlaps the end of
         // the proof, and baking.
+        // The next block reaches on to the last round of folding when the
+        // rest after it is the folded one.
         for (index, rest) in layout.rests.enumerated() {
             let block = Self.steps(of: layout.blocks[index], from: actionStart, outside: outside, minutes: minutes)
             steps += block.steps
             let next = layout.blocks[index + 1]
-            let after = next.following.map(minutes).reduce(0, +)
+            let following = next.following.map(minutes).reduce(0, +)
+            let tail = index + 1 < layout.rests.count && layout.rests[index + 1] == layout.foldingRest
+                ? Self.foldSpan(folding, vessel: vessel) : 0
             let before = next.overlapping.map(minutes).reduce(0, +)
+            let foldHours = Self.foldHours(rest, folding: folding)
             let chosen = Self.place(rest, ryeShare: ryeShare, temperatures: temperatures, choice: choices[rest],
-                                    window: window, calendar: calendar, base: block.end + after, direction: 1,
-                                    length: before + after)
+                                    window: window, calendar: calendar, base: block.end + following + tail,
+                                    direction: 1, length: before + following + tail, foldHours: foldHours)
             let restEnd = block.end + chosen.hours * 3600
             steps.append(Self.restStep(rest, place: chosen.place, start: block.end, end: restEnd,
-                                       ryeShare: ryeShare, temperatures: temperatures))
+                                       ryeShare: ryeShare, temperatures: temperatures, foldHours: foldHours))
             actionStart = restEnd
-            outside = chosen.outside
+            // Only the folds may be what lies outside; they are marked themselves.
+            outside = chosen.outside && !window.contains(restEnd - before, restEnd + following, calendar: calendar)
         }
 
         let closing = Self.steps(of: layout.blocks[layout.blocks.count - 1], from: actionStart, outside: outside,
@@ -559,6 +665,8 @@ public struct Schedule: Equatable, Sendable {
                                   end: closing.end + ScheduleRules.coolingHours(ryeShare: ryeShare) * 3600))
         self.steps = steps
         self.vessel = vessel
+        (folds, foldsAtRoomFirst) = Self.folds(in: steps, folding: folding, vessel: vessel,
+                                               temperatures: temperatures, window: window, calendar: calendar)
     }
 
     /// Hours of the day a proposed target falls on.
@@ -569,14 +677,15 @@ public struct Schedule: Equatable, Sendable {
     /// there is none, noon a week from today.
     public static func proposedTarget(after now: Date, ryeShare: Double, vessel: BakeSetup.Vessel,
                                       temperatures: Temperatures, window: InteractionWindow = InteractionWindow(),
-                                      calendar: Calendar) -> Date {
+                                      folding: Folding = .none, calendar: Calendar) -> Date {
         let today = calendar.startOfDay(for: now)
         for day in 0..<7 {
             for hour in proposedHours {
                 let date = calendar.date(byAdding: .day, value: day, to: today)!
                 let target = calendar.date(bySettingHour: hour, minute: 0, second: 0, of: date)!
                 let schedule = Schedule(target: target, ryeShare: ryeShare, vessel: vessel,
-                                        temperatures: temperatures, window: window, calendar: calendar)
+                                        temperatures: temperatures, window: window, folding: folding,
+                                        calendar: calendar)
                 if schedule.start >= now && schedule.conflicts.isEmpty { return target }
             }
         }
@@ -587,9 +696,10 @@ public struct Schedule: Equatable, Sendable {
     public var start: Date { steps[0].start }
     public var target: Date { steps[steps.count - 1].end }
 
-    /// The actions that lie outside the interaction window.
+    /// The actions that lie outside the interaction window, the rounds of
+    /// folding among them.
     public var conflicts: [ActionKind] {
-        steps.compactMap { step in
+        (steps + folds).compactMap { step in
             if case .action(let action) = step.kind, step.outsideWindow { return action }
             return nil
         }

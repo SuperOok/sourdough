@@ -17,7 +17,9 @@ Soll eine Ruhe deutlich länger oder kürzer dauern, ändert sich die Temperatur
 
 ## Wann du am Teig bist
 
-Handgriffe wie Ansetzen, Kneten, Formen und Backen legt die App zwischen 8 und 21 Uhr. Geht das nicht, zeigt sie den Konflikt an, damit du Zeiten oder Orte anpasst.
+Handgriffe wie Ansetzen, Kneten, Formen und Backen legt die App zwischen 8 und 21 Uhr. Dazu zählen auch die Runden [Dehnen und Falten](tip:kneading) am Anfang der Stockgare: In dieser Zeit musst du da sein, auch wenn der Teig dazwischen ruht. Geht das nicht, zeigt sie den Konflikt an, damit du Zeiten oder Orte anpasst.
+
+Steht die Stockgare an einem kühlen Ort, faltest du zuerst bei Raumtemperatur; die Zeit dort zählt die App zur Stockgare und rechnet nur den Rest mit der kühlen Temperatur.
 
 ## Auskühlen
 

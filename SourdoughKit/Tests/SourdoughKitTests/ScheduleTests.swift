@@ -148,7 +148,8 @@ struct ScheduleRulesTests {
     }
 
     @Test func actionMinutes() {
-        #expect(ActionKind.allCases.map { ScheduleRules.minutes($0, vessel: .pot) } == [10, 20, 15, 45, 50])
+        // A round of folding takes 5 minutes.
+        #expect(ActionKind.allCases.map { ScheduleRules.minutes($0, vessel: .pot) } == [10, 20, 15, 45, 50, 5])
         #expect(ScheduleRules.minutes(.bake, vessel: .loafPan) == 60)
         #expect(ScheduleRules.minutes(.bake, vessel: .tray) == 45)
     }

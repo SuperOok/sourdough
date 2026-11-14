@@ -197,6 +197,18 @@ struct TipsCatalogTests {
         #expect(links(in: .kneading).contains("kneader"))
     }
 
+    @Test func theKneadingPageNamesTheRuleOfTheRounds() {
+        // The page states the rule of `Folding` in words; the numbers must match.
+        let text = plainText(.kneading)
+        #expect(Folding.firmBelow == 65 && Folding.softAbove == 75)
+        #expect(text.contains("unter 65 % zwei Runden im Abstand von 45 Minuten, bis 75 % drei, darüber vier Runden"))
+        #expect(Folding.speltMax == 3 && text.contains("höchstens drei Runden"))
+        #expect(Folding.fewerFromRye == 20 && text.contains("Ab 20 % Roggen"))
+        #expect(BakeRules.freeStandingRyeMax == 50 && text.contains("Ab 50 % Roggen faltet die App nicht"))
+        #expect(Folding.freeHoursAtEnd == 1 && text.contains("Die letzte Stunde der Stockgare bleibt frei"))
+        #expect(links(in: .schedule).contains("kneading"))
+    }
+
     @Test func topicIdsAreIdentifiableByTheirFileName() {
         #expect(TipsTopic.ID.kneading.id == "kneading")
     }

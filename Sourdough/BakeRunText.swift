@@ -5,7 +5,8 @@ import SourdoughKit
 /// step texts, the step titles and the answers.
 enum BakeRunText {
     /// "„Opa“", or "deinen Starter" without a name.
-    static func values(for run: BakeRun, step: BakeProcess.StepID) -> [BakeProcess.Placeholder: String] {
+    static func values(for run: BakeRun, step: BakeProcess.StepID, round: Int? = nil)
+    -> [BakeProcess.Placeholder: String] {
         let recipe = run.recipe
         let schedule = run.schedule
         let calendar = run.calendar
@@ -23,9 +24,16 @@ enum BakeRunText {
             .waterCelsius: waterCelsius(run),
             .soaker: soaker(recipe),
             .addIns: addIns(recipe),
+            .folding: folding(schedule, calendar: calendar),
+            .foldGentle: Kneading(kneader: nil, mix: run.mix).gluten == .spelt
+                ? "Dinkel verträgt weniger: Dehne ihn sanft und nur so weit, bis er sich spürbar spannt." : "",
+            .afterFold: afterFold(run, schedule: schedule, round: round ?? 1),
         ]
         if let rest = BakeProcess.followingRest(step), let resting = schedule.rest(rest) {
-            values[.restTemperature] = restTemperature(run.celsius(rest, in: schedule))
+            let temperature = restTemperature(run.celsius(rest, in: schedule))
+            // Folded first at room temperature, then at the cooler place.
+            values[.restTemperature] = rest == Schedule.foldingRest && schedule.foldsAtRoomFirst
+                ? "zuerst bei Raumtemperatur und nach dem Falten \(temperature)" : temperature
             values[.restDuration] = ScheduleText.duration(hours: resting.hours)
             values[.restUntil] = ScheduleText.time(resting.end, calendar: calendar)
         } else {
@@ -34,9 +42,45 @@ enum BakeRunText {
         return values
     }
 
-    /// The text of `step` with its values filled in.
-    static func markdown(_ run: BakeRun, _ step: BakeProcess.StepID) -> String {
-        BakeProcess.fill(BakeProcess.markdown(run.text(step)), values(for: run, step: step))
+    /// The text of `step` with its values filled in; for a round, its title
+    /// names it.
+    static func markdown(_ run: BakeRun, _ step: BakeProcess.StepID, round: Int? = nil) -> String {
+        let text = BakeProcess.fill(BakeProcess.markdown(run.text(step)), values(for: run, step: step, round: round))
+        guard round != nil else { return text }
+        return text.replacingOccurrences(of: "# \(title(run, step))\n", with: "# \(title(run, step, round: round))\n")
+    }
+
+    /// "dreimal: um 17:00, 17:30 und 18:00", the sentence on the rounds in
+    /// the text of kneading; that the rest is too short for any.
+    static func folding(_ schedule: Schedule, calendar: Calendar) -> String {
+        guard !schedule.folds.isEmpty else {
+            return "Für Dehnen und Falten ist diese Stockgare zu kurz: Lass ihn ungestört gehen."
+        }
+        let clocks = schedule.folds.map { ScheduleText.clock($0.start, calendar: calendar) }
+        return "Dehne und falte ihn in dieser Zeit \(times(count: schedule.folds.count)): um \(list(clocks)). "
+            + "Die App führt dich durch jede Runde."
+    }
+
+    /// "einmal", "zweimal", "dreimal", "viermal", "5-mal"
+    static func times(count: Int) -> String {
+        let words = [1: "einmal", 2: "zweimal", 3: "dreimal", 4: "viermal"]
+        return words[count] ?? "\(count)-mal"
+    }
+
+    /// After round `round`: when the next one is, or, after the last, how the
+    /// dough rests on.
+    static func afterFold(_ run: BakeRun, schedule: Schedule, round: Int) -> String {
+        let calendar = run.calendar
+        if round < schedule.folds.count {
+            return "Die nächste Runde ist um \(ScheduleText.time(schedule.folds[round].start, calendar: calendar))."
+        }
+        let rest = Schedule.foldingRest!
+        let until = ScheduleText.time(schedule.rest(rest)!.end, calendar: calendar)
+        if schedule.foldsAtRoomFirst {
+            return "Das war die letzte Runde. Stell den Teig jetzt abgedeckt an einen kühlen Ort, "
+                + "\(restTemperature(run.celsius(rest, in: schedule))), bis \(until)."
+        }
+        return "Das war die letzte Runde. Lass ihn jetzt ungestört gehen, bis \(until)."
     }
 
     /// What to do while `step` waits; `nil` unless it is a decision.
@@ -44,14 +88,15 @@ enum BakeRunText {
         BakeProcess.waitText(step, in: run.context).map { BakeProcess.fill(BakeProcess.markdown($0), values(for: run, step: step)) }
     }
 
-    /// The `#` title of the step's text.
-    static func title(_ run: BakeRun, _ step: BakeProcess.StepID) -> String {
-        BakeProcess.title(run.text(step))
+    /// The `#` title of the step's text; for a round "Dehnen und Falten (2 von 3)".
+    static func title(_ run: BakeRun, _ step: BakeProcess.StepID, round: Int? = nil) -> String {
+        BakeProcess.title(run.text(step)) + (round.map { " (\($0) von \(run.foldRounds))" } ?? "")
     }
 
-    /// "Zurück zu „Sauerteigstufe ansetzen“": the button that opens `step` again.
-    static func undoLabel(_ run: BakeRun, _ step: BakeProcess.StepID) -> String {
-        "Zurück zu „\(title(run, step))“"
+    /// "Zurück zu „Sauerteigstufe ansetzen“": the button that opens `step`
+    /// (or its round) again.
+    static func undoLabel(_ run: BakeRun, _ step: BakeProcess.StepID, round: Int? = nil) -> String {
+        "Zurück zu „\(title(run, step, round: round))“"
     }
 
     /// How to knead, to stand after "Knete den Teig" or "Mische den Teig":

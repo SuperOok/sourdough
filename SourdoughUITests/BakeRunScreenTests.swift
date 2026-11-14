@@ -40,6 +40,49 @@ final class BakeRunScreenTests: SourdoughUITestCase {
         _ = element(app.buttons, "run-answer-yes")
     }
 
+    /// A wheat bread kneaded by the Thermomix: 67.2 % water gives 3 rounds,
+    /// the machine takes one: 2. Its blade must not stand in for them.
+    func testEachRoundOfFoldingIsPlannedDoneOnItsOwnAndLogged() {
+        launch(seedEquipment: true, seedStarters: true, now: Self.friday)
+        openBake()
+        choose("plan-bread", "Weizenbrot")
+        tapButton("plan-next")
+        tapButton("setup-next")
+        // The schedule names both rounds under the bulk rest.
+        assertLabel("schedule-folds", contains: "Dehnen und Falten: ")
+        let line = text("schedule-folds").label
+        XCTAssertEqual(line.components(separatedBy: ", ").count, 2, line)
+        tapButton("schedule-start")
+        answer("yes")
+        done()
+        answer("yes")
+        assertLabel("run-text", contains: "Dehne und falte ihn in dieser Zeit zweimal")
+        done()
+        // Kneaded: the first of two rounds, each a line of its own.
+        assertLabel("run-text", contains: "Dehnen und Falten von Hand (1 von 2)")
+        assertLabel("run-text", contains: "Falte von Hand")
+        assertLabel("run-text", contains: "Die nächste Runde ist um")
+        assertLabel("run-step-4", contains: "Dehnen und Falten von Hand (1 von 2)")
+        assertLabel("run-step-5", contains: "Dehnen und Falten von Hand (2 von 2)")
+        done()
+        assertLabel("run-text", contains: "Dehnen und Falten von Hand (2 von 2)")
+        assertLabel("run-text", contains: "Das war die letzte Runde.")
+        assertLabel("run-step-4", contains: "erledigt")
+        assertLabel("run-undo", contains: "Zurück zu „Dehnen und Falten von Hand (1 von 2)“")
+        done()
+        assertLabel("run-text", contains: "Teig rund formen")
+        // The log keeps every round with its time.
+        tapButton("run-cancel")
+        let cancel = app.alerts.buttons["Abbrechen"]
+        XCTAssertTrue(cancel.waitForExistence(timeout: 5))
+        cancel.tap()
+        tapButton("start-log")
+        tapButton("log-row-0")
+        assertLabel("log-step-4", contains: "Dehnen und Falten von Hand (1 von 2)")
+        assertLabel("log-step-4", contains: "erledigt")
+        assertLabel("log-step-5", contains: "Dehnen und Falten von Hand (2 von 2)")
+    }
+
     func testDecisionsWaitOrGoOnAndStepsNameTheAmounts() {
         launchWithRun()
         answer("notYet")

@@ -36,6 +36,14 @@ public struct BakeRun: Codable, Equatable, Identifiable, Sendable {
     /// The target temperature of each rest as planned; `nil` for bakes saved
     /// before there was one.
     private let restCelsius: [RestKind: Double]?
+    /// The folding as planned; `nil` for bakes saved before there was any,
+    /// which have no rounds.
+    private let plannedFolding: Folding?
+    /// How many rounds of folding the plan has; `nil` for older bakes.
+    private let plannedRounds: Int?
+    /// When each round of folding was done, by its number from 1; `nil`
+    /// until the first.
+    private var roundsDone: [Int: Date]?
 
     public private(set) var status: Status = .active
     public private(set) var endedAt: Date?
@@ -63,12 +71,24 @@ public struct BakeRun: Codable, Equatable, Identifiable, Sendable {
         addInShares = addIns
         scheduleAnchor = anchor
         startTime = anchor == .start ? time : nil
+        let folding = Folding(mix: mix, kneader: setup.kneader)
         let schedule = Schedule(anchor: anchor, time: time, ryeShare: mix.ryeShare, vessel: setup.vessel,
-                                temperatures: temperatures, window: window, choices: choices,
+                                temperatures: temperatures, window: window, choices: choices, folding: folding,
                                 calendar: Self.calendar(timeZone))
         target = schedule.target
         restCelsius = schedule.restCelsius
+        plannedFolding = folding
+        plannedRounds = schedule.folds.count
     }
+
+    /// The folding of the plan; none for a bake saved before there was any.
+    public var folding: Folding { plannedFolding ?? .none }
+
+    /// How many rounds of folding the bake has; 0 for older bakes.
+    public var foldRounds: Int { plannedRounds ?? 0 }
+
+    /// When each round of folding was done, by its number from 1.
+    public var foldsDone: [Int: Date] { roundsDone ?? [:] }
 
     /// The add-ins of the plan; none for a bake saved before there were any.
     public var addIns: AddIns { addInShares ?? AddIns() }
@@ -97,7 +117,7 @@ public struct BakeRun: Codable, Equatable, Identifiable, Sendable {
 
     public var schedule: Schedule {
         Schedule(anchor: anchor, time: startTime ?? target, ryeShare: mix.ryeShare, vessel: setup.vessel,
-                 temperatures: temperatures, window: window, choices: choices, calendar: calendar)
+                 temperatures: temperatures, window: window, choices: choices, folding: folding, calendar: calendar)
     }
 
     public var recipe: Recipe {
@@ -120,18 +140,63 @@ public struct BakeRun: Codable, Equatable, Identifiable, Sendable {
         BakeProcess.answers(step, in: context)
     }
 
-    /// The steps of this bake, in their order.
-    public var steps: [BakeProcess.StepID] { BakeProcess.steps.map(\.id) }
+    /// The steps of this bake, in their order; one that is left out
+    /// (`BakeProcess.Step.skippedWhen`) or has no rounds is not among them.
+    public var steps: [BakeProcess.StepID] {
+        BakeProcess.steps.filter { step in
+            if step.skippedWhen?.holds(in: context) == true { return false }
+            if case .withinRest = step.timing { return foldRounds > 0 }
+            return true
+        }.map(\.id)
+    }
+
+    /// One line of the sequence: a step, or one round of a step within a rest.
+    public struct Entry: Equatable, Sendable {
+        public let step: BakeProcess.StepID
+        /// The round, from 1; `nil` for a step without rounds.
+        public let round: Int?
+
+        public init(step: BakeProcess.StepID, round: Int? = nil) {
+            self.step = step
+            self.round = round
+        }
+    }
+
+    /// The steps with every round on its own.
+    public var entries: [Entry] {
+        steps.flatMap { step -> [Entry] in
+            guard case .withinRest = BakeProcess.step(step).timing else { return [Entry(step: step, round: nil)] }
+            return (1...foldRounds).map { Entry(step: step, round: $0) }
+        }
+    }
+
+    /// When `entry` was done; `nil` if it is not.
+    public func doneAt(_ entry: Entry) -> Date? {
+        entry.round.map { foldsDone[$0] } ?? done[entry.step]
+    }
 
     /// The first step not done yet; `nil` when all are.
     public var current: BakeProcess.StepID? {
         steps.first { done[$0] == nil }
     }
 
-    /// Marks the current step done at `date`; the last one ends the bake.
-    /// Decisions are answered with `answer` instead.
+    /// The round of the current step if it has rounds: the first not done.
+    public var currentRound: Int? {
+        guard let step = current, case .withinRest = BakeProcess.step(step).timing else { return nil }
+        return foldsDone.count + 1
+    }
+
+    /// Marks the current step done at `date`, or its current round (the last
+    /// round marks the step); the last step ends the bake. Decisions are
+    /// answered with `answer` instead.
     public mutating func complete(at date: Date) {
         guard status == .active, let step = current, possibleAnswers(step).isEmpty else { return }
+        if let round = currentRound {
+            var rounds = foldsDone
+            rounds[round] = date
+            roundsDone = rounds
+            guard round == foldRounds else { return }
+        }
         done[step] = date
         if current == nil {
             status = .finished
@@ -156,15 +221,24 @@ public struct BakeRun: Codable, Equatable, Identifiable, Sendable {
     /// first step and for a cancelled bake.
     public var previous: BakeProcess.StepID? {
         guard status != .cancelled else { return nil }
+        // Rounds done of a step not done yet come after every done step.
+        if let step = current, currentRound != nil, !foldsDone.isEmpty { return step }
         return steps.last { done[$0] != nil }
     }
 
+    /// The round `undo` opens again, if `previous` has rounds: its last done.
+    public var previousRound: Int? {
+        guard let step = previous, case .withinRest = BakeProcess.step(step).timing else { return nil }
+        return foldsDone.keys.max()
+    }
+
     /// Opens the last done step again, for a step tapped by mistake: it
-    /// forgets when it was done and, for a decision, its answer. Answers of
-    /// open steps after it ("not yet") go as well, and a finished bake runs
-    /// again.
+    /// forgets when it was done and, for a decision, its answer. For a step
+    /// with rounds, only its last round opens again. Answers of open steps
+    /// after it ("not yet") go as well, and a finished bake runs again.
     public mutating func undo() {
         guard let step = previous else { return }
+        if let round = previousRound { roundsDone?[round] = nil }
         done[step] = nil
         answers = answers.filter { done[$0.key] != nil }
         status = .active

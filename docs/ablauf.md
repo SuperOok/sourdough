@@ -8,7 +8,9 @@ Utensilien, Roggenanteil und früheren Antworten. Jeder Zweig trägt die
 Bedingung, die der Durchgang auswertet (`BakeProcess.Condition`); „sonst“ ist
 der Zweig, wenn keine Regel davor zutrifft. Eine Entscheidung, die mit „Noch
 nicht“ beantwortet werden kann, läuft über den Text für die Zwischenzeit
-zurück.
+zurück. Dehnen und Falten ist eine Wiederholung („weitere Runde“) während der
+Stockgare, so oft, wie der Zeitplan Runden plant; ab 50 % Roggen entfällt der
+Schritt ganz.
 
 - Quelle: [`ablauf.puml`](ablauf.puml), erzeugt, nicht von Hand bearbeiten.
 - Bild: [`ablauf.svg`](ablauf.svg), mit `tools/diagrams.sh` gezeichnet.

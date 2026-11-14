@@ -38,8 +38,20 @@ Ohne Maschine oder zusätzlich zum Kneten baut Dehnen und Falten das Gerüst auf
 - Greife den Teig an einer Seite und ziehe ihn hoch, bis er sich spürbar dehnt, aber nicht reißt.
 - Falte ihn über den Teig zur Mitte.
 - Drehe die Schüssel eine Vierteldrehung und wiederhole das an allen vier Seiten. Das ist eine Runde.
-- Mache drei Runden im Abstand von etwa einer halben Stunde, solange der Teig in der [Stockgare](tip:proofing) ruht.
+- Mache mehrere Runden im Abstand von etwa einer halben Stunde, solange der Teig in der [Stockgare](tip:proofing) ruht. Wie viele, steht unten.
 
 Bei Weizen gibt das dem Teig Spannung, bei Dinkel ersetzt es einen Teil des Knetens, ohne das Gerüst zu überfordern. Roggenteig braucht es nicht.
+
+## Wie viele Runden die App plant
+
+Eine feste Zahl gibt es nicht; Backbücher und Blogs nennen meist zwei bis vier Runden. Die App richtet sich nach diesen Richtwerten:
+
+- **Nach dem Wasser im Teig:** unter 65 % zwei Runden im Abstand von 45 Minuten, bis 75 % drei, darüber vier Runden, beide im Abstand von 30 Minuten. Weiche Teige brauchen mehr Halt.
+- **Dinkel** bekommt höchstens drei Runden, und die Anleitung erinnert dich, ihn sanft zu dehnen.
+- **Ab 20 % Roggen** eine Runde weniger, und eine weitere weniger, wenn die Maschine gründlich geknetet hat; mindestens bleibt eine. Ab 50 % Roggen faltet die App nicht.
+- **Die letzte Stunde der Stockgare bleibt frei,** damit das Gas im Teig bleibt. Ist die Stockgare zu kurz, fallen Runden von hinten weg.
+- Steht die Stockgare an einem kühlen Ort, faltest du **zuerst bei Raumtemperatur** und stellst den Teig erst nach der letzten Runde weg: Kalter Teig lässt sich kaum noch dehnen. Die App rechnet die Zeit im Warmen mit.
+
+Die Runden liegen im Zeitplan wie die anderen Handgriffe zwischen 8 und 21 Uhr, und im Durchgang hakst du jede einzeln ab. Mit einer Maschine mit Knethaken kannst du eine Runde durch kurzes Laufenlassen ersetzen, siehe [Küchenmaschine](tip:kneader). Die Zahlen sind aus Erfahrungswerten abgeleitet, nicht gemessen.
 
 Mehr zu den Getreiden: [Weizen](tip:wheat), [Dinkel](tip:spelt) und [Roggen](tip:rye).

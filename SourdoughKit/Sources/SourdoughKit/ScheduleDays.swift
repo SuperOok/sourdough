@@ -12,6 +12,9 @@ import Foundation
 ///   22:30 to 06:30) has no visible part. It becomes a mark of zero length at
 ///   the edge of the row of the day it starts in (`inTheNight`): the right edge
 ///   if it starts in the evening, the left edge if it starts in the early morning.
+/// - The rounds of folding (`Schedule.folds`) are marks at their start in the
+///   row of their day (`Day.folds`); one in the night is not shown, its
+///   conflict says where it is.
 public struct ScheduleDays: Equatable, Sendable {
     public static let firstHour = 7
     public static let lastHour = 22
@@ -29,10 +32,18 @@ public struct ScheduleDays: Equatable, Sendable {
         public let inTheNight: Bool
     }
 
+    /// A round of folding in a row.
+    public struct Mark: Equatable, Sendable {
+        public let position: Double
+        public let outsideWindow: Bool
+    }
+
     public struct Day: Equatable, Sendable, Identifiable {
         /// Midnight at the start of the day.
         public let start: Date
         public let segments: [Segment]
+        /// The rounds of folding on this day, within the row.
+        public let folds: [Mark]
         /// Where the bread can be cut, if that is on this day (clamped to the row).
         public let target: Double?
 
@@ -87,7 +98,10 @@ public struct ScheduleDays: Equatable, Sendable {
             let open = time(Self.firstHour, of: day)
             let span = time(Self.lastHour, of: day).timeIntervalSince(open)
             let onThisDay = calendar.startOfDay(for: target) == day
-            return Day(start: day, segments: segments[row].sorted { $0.stepIndex < $1.stepIndex },
+            let folds = schedule.folds.map { (fold: $0, position: $0.start.timeIntervalSince(open) / span) }
+                .filter { (0...1).contains($0.position) }
+                .map { Mark(position: $0.position, outsideWindow: $0.fold.outsideWindow) }
+            return Day(start: day, segments: segments[row].sorted { $0.stepIndex < $1.stepIndex }, folds: folds,
                        target: onThisDay ? min(max(target.timeIntervalSince(open) / span, 0), 1) : nil)
         }
     }

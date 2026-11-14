@@ -240,16 +240,30 @@ final class BakePlanModel {
     func proposeTarget(now: Date, calendar: Calendar) {
         guard anchorTime == nil, let setup else { return }
         let target = Schedule.proposedTarget(after: now, ryeShare: effectiveMix.ryeShare, vessel: setup.vessel,
-                                             temperatures: temperatures, window: window, calendar: calendar)
+                                             temperatures: temperatures, window: window, folding: folding,
+                                             calendar: calendar)
         anchorTime = anchor == .ready ? target
             : Schedule.wholeMinute(Schedule(target: target, ryeShare: effectiveMix.ryeShare, vessel: setup.vessel,
-                                            temperatures: temperatures, window: window, calendar: calendar).start)
+                                            temperatures: temperatures, window: window, folding: folding,
+                                            calendar: calendar).start)
+    }
+
+    /// The rounds of stretching and folding for the mix and the kneader
+    /// (`Folding`); the same the bake will have.
+    var folding: Folding {
+        Folding(mix: effectiveMix, kneader: setup?.kneader)
+    }
+
+    /// The hours of folding at the start of `rest`.
+    func foldHours(_ rest: RestKind) -> Double {
+        Schedule.foldHours(rest, folding: folding)
     }
 
     func schedule(calendar: Calendar) -> Schedule? {
         guard let setup, let anchorTime else { return nil }
         return Schedule(anchor: anchor, time: anchorTime, ryeShare: effectiveMix.ryeShare, vessel: setup.vessel,
-                        temperatures: temperatures, window: window, choices: choices, calendar: calendar)
+                        temperatures: temperatures, window: window, choices: choices, folding: folding,
+                        calendar: calendar)
     }
 
     /// Fixes `rest` at `hours`. The time stays at the place it has if the
@@ -261,7 +275,7 @@ final class BakePlanModel {
         guard let step = schedule(calendar: calendar)?.rest(rest),
               case .rest(_, let current) = step.kind else { return }
         let place = ScheduleRules.place(forHours: hours, rest: rest, ryeShare: effectiveMix.ryeShare,
-                                        temperatures: temperatures, current: current)
+                                        temperatures: temperatures, current: current, foldHours: foldHours(rest))
         choices[rest] = RestChoice(place: place, hours: hours)
         wishes[rest] = hours
     }
@@ -276,10 +290,12 @@ final class BakePlanModel {
     /// What it would take for `rest` to last as long as the user asked:
     /// `nil` unless the plan could not give that time.
     func needed(for rest: RestKind, in schedule: Schedule) -> (hours: Double, celsius: Double)? {
-        guard let wish = wishes[rest], let step = schedule.rest(rest), abs(step.hours - wish) > 0.01 else {
+        guard let wish = wishes[rest], let step = schedule.rest(rest), let place = step.place,
+              abs(step.hours - wish) > 0.01 else {
             return nil
         }
-        return (wish, ScheduleRules.celsius(rest, ryeShare: effectiveMix.ryeShare, hours: wish))
+        return (wish, ScheduleRules.celsius(rest, ryeShare: effectiveMix.ryeShare, hours: wish, place: place,
+                                            temperatures: temperatures, foldHours: foldHours(rest)))
     }
 
     /// The duration of `rest` and the temperature that goes with it
@@ -293,7 +309,8 @@ final class BakePlanModel {
 
     /// Moves `rest` to `place`, at its nominal time there.
     func setPlace(_ place: Place, of rest: RestKind) {
-        let hours = ScheduleRules.hours(rest, ryeShare: effectiveMix.ryeShare, celsius: temperatures.celsius(place))
+        let hours = ScheduleRules.nominalHours(rest, ryeShare: effectiveMix.ryeShare, place: place,
+                                               temperatures: temperatures, foldHours: foldHours(rest))
         choices[rest] = RestChoice(place: place, hours: hours)
         wishes[rest] = nil
     }

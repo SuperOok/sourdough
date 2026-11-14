@@ -34,20 +34,45 @@ extension BakeProcess {
         return lines.joined(separator: "\n") + "\n"
     }
 
+    /// The label of the loop over the rounds of a step within a rest.
+    static let nextRoundLabel = "weitere Runde"
+
     private static func umlLines(of step: Step) -> [String] {
         let overlaps = if case .action(_, overlapsRest: true) = step.timing { true } else { false }
-        guard !step.variants.rules.isEmpty else { return umlLines(of: step.variants.otherwise, overlaps: overlaps) }
-        var lines = ["switch ()"]
-        for branch in step.variants.branches {
-            lines.append("case (\(branch.condition?.label ?? otherwiseLabel))")
-            lines += umlLines(of: branch.value, overlaps: overlaps).map { "  " + $0 }
+        var within: String?
+        if case .withinRest(let rest) = step.timing { within = restName(rest) }
+        var lines: [String]
+        if step.variants.rules.isEmpty {
+            lines = umlLines(of: step.variants.otherwise, overlaps: overlaps, within: within)
+        } else {
+            lines = ["switch ()"]
+            for branch in step.variants.branches {
+                lines.append("case (\(branch.condition?.label ?? otherwiseLabel))")
+                lines += umlLines(of: branch.value, overlaps: overlaps, within: within).map { "  " + $0 }
+            }
+            lines.append("endswitch")
         }
-        lines.append("endswitch")
+        // Rounds repeat as often as the schedule plans them.
+        if within != nil {
+            lines = ["repeat"] + lines.map { "  " + $0 } + ["repeat while (\(nextRoundLabel)) is (ja) not (nein)"]
+        }
+        if let skipped = step.skippedWhen {
+            lines = ["if (\(skipped.label)) then (ja)", "else (\(otherwiseLabel))"] + lines.map { "  " + $0 }
+                + ["endif"]
+        }
         return lines
     }
 
-    private static func umlLines(of variant: Variant, overlaps: Bool) -> [String] {
-        let note = overlaps ? "\\n//noch während der Ruhe davor//" : ""
+    /// The German name of `rest` as the nodes give it.
+    static func restName(_ rest: RestKind) -> String {
+        nodes.lazy.compactMap { node in
+            if case .rest(rest, let name) = node { name } else { nil }
+        }.first!
+    }
+
+    private static func umlLines(of variant: Variant, overlaps: Bool, within: String? = nil) -> [String] {
+        let note = overlaps ? "\\n//noch während der Ruhe davor//"
+            : within.map { "\\n//während der \($0)//" } ?? ""
         let activity = ":\(title(variant.text))\(note);"
         let waiting = variant.answers.filter(\.waits)
         let proceeding = variant.answers.filter { !$0.waits }
@@ -97,7 +122,10 @@ extension BakeProcess {
                 connect(to: "rest.\(rest.rawValue)", nil)
                 frontier = [("rest.\(rest.rawValue)", nil)]
             case .step(let step):
-                var exits: [(node: String, label: String?)] = []
+                // A step that can be left out lets the way past it go on.
+                var exits: [(node: String, label: String?)] = step.skippedWhen.map { skipped in
+                    frontier.map { ($0.node, [$0.label, skipped.label].compactMap { $0 }.joined(separator: ", ")) }
+                } ?? []
                 let branches = step.variants.branches
                 for branch in branches {
                     let variant = branch.value
@@ -110,6 +138,9 @@ extension BakeProcess {
                     }
                     let proceeding = variant.answers.filter { !$0.waits }
                     exits += proceeding.isEmpty ? [(name, nil)] : proceeding.map { (name, $0.label) }
+                    if case .withinRest = step.timing {
+                        edges.append(Edge(from: name, to: name, label: nextRoundLabel))
+                    }
                 }
                 frontier = exits
             }
