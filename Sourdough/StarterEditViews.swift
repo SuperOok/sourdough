@@ -14,8 +14,17 @@ struct AddStarterView: View {
 
     var body: some View {
         NavigationStack {
-            NumberForm(fields: ["add-flour-grams", "add-water-grams",
-                                model.inFridge ? "add-fridge-temp" : "add-room-temp"]) { focus in
+            NumberForm(fields: model.fields) { focus in
+                Section {
+                    // A menu: three long segments do not fit on 393 pt.
+                    Picker("Wie entsteht er?", selection: $model.origin) {
+                        ForEach(StarterOrigin.allCases, id: \.self) { origin in
+                            Text(origin.title).tag(origin)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .accessibilityIdentifier("add-origin")
+                }
                 Section("Sauerteig") {
                     // Labelled, so that it reads as a field for the name; the grey
                     // placeholder is the name the starter gets without one.
@@ -32,17 +41,15 @@ struct AddStarterView: View {
                     }
                     .pickerStyle(.segmented)
                     .accessibilityIdentifier("add-flour")
-                    DatePicker("Angesetzt am", selection: $model.createdAt, in: ...Date(),
-                               displayedComponents: [.date, .hourAndMinute])
-                        .accessibilityIdentifier("add-date")
+                    if model.origin != .existing {
+                        DatePicker("Angesetzt am", selection: $model.createdAt, in: ...Date(),
+                                   displayedComponents: [.date, .hourAndMinute])
+                            .accessibilityIdentifier("add-date")
+                    }
                 }
-                Section {
-                    NumberField(title: "Mehl (g)", text: $model.flourText, id: "add-flour-grams", focus: focus)
-                    NumberField(title: "Wasser (g)", text: $model.waterText, id: "add-water-grams", focus: focus)
-                } header: {
-                    Text("Erste Fütterung")
-                } footer: {
-                    errorFooter(model.foodError)
+                switch model.origin {
+                case .existing: existingSection(focus)
+                case .inoculated, .spontaneous: mixSection(focus)
                 }
                 Section {
                     Picker("Ort", selection: $model.inFridge) {
@@ -61,7 +68,11 @@ struct AddStarterView: View {
                 } header: {
                     Text("Aufbewahrung")
                 } footer: {
-                    errorFooter(model.storageError)
+                    if let error = model.storageError {
+                        errorFooter(error)
+                    } else if let hint = model.coldHint {
+                        Text(hint).accessibilityIdentifier("add-cold-hint")
+                    }
                 }
             }
             .navigationTitle("Neuer Starter")
@@ -85,17 +96,61 @@ struct AddStarterView: View {
             }
         }
     }
+
+    /// A starter that lives already: when it was fed last, and how much there is.
+    private func existingSection(_ focus: FocusState<String?>.Binding) -> some View {
+        Section {
+            Toggle("Letzte Fütterung bekannt", isOn: $model.lastFeedingKnown)
+                .accessibilityIdentifier("add-known")
+            if model.lastFeedingKnown {
+                DatePicker("Zuletzt gefüttert am", selection: $model.lastFedAt, in: ...Date(),
+                           displayedComponents: [.date, .hourAndMinute])
+                    .accessibilityIdentifier("add-last-fed")
+                NumberField(title: "Menge (g)", text: $model.amountText, id: "add-amount", focus: focus)
+            }
+        } header: {
+            Text("Letzte Fütterung")
+        } footer: {
+            if let error = model.amountError {
+                errorFooter(error)
+            } else {
+                Text(model.lastFeedingKnown
+                     ? "Ungefähr reicht. Die App rechnet mit einer Fütterung im Verhältnis 1 : 1 : 1."
+                     : "Bis zu deiner ersten Fütterung schätzt die App keinen Zustand.")
+                    .accessibilityIdentifier("add-known-hint")
+            }
+        }
+    }
+
+    /// A fresh mix: the sample (with one), flour and water.
+    private func mixSection(_ focus: FocusState<String?>.Binding) -> some View {
+        Section {
+            if model.origin == .inoculated {
+                NumberField(title: "Anstellgut (g)", text: $model.sampleText, id: "add-sample", focus: focus)
+            }
+            NumberField(title: "Mehl (g)", text: $model.flourText, id: "add-flour-grams", focus: focus)
+            NumberField(title: "Wasser (g)", text: $model.waterText, id: "add-water-grams", focus: focus)
+            if model.origin == .spontaneous {
+                HStack {
+                    Text("So gelingt der Ansatz")
+                    Spacer()
+                    TipsIconButton(topic: .starterFromScratch, identifier: "add-scratch-tip")
+                }
+            }
+        } header: {
+            Text("Erste Fütterung")
+        } footer: {
+            if let error = model.foodError { errorFooter(error) }
+        }
+    }
 }
 
 extension AddStarterView {
     /// A message below the fields it is about. Above the form it would move
     /// the fields while typing and take the focus away.
-    @ViewBuilder
-    func errorFooter(_ error: String?) -> some View {
-        if let error {
-            Text(error).foregroundStyle(.red)
-                .accessibilityIdentifier("add-error")
-        }
+    func errorFooter(_ error: String) -> some View {
+        Text(error).foregroundStyle(.red)
+            .accessibilityIdentifier("add-error")
     }
 }
 
@@ -108,8 +163,8 @@ struct FeedView: View {
     /// The name of the starter that is fed, shown above the fields.
     private let starterName: String
 
-    init(starterName: String, previous: Feeding?, onSave: @escaping (Feeding) -> Void) {
-        _model = State(initialValue: FeedFormModel(previous: previous))
+    init(starterName: String, previous: Feeding?, asksRise: Bool = false, onSave: @escaping (Feeding) -> Void) {
+        _model = State(initialValue: FeedFormModel(previous: previous, asksRise: asksRise))
         self.starterName = starterName
         self.onSave = onSave
     }
@@ -133,9 +188,25 @@ struct FeedView: View {
                 } header: {
                     Text("Was du zugibst")
                 } footer: {
-                    if let error = model.errorText {
+                    if let error = model.amountError {
                         Text(error).foregroundStyle(.red)
                             .accessibilityIdentifier("feed-error")
+                    }
+                }
+                if model.asksRise {
+                    Section {
+                        Picker("Aufgegangen", selection: $model.rise) {
+                            ForEach(Rise.allCases, id: \.self) { rise in
+                                Text(rise.title).tag(Optional(rise))
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                        .accessibilityIdentifier("feed-rise")
+                    } header: {
+                        Text("Seit der letzten Fütterung")
+                    } footer: {
+                        Text(model.riseError ?? "Nach zwei Mal „Verdoppelt“ hintereinander ist er bereit.")
+                            .accessibilityIdentifier("feed-rise-hint")
                     }
                 }
             }

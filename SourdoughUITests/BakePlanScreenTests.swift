@@ -114,6 +114,23 @@ final class BakePlanScreenTests: SourdoughUITestCase {
         XCTAssertTrue(app.staticTexts["plan-issue-0"].waitForNonExistence(timeout: 5))
     }
 
+    func testAYoungStarterCannotStartABake() {
+        launch(seedEquipment: true, seedStarters: true, now: Self.friday)
+        openBake()
+        choose("plan-starter", "Junger Roggensauerteig (Roggen)")
+        assertText("plan-issue-0", "Dein Starter ist noch in der Ansetzphase und lockert den Teig noch nicht "
+                   + "verlässlich. Backe mit ihm, wenn er sich zweimal hintereinander verdoppelt hat, "
+                   + "oder wähle einen anderen.")
+        // Planning goes on, but the bake cannot start.
+        tapButton("plan-next")
+        tapButton("setup-next")
+        XCTAssertFalse(element(app.buttons, "schedule-start").isEnabled)
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        choose("plan-starter", "Roggensauerteig (Roggen)")
+        XCTAssertTrue(app.staticTexts["plan-issue-0"].waitForNonExistence(timeout: 5))
+    }
+
     func testAShareCanBeSteppedLimitedAndSlid() {
         launch()
         openBake()

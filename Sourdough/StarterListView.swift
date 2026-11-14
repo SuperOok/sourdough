@@ -54,7 +54,7 @@ struct StarterListView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(starter.name).font(.headline)
                     Text("\(starter.flour.germanName) · \(summary.stateTitle)")
-                    Text("Füttern oder verwenden bis \(summary.feedBy)")
+                    Text(summary.feedByLine)
                         .font(.footnote).foregroundStyle(.secondary)
                 }
             }

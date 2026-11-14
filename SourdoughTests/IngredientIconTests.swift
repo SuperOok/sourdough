@@ -26,7 +26,8 @@ struct IngredientIconTests {
         let expected: [TipsTopic.ID: TipsGlyph] = [
             .kneader: .asset("KneaderIcon"), .pot: .asset("PotIcon"), .pan: .asset("PanOpenIcon"),
             .basket: .asset("BasketRoundIcon"),
-            .starter: .asset("StarterJarIcon"), .starterCare: .asset("StarterJarIcon"),
+            .starter: .asset("StarterJarIcon"), .starterFromScratch: .asset("StarterJarIcon"),
+            .starterCare: .asset("StarterJarIcon"),
             .flours: .asset("FlourSackIcon"), .wheat: .asset("WheatIcon"), .rye: .asset("RyeIcon"),
             .spelt: .asset("SpeltIcon"), .buckwheat: .asset("BuckwheatIcon"),
             .seeds: .asset("SeedsIcon"), .nuts: .asset("NutsIcon"), .driedFruit: .asset("DriedFruitIcon"),

@@ -151,6 +151,9 @@ enum BakeText {
                 + "auseinander. Nimm die Kastenform oder weniger Roggen."
         case .missingEquipment(let kind):
             "Für diesen Backweg fehlt ein Utensil: \(kind.germanName)."
+        case .starterEstablishing:
+            "Dein Starter ist noch in der Ansetzphase und lockert den Teig noch nicht verlässlich. "
+                + "Backe mit ihm, wenn er sich zweimal hintereinander verdoppelt hat, oder wähle einen anderen."
         }
     }
 

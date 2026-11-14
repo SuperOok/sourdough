@@ -4,8 +4,10 @@ SwiftUI-App fürs iPhone, gebaut mit Xcode 27.
 
 Sourdough ist eine **Hilfe-App für Brot mit Sauerteig**. Geplant ist ein
 Rezeptrechner (Bäckerprozente, Hydration, Anteil des Anstellguts, Skalieren
-auf eine Teigmenge); gebacken wird in der eigenen Küche. Zeitpläne,
-Starter-Pflege und Backtagebuch gehören nicht zum Umfang.
+auf eine Teigmenge); gebacken wird in der eigenen Küche. Zeitplan,
+Starter-Protokoll (samt Ansetzphase eines spontan angesetzten Starters) und
+Backprotokoll gehören inzwischen dazu; Erinnerungen und ein freies
+Backtagebuch nicht.
 
 **Der Teigrechner ist vorerst abgeschaltet** (2026-11-08): Er soll später
 anders aussehen und kostete viel Testzeit. Die Rechenlogik `Dough` bleibt im
@@ -366,10 +368,69 @@ Gespeichert wird unter `equipment.v2`. Der frühere Eintrag `equipment.v1`
 
 ## Sauerteigstarter
 
-Ein Starter hat Name, Mehlsorte (Roggen, Weizen, Dinkel), Ansetzdatum, einen
-Aufbewahrungsort (Raumtemperatur oder Kühlschrank mit Temperatur von 0 bis
-15 °C) und ein Protokoll von Fütterungen (behaltener Starter, Mehl, Wasser,
-Zeitpunkt). Das Anlegen ist die erste Fütterung, ohne behaltenen Starter.
+Ein Starter hat Name, Mehlsorte (Roggen, Weizen, Dinkel), Herkunft
+(`StarterOrigin`), Ansetzdatum, einen Aufbewahrungsort (Raumtemperatur oder
+Kühlschrank mit Temperatur von 0 bis 15 °C) und ein Protokoll von Fütterungen
+(behaltener Starter, Mehl, Wasser, Zeitpunkt, in der Ansetzphase die
+Beobachtung `Feeding.rise`).
+
+**Drei Wege beim Anlegen** (VB-001, VB-002; Menü-Picker „Wie entsteht er?“,
+`add-origin`, Voreinstellung „Schon vorhanden“):
+
+- **Schon vorhanden** (`.existing`, übernommen oder schon länger da): „Zuletzt
+  gefüttert am“ (ungefähr) und „Menge (g)“. Die erste Fütterung ist eine
+  *geschätzte* (`Feeding.estimate`, `isEstimate`): `starterGrams` ist die
+  Menge, Mehl und Wasser sind unbekannt (0); die Verdünnung ist die Annahme
+  `StarterModel.assumedDilution` (3, wie 1 : 1 : 1). Ist die letzte Fütterung
+  unbekannt (Schalter `add-known` aus), hat der Starter keine Fütterung und
+  steht auf „Noch nicht gefüttert“. `createdAt` ist hier der Zeitpunkt des
+  Anlegens; die Ansicht zeigt „Bei dir seit“ statt „Angesetzt vor“. Beim
+  ersten eigenen Füttern schlägt `FeedFormModel` die Menge als behaltenen
+  Starter vor.
+- **Mit Anstellgut ansetzen** (`.inoculated`): „Angesetzt am“, Anstellgut,
+  Mehl, Wasser; die erste Fütterung hat die Probe als `starterGrams`, die
+  Verdünnung folgt aus echten Zahlen. Gespeicherte Starter ohne Herkunft
+  lesen sich als `.inoculated` und rechnen unverändert (ihre erste Fütterung
+  ohne Starter zählt wie bisher mit der Verdünnung 3).
+- **Spontan ansetzen** (`.spontaneous`, nur Mehl und Wasser): „Angesetzt am“,
+  Mehl, Wasser (je 50 g); der Ort springt auf Raumtemperatur, unter 22 °C
+  steht ein Hinweis (`add-cold-hint`, kein Fehler), eine Glühbirne
+  (`add-scratch-tip`) öffnet „Starter selbst ansetzen“.
+
+**Ansetzphase** (`StarterEstablishing`, alle Konstanten dort): Ein spontaner
+Starter ist in der Ansetzphase, bis er nach zwei Fütterungen in Folge
+„verdoppelt“ war (`Starter.readySince`, `isEstablishing`). Bis dahin liefert
+`status(at:)` `nil`, und `establishing(at:)` gibt Tag n (Tag 1 ist der Tag des
+Ansetzens), die erwartete Phase (`EstablishingPhase`), die Verdopplungen in
+Folge, „füttern bis“ (24 h nach der letzten Fütterung) und „meist bereit bis“.
+Die Phase richtet sich nach den Tagen seit dem Ansetzen, bei 22 °C: frisch
+angesetzt, Scheinblüte ab 2, Ruhephase ab 3, wird stabil ab 5, meist bereit
+bis 10, „dauert länger als üblich“ ab 14 Tagen; je 10 °C kälter dreimal so
+lang (12 °C: Scheinblüte ab 6, Ruhephase ab 9 Tagen). Die Tage sind nur
+Erwartung; bereit macht ihn erst die Beobachtung. `Starter.condition(at:)`
+fasst alles zusammen (`.notFed`, `.establishing`, `.fed`). Beim Füttern fragt
+die App in der Ansetzphase „Seit der letzten Fütterung“ (`feed-rise`:
+Verdoppelt, Etwas, Nicht), Pflicht. Liste und Detail zeigen „Ansetzphase ·
+Tag n“, die Phase mit einem Satz, „Verdoppelt: 1 von 2“, „Füttern bis …“,
+danach die normale Schätzung und „Bereit seit …“. In der Backplanung ist ein
+Starter in der Ansetzphase wählbar, `BakeRules.Issue.starterEstablishing`
+sperrt aber „Durchgang starten“. Die Phasengrenzen sind mit Quellen
+gegengeprüft (VB-002, „Ergebnis“).
+
+Bezeichner: Anlegen `add-origin`, `add-name`, `add-flour`, `add-date`
+(„Angesetzt am“), `add-known`, `add-last-fed`, `add-amount`,
+`add-known-hint`, `add-sample`, `add-flour-grams`, `add-water-grams`,
+`add-scratch-tip`, `add-storage`, `add-fridge-temp`, `add-room-temp`,
+`add-cold-hint`, `add-error`, `add-save`, `add-cancel`, `add-tips`;
+Füttern `feed-name`, `feed-starter`, `feed-flour`, `feed-water`, `feed-date`,
+`feed-rise`, `feed-rise-hint`, `feed-error`, `feed-save`, `feed-cancel`,
+`feed-tips`; Detail `detail-feed`, `detail-state`, `detail-hint`,
+`detail-phase`, `detail-doubled`, `detail-ready-by`, `detail-age`,
+`detail-feedby`, `detail-window`, `detail-refresh-twice`, `detail-ready`,
+`detail-establishing-note`, `detail-why`, `detail-check`,
+`detail-storage`, `detail-fridge-temp`, `detail-room-temp`, `feeding-<n>`,
+`detail-delete`, `detail-tips`; Liste `starter-row-<name>`, `starter-add`,
+`starters-empty`.
 
 **Der Zustand ist eine Schätzung** (`StarterModel`, Beschreibung im
 Dokumentationskommentar und in den Abschnitten der Tipps-Seite
@@ -383,6 +444,23 @@ Der Zeitpunkt „füttern oder verwenden bis“ ist die Hungrig-Grenze. Alle
 Konstanten stehen an einer Stelle in `StarterModel`. Sie sind Richtwerte und
 nicht an echten Startern gemessen; wer sie ändert, ändert die Sollwerte in
 `StarterTests` von Hand nach.
+
+**Im Kühlschrank** (VB-003, `StarterFridge`, Quellen in VB-003) gelten eigene
+Zustände, weil dort die Frage das Auffrischen ist und nicht der beste
+Zeitpunkt zum Verwenden: „Ruht“ (`.resting`), „Auffrischen empfohlen“
+(`.refreshRecommended`) ab 7 Tagen nach der letzten Fütterung bei 4 °C,
+„Vor dem Backen zweimal auffrischen“ (`.refreshTwice`) ab 21 Tagen bei 4 °C;
+je 10 °C wärmer ein Drittel so lang (Q10 = 3, unter 10 °C nicht belegt), bei
+5 °C also ≈ 6,3 und ≈ 18,8 Tage. Die Mengen der Fütterung zählen dort nicht.
+Bei 15 °C kommt das Auffrischen nach ≈ 50 h, nahe der Grenze „lange nicht
+gefüttert“ der Raumrechnung (≈ 54 h für Roggen 20 + 50 + 50): Die beiden Regeln
+gehen ohne Sprung ineinander über. `StarterStatus.feedBy` ist im Kühlschrank
+„Auffrischen ab“, `refreshTwiceFrom` „Zweimal auffrischen ab“; die beste Zeit
+entfällt. Das Detail sagt unter dem Zustand, wie die App darauf kommt
+(`StarterText.explanation`, `detail-why`: Temperatur, Verhältnis der letzten
+Fütterung, Höhepunkt und Grenzen bzw. die Kühlschrank-Grenzen), und darunter
+„Prüf selbst“ mit den Erkennungszeichen (`StarterText.checkYourself`,
+`detail-check`).
 
 Ohne Kühlschrank steht der Starter bei seiner eigenen Raumtemperatur
 (`Starter.roomCelsius`, 10 bis 35 °C, Voreinstellung 22 °C; ältere
@@ -797,11 +875,15 @@ nachgerechneten Stunden der Sauerteigstufe (27 °C 4,6 h, 16 °C 15,5 h, 5 °C
 Zeitplans und der kühle Ort. `TipsCatalogTests` hält Stunden und Spannen gegen
 `ScheduleRules`. Verlinkt von „So wird der Zeitplan berechnet“; eine
 Glühbirne im Zeitplan sitzt hinter der Raumtemperatur
-(`schedule-tip-temperature`). Die Seiten zum Starter
-sind zwei: die Zustandsrechnung steht als Abschnitte in `starter.md`;
-`starterCare` („Starter erhalten und pflegen“, Icon `StarterJarIcon`) erklärt,
-wie der Starter nach dem Backen erhalten bleibt (ein Teelöffel, die zwei Wege,
-Glas und Reinigung ohne Spülmittel, Kahmhefe und Schimmel).
+(`schedule-tip-temperature`). Die Zustandsrechnung des Starters steht als
+Abschnitte in `starter.md` (auch Ansetzphase und übernommene Starter); die
+Kategorie „Sauerteigstarter“ hat dazu zwei Seiten, beide mit dem Icon
+`StarterJarIcon`: `starterFromScratch` („Starter selbst ansetzen“: Tag für Tag,
+Erkennungszeichen, bereit, Fallstricke), verlinkt aus `starter.md`,
+`starterNew.md`, `starterFeed.md` und dem Formular (`add-scratch-tip`), und
+`starterCare` („Starter erhalten und pflegen“), die erklärt, wie der Starter
+nach dem Backen erhalten bleibt (ein Teelöffel, die zwei Wege, Glas und
+Reinigung ohne Spülmittel, Kahmhefe und Schimmel).
 
 **Ein neues Thema** braucht drei Schritte: einen Fall in
 `TipsTopic.ID` (der Rohwert ist der Dateiname), die Datei `Tips/<id>.md` und
@@ -836,6 +918,7 @@ braucht er einen eigenen `identifier`. Die Tipps-Ansicht selbst hat keinen.
 | Sauerteigstarter (Liste) | `starter` | `tips-button` |
 | Starter (Detail) | `starter` | `detail-tips` |
 | Neuer Starter | `starterNew` | `add-tips` |
+| Neuer Starter, spontan | `starterFromScratch` | `add-scratch-tip` |
 | Füttern | `starterFeed` | `feed-tips` |
 
 **Kategorie „Die App“** (`TipsTopic.Category.app`, zuletzt im Inhaltsverzeichnis):
@@ -871,9 +954,11 @@ Jeder UI-Test startet die App in einem definierten Zustand:
   innerhalb eines Tests lässt ihn weg, um das Speichern zu beweisen.
 - `-splashSeconds <n>` dehnt die Startanimation, damit ein Test sie sicher
   sieht.
-- `-seedStarters demo` speichert zwei Starter in bekannten Zuständen
-  (Roggen im Kühlschrank, vor einer Stunde gefüttert: „Reift“; Weizen bei
-  Raumtemperatur, vor drei Tagen gefüttert: „Lange nicht gefüttert“).
+- `-seedStarters demo` speichert drei Starter in bekannten Zuständen
+  (Roggen im Kühlschrank, vor einer Stunde gefüttert: „Ruht“; Weizen bei
+  Raumtemperatur, vor drei Tagen gefüttert: „Lange nicht gefüttert“;
+  „Junger Roggensauerteig“, spontan angesetzt vor 3,5 Tagen bei 22 °C:
+  „Ansetzphase · Tag 4“, Ruhephase, eine Verdopplung).
 - `-seedEquipment all` speichert fünf Utensilien (`EquipmentDemo`):
   Küchenmaschine „Thermomix“ (Messer, Schüssel 2,2 l), ovaler Römertopf mit Deckel und Einlage (30 × 20 × 12 cm,
   5,7 l), „Gusseisenform“ mit Deckel und Einlage (30 × 10 × 8 cm, 2,4 l),

@@ -105,6 +105,7 @@ final class BakePlanModel {
 
     func issues(starters: [Starter]) -> [BakeRules.Issue] {
         BakeRules.issues(mix: effectiveMix, bread: bread, starterFlour: starter(in: starters)?.flour,
+                         starterEstablishing: starter(in: starters)?.isEstablishing ?? false,
                          totalGrams: totalGrams ?? 0, limits: limits)
             + (setup?.issues(ryeShare: effectiveMix.ryeShare) ?? [])
     }
