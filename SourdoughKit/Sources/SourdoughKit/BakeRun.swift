@@ -104,21 +104,34 @@ public struct BakeRun: Codable, Equatable, Identifiable, Sendable {
         Recipe(mix: mix, totalGrams: totalGrams, starterFlour: starter?.flour, addIns: addIns)
     }
 
+    /// What the branches of the process depend on: setup, rye share and the
+    /// answers so far.
+    public var context: BakeProcess.Context {
+        BakeProcess.Context(setup: setup, ryeShare: mix.ryeShare, answers: answers)
+    }
+
     /// The text each step shows, given the answers so far.
     public func text(_ step: BakeProcess.StepID) -> BakeProcess.Text {
-        BakeProcess.text(step, setup: setup, ryeShare: mix.ryeShare, answers: answers)
+        BakeProcess.variant(step, in: context).text
     }
+
+    /// The answers `step` can be given; empty for a step that is simply done.
+    public func possibleAnswers(_ step: BakeProcess.StepID) -> [BakeProcess.Answer] {
+        BakeProcess.answers(step, in: context)
+    }
+
+    /// The steps of this bake, in their order.
+    public var steps: [BakeProcess.StepID] { BakeProcess.steps.map(\.id) }
 
     /// The first step not done yet; `nil` when all are.
     public var current: BakeProcess.StepID? {
-        BakeProcess.StepID.allCases.first { done[$0] == nil }
+        steps.first { done[$0] == nil }
     }
 
     /// Marks the current step done at `date`; the last one ends the bake.
     /// Decisions are answered with `answer` instead.
     public mutating func complete(at date: Date) {
-        guard status == .active, let step = current,
-              BakeProcess.answers(step, setup: setup).isEmpty else { return }
+        guard status == .active, let step = current, possibleAnswers(step).isEmpty else { return }
         done[step] = date
         if current == nil {
             status = .finished
@@ -129,8 +142,7 @@ public struct BakeRun: Codable, Equatable, Identifiable, Sendable {
     /// Answers the current decision. An answer that waits keeps the step
     /// open; any other marks it done.
     public mutating func answer(_ answer: BakeProcess.Answer, at date: Date) {
-        guard status == .active, let step = current,
-              BakeProcess.answers(step, setup: setup).contains(answer) else { return }
+        guard status == .active, let step = current, possibleAnswers(step).contains(answer) else { return }
         answers[step] = answer
         if !answer.waits { done[step] = date }
     }
@@ -144,7 +156,7 @@ public struct BakeRun: Codable, Equatable, Identifiable, Sendable {
     /// first step and for a cancelled bake.
     public var previous: BakeProcess.StepID? {
         guard status != .cancelled else { return nil }
-        return BakeProcess.StepID.allCases.last { done[$0] != nil }
+        return steps.last { done[$0] != nil }
     }
 
     /// Opens the last done step again, for a step tapped by mistake: it

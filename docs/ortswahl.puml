@@ -1,0 +1,89 @@
+@startuml
+' Hand-written: the place choice of the schedule (Schedule, ScheduleRules).
+' Keep it in step with the code; tools/diagrams.sh draws ortswahl.svg.
+title Zeitplan: Ortswahl der Ruhen
+
+start
+:Ablauf aus der Definition lesen (BakeProcess.timeline):
+Handgriffe in Blöcken zwischen den Ruhen
+Sauerteig, Stockgare, Stückgare;
+note right
+  Block vor der ersten Ruhe: Sauerteig ansetzen
+  dann: Kneten, Formen
+  nach der Stückgare: Vorheizen (schon während
+  ihres Endes) und Backen, danach Auskühlen
+end note
+
+if (Festlegen für?) then (Anschnittfertig)
+  partition "Rückwärts von „anschnittfertig“" {
+    :Backende spätestens = anschnittfertig − Auskühlen
+    (2 h, ab 50 % Roggen 6 h, ab 80 % 24 h);
+    if (Vorheizen und Backen passen ins Zeitfenster
+    8–21 Uhr, höchstens 3 Tage früher?) then (ja)
+      :Backende = die passende Zeit am nächsten
+      am spätesten Backende (Auskühlen länger);
+    else (nein)
+      :Backende = spätestes Backende;
+      :Konflikt: Vorheizen und Backen
+      außerhalb des Zeitfensters; <<#FFD8B0>>
+    endif
+    repeat :nächste Ruhe, die letzte zuerst;
+      :Block davor muss mit Beginn der Ruhe enden;
+      partition "Ort wählen" {
+        if (Ruhe fest, also in choices,
+        und ihr Ort möglich?) then (ja)
+          :Ort und Dauer wie festgelegt,
+          Dauer in die Spanne des Ortes geklemmt;
+          if (Block davor im Zeitfenster?) then (nein)
+            :Konflikt; <<#FFD8B0>>
+          else (ja)
+          endif
+        else (nein)
+          :Orte der Ruhe in fester Reihenfolge:
+          Raum, kühler Ort (falls vorhanden und kühler als der Raum),
+          Kühlschrank (nur Stückgare), warm (27 °C);
+          repeat :nächster Ort;
+            :Spanne = Nennzeit bei seiner Temperatur
+            × Faktor 0,85–1,2, Sauerteig 0,8–1,25,
+            Kühlschrank 0,7–1,5;
+          repeat while (Legt eine Dauer in der Spanne den Block ins Zeitfenster?) is (nein, weitere Orte) not (ja, oder keine Orte mehr)
+          if (ein Ort gefunden?) then (ja)
+            :dieser Ort, die Dauer, deren Block
+            der Nennzeit am nächsten liegt;
+          else (nein)
+            :Nennzeit am üblichen Ort (Raum);
+            :Konflikt: Block davor
+            außerhalb des Zeitfensters; <<#FFD8B0>>
+          endif
+        endif
+      }
+    repeat while (weitere Ruhe?) is (ja)
+    ->nein;
+    :Beginn = Sauerteig ansetzen;
+  }
+else (Sauerteig ansetzen)
+  partition "Vorwärts vom Ansetzen des Sauerteigs" {
+    :Sauerteig ansetzen zur festgelegten Zeit;
+    if (im Zeitfenster 8–21 Uhr?) then (nein)
+      :Konflikt; <<#FFD8B0>>
+    else (ja)
+    endif
+    repeat :nächste Ruhe, die erste zuerst;
+      :Block danach muss in das Zeitfenster
+      (nach der Stückgare: Vorheizen und Backen);
+      :Ort wählen wie rückwärts:
+      feste Ruhe aus choices, sonst erster Ort,
+      dessen Spanne den Block danach ins Zeitfenster legt,
+      sonst Nennzeit im Raum mit Konflikt;
+      :alle folgenden Schritte rücken mit;
+    repeat while (weitere Ruhe?) is (ja)
+    ->nein;
+    :Auskühlen genau die Mindestzeit;
+    :anschnittfertig = Ergebnis;
+    note right: In der Nacht ist das kein Konflikt.
+  }
+endif
+:Zieltemperatur je Ruhe: die Temperatur,
+bei der die geplante Dauer der Regel entspricht;
+stop
+@enduml

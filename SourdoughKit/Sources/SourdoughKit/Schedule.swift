@@ -325,6 +325,12 @@ public struct ScheduleStep: Equatable, Sendable {
 /// The timeline of a bake, planned backwards from the time the bread can be
 /// cut or forwards from the time the sourdough is mixed (`ScheduleAnchor`).
 ///
+/// Which actions and rests there are, and in which order, comes from the
+/// process definition (`BakeProcess.timeline`, grouped as `Layout`): blocks
+/// of actions between the rests. Both directions share the place choice
+/// (`place`) and the layout of a block; `docs/ortswahl.puml` draws the
+/// procedure.
+///
 /// Going back from the target: the bread cools at least
 /// `ScheduleRules.coolingHours`, longer if that puts preheating and baking
 /// into the interaction window. Then each rest, last first, takes the first
@@ -344,9 +350,82 @@ public struct Schedule: Equatable, Sendable {
     /// What the bread bakes in; it decides some step titles.
     public let vessel: BakeSetup.Vessel
 
-    /// The rests, each with the action before it, in their order.
-    private static let pairs: [(ActionKind, RestKind)] = [(.mixSourdough, .sourdough), (.knead, .bulk),
-                                                            (.shape, .proof)]
+    /// The actions between two rests (or before the first, or between the
+    /// last and the cooling). `overlapping` ones run during the end of the
+    /// rest before (preheating during the proof), `following` ones one after
+    /// another once it ended. Planned, a block must lie in the interaction
+    /// window from the start of the overlapping actions to the end of the
+    /// following ones.
+    struct Block: Equatable, Sendable {
+        var overlapping: [ActionKind] = []
+        var following: [ActionKind] = []
+    }
+
+    /// The timeline of the process (`BakeProcess.timeline`) as blocks and the
+    /// rests between them: `blocks.count == rests.count + 1`, and the
+    /// cooling follows the last block.
+    struct Layout: Equatable, Sendable {
+        var blocks: [Block] = [Block()]
+        var rests: [RestKind] = []
+
+        init(_ timeline: [BakeProcess.TimelineItem]) {
+            for item in timeline {
+                switch item {
+                case .action(let action, overlapsRest: true): blocks[blocks.count - 1].overlapping.append(action)
+                case .action(let action, overlapsRest: false): blocks[blocks.count - 1].following.append(action)
+                case .rest(let rest):
+                    rests.append(rest)
+                    blocks.append(Block())
+                case .cooling: break
+                }
+            }
+        }
+    }
+
+    static let layout = Layout(BakeProcess.timeline)
+
+    /// The steps of `block` whose following actions start at `start`; the
+    /// overlapping ones end there. Also where the block begins (the start
+    /// of the first overlapping action, else `start`) and ends.
+    private static func steps(of block: Block, from start: Date, outside: Bool,
+                              minutes: (ActionKind) -> TimeInterval)
+    -> (steps: [ScheduleStep], begin: Date, end: Date) {
+        var steps: [ScheduleStep] = []
+        var cursor = start
+        for action in block.overlapping.reversed() {
+            steps.insert(ScheduleStep(kind: .action(action), start: cursor - minutes(action), end: cursor,
+                                      outsideWindow: outside), at: 0)
+            cursor = cursor - minutes(action)
+        }
+        let begin = cursor
+        cursor = start
+        for action in block.following {
+            steps.append(ScheduleStep(kind: .action(action), start: cursor, end: cursor + minutes(action),
+                                      outsideWindow: outside))
+            cursor = cursor + minutes(action)
+        }
+        return (steps, begin, cursor)
+    }
+
+    /// The steps of `block` whose following actions end at `end`, and the
+    /// start of the first of these.
+    private static func steps(of block: Block, until end: Date, outside: Bool,
+                              minutes: (ActionKind) -> TimeInterval) -> (steps: [ScheduleStep], start: Date) {
+        var steps: [ScheduleStep] = []
+        var cursor = end
+        for action in block.following.reversed() {
+            steps.insert(ScheduleStep(kind: .action(action), start: cursor - minutes(action), end: cursor,
+                                      outsideWindow: outside), at: 0)
+            cursor = cursor - minutes(action)
+        }
+        let start = cursor
+        for action in block.overlapping.reversed() {
+            steps.insert(ScheduleStep(kind: .action(action), start: cursor - minutes(action), end: cursor,
+                                      outsideWindow: outside), at: 0)
+            cursor = cursor - minutes(action)
+        }
+        return (steps, start)
+    }
 
     /// Plans backwards from `time` for `.ready`, forwards from it for `.start`.
     public init(anchor: ScheduleAnchor, time: Date, ryeShare: Double, vessel: BakeSetup.Vessel,
@@ -409,35 +488,35 @@ public struct Schedule: Equatable, Sendable {
         func minutes(_ action: ActionKind) -> TimeInterval {
             ScheduleRules.minutes(action, vessel: vessel) * 60
         }
-        var reversed: [ScheduleStep] = []
+        func length(_ block: Block) -> TimeInterval {
+            block.overlapping.map(minutes).reduce(0, +) + block.following.map(minutes).reduce(0, +)
+        }
+        let layout = Self.layout
 
-        // Cooling, baking and preheating.
-        let bakeBlock = minutes(.bake) + minutes(.preheat)
+        // Cooling, and the last block (preheating and baking) in the window
+        // before it.
+        let last = layout.blocks[layout.blocks.count - 1]
         let latestBakeEnd = target - ScheduleRules.coolingHours(ryeShare: ryeShare) * 3600
-        let fitted = window.closestEnd(to: latestBakeEnd, length: bakeBlock,
+        let fitted = window.closestEnd(to: latestBakeEnd, length: length(last),
                                        in: latestBakeEnd - 3 * 86400, latestBakeEnd, calendar: calendar)
         let bakeEnd = fitted ?? latestBakeEnd
-        let bakeStart = bakeEnd - minutes(.bake)
-        reversed.append(ScheduleStep(kind: .cooling, start: bakeEnd, end: target))
-        reversed.append(ScheduleStep(kind: .action(.bake), start: bakeStart, end: bakeEnd,
-                                     outsideWindow: fitted == nil))
-        reversed.append(ScheduleStep(kind: .action(.preheat), start: bakeStart - minutes(.preheat), end: bakeStart,
-                                     outsideWindow: fitted == nil))
+        let closing = Self.steps(of: last, until: bakeEnd, outside: fitted == nil, minutes: minutes)
+        var steps = closing.steps + [ScheduleStep(kind: .cooling, start: bakeEnd, end: target)]
 
-        // The rests, last first, each with the action before it.
-        var end = bakeStart
-        for (action, rest) in Self.pairs.reversed() {
-            let length = minutes(action)
+        // The rests, last first, each with the block before it.
+        var end = closing.start
+        for (index, rest) in layout.rests.enumerated().reversed() {
+            let block = layout.blocks[index]
             let chosen = Self.place(rest, ryeShare: ryeShare, temperatures: temperatures, choice: choices[rest],
-                                    window: window, calendar: calendar, base: end, direction: -1, length: length)
+                                    window: window, calendar: calendar, base: end, direction: -1,
+                                    length: length(block))
             let start = end - chosen.hours * 3600
-            reversed.append(Self.restStep(rest, place: chosen.place, start: start, end: end, ryeShare: ryeShare,
-                                          temperatures: temperatures))
-            reversed.append(ScheduleStep(kind: .action(action), start: start - length, end: start,
-                                         outsideWindow: chosen.outside))
-            end = start - length
+            let before = Self.steps(of: block, until: start, outside: chosen.outside, minutes: minutes)
+            steps = before.steps + [Self.restStep(rest, place: chosen.place, start: start, end: end,
+                                                  ryeShare: ryeShare, temperatures: temperatures)] + steps
+            end = before.start
         }
-        steps = reversed.reversed()
+        self.steps = steps
         self.vessel = vessel
     }
 
@@ -448,35 +527,36 @@ public struct Schedule: Equatable, Sendable {
         func minutes(_ action: ActionKind) -> TimeInterval {
             ScheduleRules.minutes(action, vessel: vessel) * 60
         }
+        let layout = Self.layout
         var steps: [ScheduleStep] = []
         var actionStart = start
-        var outside = !window.contains(start, start + minutes(.mixSourdough), calendar: calendar)
+        let first = Self.steps(of: layout.blocks[0], from: start, outside: false, minutes: minutes)
+        var outside = !window.contains(first.begin, first.end, calendar: calendar)
 
-        // Each action with the rest after it. What follows the rest is the
-        // next action; after the proof it is preheating, which overlaps the
-        // end of the proof, and baking.
-        for (action, rest) in Self.pairs {
-            let actionEnd = actionStart + minutes(action)
-            steps.append(ScheduleStep(kind: .action(action), start: actionStart, end: actionEnd,
-                                      outsideWindow: outside))
-            let after = minutes(rest == .sourdough ? .knead : rest == .bulk ? .shape : .bake)
-            let before = rest == .proof ? minutes(.preheat) : 0
+        // Each block with the rest after it. What follows the rest is the
+        // next block: after the proof preheating, which overlaps the end of
+        // the proof, and baking.
+        for (index, rest) in layout.rests.enumerated() {
+            let block = Self.steps(of: layout.blocks[index], from: actionStart, outside: outside, minutes: minutes)
+            steps += block.steps
+            let next = layout.blocks[index + 1]
+            let after = next.following.map(minutes).reduce(0, +)
+            let before = next.overlapping.map(minutes).reduce(0, +)
             let chosen = Self.place(rest, ryeShare: ryeShare, temperatures: temperatures, choice: choices[rest],
-                                    window: window, calendar: calendar, base: actionEnd + after, direction: 1,
+                                    window: window, calendar: calendar, base: block.end + after, direction: 1,
                                     length: before + after)
-            let restEnd = actionEnd + chosen.hours * 3600
-            steps.append(Self.restStep(rest, place: chosen.place, start: actionEnd, end: restEnd,
+            let restEnd = block.end + chosen.hours * 3600
+            steps.append(Self.restStep(rest, place: chosen.place, start: block.end, end: restEnd,
                                        ryeShare: ryeShare, temperatures: temperatures))
             actionStart = restEnd
             outside = chosen.outside
         }
 
-        let bakeEnd = actionStart + minutes(.bake)
-        steps.append(ScheduleStep(kind: .action(.preheat), start: actionStart - minutes(.preheat), end: actionStart,
-                                  outsideWindow: outside))
-        steps.append(ScheduleStep(kind: .action(.bake), start: actionStart, end: bakeEnd, outsideWindow: outside))
-        steps.append(ScheduleStep(kind: .cooling, start: bakeEnd,
-                                  end: bakeEnd + ScheduleRules.coolingHours(ryeShare: ryeShare) * 3600))
+        let closing = Self.steps(of: layout.blocks[layout.blocks.count - 1], from: actionStart, outside: outside,
+                                 minutes: minutes)
+        steps += closing.steps
+        steps.append(ScheduleStep(kind: .cooling, start: closing.end,
+                                  end: closing.end + ScheduleRules.coolingHours(ryeShare: ryeShare) * 3600))
         self.steps = steps
         self.vessel = vessel
     }
