@@ -108,3 +108,8 @@ Reihenfolge der Merges: 007, 006, 001/002, 003, 004/005.
   `starterFromScratch`, `starterCare` (32 Themen); Package 282 Tests, App 263
   Tests grün. Offen bis zum vollen Lauf: UI-Klassen außerhalb der Starter-Tests
   nach dem Merge.
+- 15:3x: VB-004 und VB-005 in `release/1.2` (bis 29148d3). Zwei nie
+  erreichte Ausweichzweige im Package testbar gemacht bzw. entfernt
+  (`BakeRun.celsius(at:)`, Ortsspanne in `onWholeMinutes`), Package 338 Tests,
+  100 % Zeilen. Version 1.2 (1) gesetzt (207f288). Voller Lauf mit Abdeckung
+  (`tools/coverage.sh`, Bezugssimulator iPhone 15) gestartet 15:39.
