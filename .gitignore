@@ -43,5 +43,9 @@ Sourdough/Assets.xcassets/BasketPhoto.imageset/
 # Platzhalter des Startbildschirms (`StartView.hero`).
 Sourdough/Assets.xcassets/StartPhoto.imageset/
 
+# Rückmeldungen von Testenden: wörtlich, mit Namen und Screenshots, nur lokal.
+# Eingecheckt werden nur die Verbesserungen unter `verbesserungen/`.
+feedback/
+
 # Foto zum Kneten, Rechte nicht geklärt: nur lokal (Seite „Kneten“).
 Sourdough/Assets.xcassets/KneadingPhoto.imageset/
