@@ -66,6 +66,28 @@ final class BakeRunScreenTests: SourdoughUITestCase {
         assertLabel("run-text", contains: "das Gärkörbchen „Gärkörbchen“")
     }
 
+    func testTheStepThatTakesTheStarterOffersToRecordTheFeedingInTheStarter() {
+        launchWithRun()
+        // Not at the first step, only where the starter is taken.
+        XCTAssertFalse(app.buttons["run-feed-starter"].exists)
+        answer("yes")
+        assertLabel("run-text", contains: "Sauerteigstufe ansetzen")
+        assertLabel("run-text", contains: "Für das nächste Mal brauchst du nur einen Teelöffel")
+        tapButton("run-feed-starter")
+        assertLabel("feed-name", contains: "Roggensauerteig")
+        replaceText("feed-flour", with: "30")
+        tapButton("feed-save")
+        // The sheet is gone and the step is unchanged.
+        assertLabel("run-text", contains: "Sauerteigstufe ansetzen")
+        // The newest feeding is the first in the starter's log: 20 g kept, 30 g flour, 50 g water.
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        openStarters()
+        element(app.buttons, "starter-row-Roggensauerteig").tap()
+        XCTAssertTrue(text("feeding-0").label.hasSuffix("20 g Starter + 30 g Mehl + 50 g Wasser"),
+                      text("feeding-0").label)
+        XCTAssertTrue(text("feeding-1").label.hasSuffix("20 g Starter + 50 g Mehl + 50 g Wasser"))
+    }
+
     func testTheKneadingStepLinksToTheKneadingPage() {
         launchWithRun()
         answer("yes")

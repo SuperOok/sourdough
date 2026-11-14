@@ -564,10 +564,20 @@ Mehlen in Gramm, Hydration, Sauerteigstufe, Salz und je Schritt geplanter
 und erledigter Zeit samt Antwort, bei Schritten vor einer Ruhe deren
 Zieltemperatur („Ruhe bei etwa 16 °C“); ein Durchgang lässt sich löschen.
 
+**Fütterung eintragen:** Im Schritt „Sauerteigstufe ansetzen“ (`mixSourdough`)
+steht ein Knopf `run-feed-starter`, der das Füttern-Blatt (`FeedView`) des
+Starters öffnet; Speichern hängt die Fütterung an den Starter im
+`StarterStore` (der Durchgang behält nur seine Kopie, die Id ist dieselbe:
+`StarterStore.starter(for:)`). Gibt es den Starter dort nicht mehr (gelöscht)
+oder wurde ohne Starter geplant, entfällt der Knopf. Die Menge, die für das
+nächste Mal bleibt (ein Teelöffel), geht nicht ins Rezept. Die Anleitung
+verzweigt dazu nicht: `mixSourdough`, `kneadFold`, `kneadRye`, `checkStarter`
+und `waitStarter` verlinken die Tipps-Seite `starterCare`.
+
 Bezeichner der Durchführung: `run-target`, `run-status`, `run-planned`,
 `run-text`, `run-hint`, `run-done`, `run-answer-<antwort>` (`yes`, `notYet`,
 `belowRim`, `overRim`), `run-undo`, `run-step-<n>`, `run-cancel`, `run-finished`,
-`run-close`; Protokoll: `start-log`, `log-empty`, `log-row-<n>`,
+`run-close`, `run-feed-starter`; Protokoll: `start-log`, `log-empty`, `log-row-<n>`,
 `log-bread`, `log-status`, `log-started`, `log-target`, `log-starter`,
 `log-equipment`, `log-temperatures`, `log-flour-<mehl>`, `log-hydration`,
 `log-sourdough`, `log-salt`, `log-addins`, `log-step-<n>`, `log-delete`.
@@ -675,7 +685,10 @@ Zeitplans und der kühle Ort. `TipsCatalogTests` hält Stunden und Spannen gegen
 `ScheduleRules`. Verlinkt von „So wird der Zeitplan berechnet“; eine
 Glühbirne im Zeitplan sitzt hinter der Raumtemperatur
 (`schedule-tip-temperature`). Die Seiten zum Starter
-sind eine: die Zustandsrechnung steht als Abschnitte in `starter.md`.
+sind zwei: die Zustandsrechnung steht als Abschnitte in `starter.md`;
+`starterCare` („Starter erhalten und pflegen“, Icon `StarterJarIcon`) erklärt,
+wie der Starter nach dem Backen erhalten bleibt (ein Teelöffel, die zwei Wege,
+Glas und Reinigung ohne Spülmittel, Kahmhefe und Schimmel).
 
 **Ein neues Thema** braucht drei Schritte: einen Fall in
 `TipsTopic.ID` (der Rohwert ist der Dateiname), die Datei `Tips/<id>.md` und

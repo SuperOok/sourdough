@@ -30,6 +30,32 @@ struct StarterStoreTests {
         #expect(store.startSubtitle == "2 angelegt")
     }
 
+    @Test func findsTheStarterOfABakeByTheIdOfItsCopyAndSeesItsFeedings() {
+        let store = StarterStore(defaults: makeDefaults())
+        let a = starter("A")
+        store.add(a)
+        let bake = BakeRunDemo.run(now: t0, starters: [a], items: EquipmentDemo.items())
+        #expect(bake.starter == a)
+        #expect(store.starter(for: bake) == a)
+        // A feeding saved for the starter shows in the store, not in the bake's copy.
+        let feeding = Feeding(date: t0 + 3600, starterGrams: 5, flourGrams: 10, waterGrams: 10)
+        store.feed(a.id, with: feeding)
+        #expect(store.starter(for: bake)?.feedings.last == feeding)
+        #expect(bake.starter?.feedings.count == 1)
+    }
+
+    @Test func aBakeWithoutItsStarterInTheStoreHasNone() {
+        let store = StarterStore(defaults: makeDefaults())
+        let a = starter("A")
+        let bake = BakeRunDemo.run(now: t0, starters: [a], items: EquipmentDemo.items())
+        // Deleted since the bake began.
+        #expect(store.starter(for: bake) == nil)
+        // A bake without a starter.
+        let none = BakeRunDemo.run(now: t0, starters: [], items: EquipmentDemo.items())
+        #expect(none.starter == nil)
+        #expect(store.starter(for: none) == nil)
+    }
+
     @Test func findsAStarterById() {
         let store = StarterStore(defaults: makeDefaults())
         let a = starter("A")
