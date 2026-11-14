@@ -315,6 +315,19 @@ struct BakeRunStoreTests {
 }
 
 struct BakePlanRunTests {
+    @Test func aStarterInItsEstablishingPhaseBlocksTheBake() {
+        // The complete plan of `aBakeStartsOnlyFromACompletePlan`, with a young starter.
+        var young = rye
+        young.origin = .spontaneous
+        let model = BakePlanModel()
+        model.proposeSetup(from: EquipmentDemo.items())
+        model.useTemperatures(Temperatures())
+        model.proposeTarget(now: nov(13, 9), calendar: utc)
+        model.starterID = young.id
+        #expect(model.makeRun(starters: [young], now: nov(13, 9), calendar: utc) == nil)
+        #expect(model.makeRun(starters: [rye], now: nov(13, 9), calendar: utc) != nil)
+    }
+
     @Test func aBakeStartsOnlyFromACompletePlan() {
         let model = BakePlanModel()
         #expect(model.makeRun(starters: [rye], now: nov(13, 9), calendar: utc) == nil)

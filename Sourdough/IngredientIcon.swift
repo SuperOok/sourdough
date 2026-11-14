@@ -49,7 +49,7 @@ enum TipsIcon {
         case .pot: .asset(EquipmentIcon.name(for: .pot))
         case .pan: .asset(EquipmentIcon.name(for: .pan))
         case .basket: .asset(EquipmentIcon.name(for: .basket))
-        case .starter: .asset("StarterJarIcon")
+        case .starter, .starterFromScratch: .asset("StarterJarIcon")
         case .flours: .asset("FlourSackIcon")
         case .wheat: .asset(IngredientIcon.name(FlourType.wheat))
         case .rye: .asset(IngredientIcon.name(FlourType.rye))

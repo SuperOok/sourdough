@@ -227,6 +227,28 @@ struct BakePlanModelTests {
         #expect(model.issues(starters: [rye, wheat]).isEmpty)
         #expect(model.issues(starters: []).isEmpty)
     }
+
+    @Test func aStarterInItsEstablishingPhaseIsAnIssue() {
+        let now = Date(timeIntervalSince1970: 0)
+        // Mixed from flour and water, no observation yet: establishing.
+        let young = Starter(name: "J", flour: .rye, createdAt: now,
+                            feedings: [Feeding(date: now, starterGrams: 0, flourGrams: 50, waterGrams: 50)],
+                            origin: .spontaneous)
+        let model = BakePlanModel()
+        model.starterID = young.id
+        #expect(model.issues(starters: [young]) == [.starterEstablishing])
+        // Two doublings in a row later, it is ready and the issue is gone.
+        var ready = young
+        ready.feedings += [Feeding(date: now + 86_400, starterGrams: 20, flourGrams: 50, waterGrams: 50, rise: .doubled),
+                           Feeding(date: now + 172_800, starterGrams: 20, flourGrams: 50, waterGrams: 50, rise: .doubled)]
+        #expect(model.issues(starters: [ready]).isEmpty)
+    }
+
+    @Test func theIssueOfAYoungStarterSaysWhatToDo() {
+        #expect(BakeText.issue(.starterEstablishing, bread: .ryeMixedBread50)
+                == "Dein Starter ist noch in der Ansetzphase und lockert den Teig noch nicht verlässlich. "
+                + "Backe mit ihm, wenn er sich zweimal hintereinander verdoppelt hat, oder wähle einen anderen.")
+    }
 }
 
 private let kneader = EquipmentItem(kind: .kneader, name: "Bosch")
