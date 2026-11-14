@@ -113,3 +113,10 @@ Reihenfolge der Merges: 007, 006, 001/002, 003, 004/005.
   (`BakeRun.celsius(at:)`, Ortsspanne in `onWholeMinutes`), Package 338 Tests,
   100 % Zeilen. Version 1.2 (1) gesetzt (207f288). Voller Lauf mit Abdeckung
   (`tools/coverage.sh`, Bezugssimulator iPhone 15) gestartet 15:39.
+- 17:4x: Korrekturen nach dem ersten vollen Lauf (97a1fa5): Tipp auf
+  „Erledigt“ wartet auf den nächsten Schritt; Schüsselhinweis ohne
+  Ausweichwert. Betroffene UI-Klassen grün. `release/1.2` gepusht.
+- 17:5x: Release-Build 1.2 (1) unter `build/release-1.2/Sourdough.app`
+  (ignoriert), auf Zackebuh per Funk installiert; Profil gültig bis 18.11.,
+  enthält das iPhone der Testerin. Zweiter voller Lauf mit Abdeckung
+  abgebrochen, weil der Laptop zugeklappt wird; **steht noch aus**.
