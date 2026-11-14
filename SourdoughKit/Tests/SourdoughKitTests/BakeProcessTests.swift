@@ -70,13 +70,13 @@ struct BakeProcessTests {
     }
 
     @Test func decisionsAndTheirAnswers() {
-        #expect(BakeProcess.answers(.checkStarter, setup: trayAndBowl) == [.yes, .notYet])
-        #expect(BakeProcess.answers(.checkSourdough, setup: trayAndBowl) == [.yes, .notYet])
-        #expect(BakeProcess.answers(.checkProof, setup: panWithLid) == [.belowRim, .overRim])
-        #expect(BakeProcess.answers(.checkProof, setup: panWithoutLid) == [.yes, .notYet])
-        #expect(BakeProcess.answers(.checkProof, setup: potAndBasket) == [.yes, .notYet])
+        #expect(BakeProcess.answers(.checkStarter, in: .init(setup: trayAndBowl)) == [.yes, .notYet])
+        #expect(BakeProcess.answers(.checkSourdough, in: .init(setup: trayAndBowl)) == [.yes, .notYet])
+        #expect(BakeProcess.answers(.checkProof, in: .init(setup: panWithLid)) == [.belowRim, .overRim])
+        #expect(BakeProcess.answers(.checkProof, in: .init(setup: panWithoutLid)) == [.yes, .notYet])
+        #expect(BakeProcess.answers(.checkProof, in: .init(setup: potAndBasket)) == [.yes, .notYet])
         for step in [BakeProcess.StepID.mixSourdough, .knead, .shape, .preheat, .bake, .cool] {
-            #expect(BakeProcess.answers(step, setup: panWithLid).isEmpty)
+            #expect(BakeProcess.answers(step, in: .init(setup: panWithLid)).isEmpty)
         }
         #expect(BakeProcess.Answer.allCases.filter(\.waits) == [.notYet])
     }
@@ -140,8 +140,80 @@ struct BakeProcessTests {
     }
 
     @Test func onlyDecisionsHaveSomethingToDoWhileWaiting() {
-        #expect(BakeProcess.StepID.allCases.map(BakeProcess.waitText) == [
+        #expect(BakeProcess.StepID.allCases.map { BakeProcess.waitText($0, in: .init(setup: trayAndBowl)) } == [
             .waitStarter, nil, .waitSourdough, nil, nil, .waitProof, nil, nil, nil])
+        // The rim cannot be answered "not yet", so there is nothing to wait for.
+        #expect(BakeProcess.waitText(.checkProof, in: .init(setup: panWithLid)) == nil)
+    }
+
+    @Test func theStoredNamesOfStepsAndAnswersStay() {
+        // Files of bakes hold these raw values; renaming one would lose them.
+        #expect(BakeProcess.StepID.allCases.map(\.rawValue) == [
+            "checkStarter", "mixSourdough", "checkSourdough", "knead", "shape", "checkProof", "preheat", "bake",
+            "cool"])
+        #expect(BakeProcess.Answer.allCases.map(\.rawValue) == ["yes", "notYet", "belowRim", "overRim"])
+        #expect(BakeProcess.Answer.allCases.map(\.label) == ["Ja", "Noch nicht", "Unter dem Rand",
+                                                            "Am Deckel oder darüber"])
+    }
+
+    @Test func theDefinitionHasEveryStepOnceInItsOrder() {
+        #expect(BakeProcess.steps.map(\.id) == BakeProcess.StepID.allCases)
+        #expect(BakeProcess.step(.preheat).timing == .action(.preheat, overlapsRest: true))
+        #expect(BakeProcess.step(.checkProof).timing == .beforeNextAction)
+        #expect(BakeProcess.step(.cool).timing == .cooling)
+    }
+
+    @Test func theScheduleTakesItsActionsAndRestsFromTheDefinition() {
+        // Decisions are left out; preheating runs during the end of the proof.
+        #expect(BakeProcess.timeline == [
+            .action(.mixSourdough, overlapsRest: false), .rest(.sourdough),
+            .action(.knead, overlapsRest: false), .rest(.bulk),
+            .action(.shape, overlapsRest: false), .rest(.proof),
+            .action(.preheat, overlapsRest: true), .action(.bake, overlapsRest: false), .cooling])
+        let layout = Schedule.layout
+        #expect(layout.rests == [.sourdough, .bulk, .proof])
+        #expect(layout.blocks == [Schedule.Block(following: [.mixSourdough]), Schedule.Block(following: [.knead]),
+                                  Schedule.Block(following: [.shape]),
+                                  Schedule.Block(overlapping: [.preheat], following: [.bake])])
+    }
+
+    @Test func conditionsHaveGermanLabels() {
+        let labels: [(BakeProcess.Condition, String)] = [
+            (.ryeShareAtLeast(50), "Roggen ab 50 %"),
+            (.ryeShareAtLeast(49.5), "Roggen ab 49,5 %"),
+            (.vessel(.loafPan), "Kastenform"),
+            (.vessel(.pot), "Bräter"),
+            (.vessel(.tray), "Blech"),
+            (.panWithLid, "Kastenform mit Deckel"),
+            (.potWithLid, "Bräter mit Deckel"),
+            (.potWithoutLid, "Bräter ohne Deckel"),
+            (.basket(long: true), "längliches Gärkörbchen"),
+            (.basket(long: false), "rundes Gärkörbchen"),
+            (.answer(.checkProof, .overRim), "Antwort „Am Deckel oder darüber“"),
+            (.all([.panWithLid, .answer(.checkProof, .belowRim)]), "Kastenform mit Deckel und Antwort „Unter dem Rand“"),
+        ]
+        for (condition, label) in labels {
+            #expect(condition.label == label)
+        }
+        #expect(BakeProcess.Condition.all([.panWithLid, .all([.vessel(.pot)])]).atoms == [.panWithLid, .vessel(.pot)])
+    }
+
+    @Test func conditionsAreEvaluatedAgainstSetupDoughAndAnswers() {
+        let tray = BakeProcess.Context(setup: trayAndBowl)
+        #expect(BakeProcess.Condition.vessel(.tray).holds(in: tray))
+        #expect(!BakeProcess.Condition.vessel(.pot).holds(in: tray))
+        #expect(BakeProcess.Condition.ryeShareAtLeast(50).holds(in: .init(setup: trayAndBowl, ryeShare: 50)))
+        #expect(!BakeProcess.Condition.ryeShareAtLeast(50).holds(in: .init(setup: trayAndBowl, ryeShare: 49.9)))
+        // A pot not known to have no lid has one; a pan only with a lid saved.
+        #expect(BakeProcess.Condition.potWithLid.holds(in: .init(setup: potAndBasket)))
+        #expect(!BakeProcess.Condition.potWithoutLid.holds(in: .init(setup: potAndBasket)))
+        #expect(!BakeProcess.Condition.potWithLid.holds(in: tray))
+        #expect(!BakeProcess.Condition.panWithLid.holds(in: .init(setup: panWithoutLid)))
+        #expect(!BakeProcess.Condition.basket(long: false).holds(in: tray))
+        #expect(BakeProcess.Condition.basket(long: false).holds(in: .init(setup: potAndBasket)))
+        let overRim = BakeProcess.Context(setup: panWithLid, answers: [.checkProof: .overRim])
+        #expect(BakeProcess.Condition.all([.panWithLid, .answer(.checkProof, .overRim)]).holds(in: overRim))
+        #expect(!BakeProcess.Condition.all([.vessel(.pot), .answer(.checkProof, .overRim)]).holds(in: overRim))
     }
 
     @Test func stepsAreDueAtTheirActionsAndRestsFollowThem() {
@@ -158,39 +230,121 @@ struct BakeProcessTests {
             nov(14, 19, 25), nov(14, 19, 25), nov(14, 20, 10), nov(14, 21)])
     }
 
-    @Test func theDiagramHasEveryTextAndTheBranches() {
-        let diagram = BakeProcess.mermaid()
-        #expect(diagram.hasPrefix("flowchart TD\n"))
+    @Test func theDiagramIsAPlantUMLActivityDiagram() {
+        let diagram = BakeProcess.plantUML()
+        #expect(diagram.hasPrefix("@startuml\n"))
+        #expect(diagram.hasSuffix("\nstop\n@enduml\n"))
+        #expect(diagram.contains("\nstart\n"))
         for text in BakeProcess.Text.allCases {
-            #expect(diagram.contains("    \(text.rawValue)"), "\(text) fehlt im Diagramm.")
+            #expect(diagram.contains(BakeProcess.title(text)), "\(text) fehlt im Diagramm.")
         }
-        #expect(diagram.contains("    checkStarter{\"Ist dein Starter aktiv?\"}"))
-        #expect(diagram.contains("    kneadRye[\"Hauptteig mischen\"]"))
-        #expect(diagram.contains("    checkProofRim -->|overRim| preheatPan"))
-        #expect(diagram.contains("    checkProofRim -->|belowRim| preheatPan"))
-        // Which bake follows the preheating depends on the rim.
-        #expect(diagram.contains("    preheatPan -->|overRim| bakePanOpen"))
-        #expect(diagram.contains("    preheatPan -->|belowRim| bakePanLid"))
-        // A pan without a lid always bakes open.
-        #expect(diagram.contains("    preheatPan --> bakePanOpen"))
-        #expect(diagram.contains("    checkSourdough -->|notYet| waitSourdough"))
-        #expect(diagram.contains("    waitSourdough --> checkSourdough"))
-        // The rim cannot be answered "not yet".
-        #expect(!diagram.contains("    checkProofRim -->|notYet|"))
-        #expect(diagram.contains("    checkProofRipe -->|notYet| waitProof"))
-        // Each edge once.
-        let edges = diagram.split(separator: "\n").filter { $0.contains("-->") }
-        #expect(Set(edges).count == edges.count)
+        for rest in ["Sauerteig reift", "Stockgare", "Stückgare"] {
+            #expect(diagram.contains("\n:Ruhe: \(rest); <<#E8E8E8>>\n"))
+        }
+    }
+
+    @Test func aDecisionThatCanWaitLoopsBackThroughWhatToDoMeanwhile() {
+        #expect(BakeProcess.plantUML().contains("""
+            repeat
+              :Ist dein Starter aktiv?;
+            backward :Erst auffrischen;
+            repeat while () is (Noch nicht) not (Ja)
+            """))
+    }
+
+    @Test func everyBranchOfTheDiagramCarriesItsCondition() {
+        let diagram = BakeProcess.plantUML()
+        #expect(diagram.contains("""
+            switch ()
+            case (Roggen ab 50 %)
+              :Hauptteig mischen;
+            case (sonst)
+              :Hauptteig kneten;
+            endswitch
+            """))
+        // The answers about the rim branch right at their decision ...
+        #expect(diagram.contains("""
+            case (Kastenform mit Deckel)
+              :Wie hoch ist der Teig?;
+              if () then (Unter dem Rand)
+              else (Am Deckel oder darüber)
+              endif
+            case (sonst)
+              repeat
+            """))
+        // ... and the bake that depends on them names the answer in its condition.
+        #expect(diagram.contains("""
+            case (Kastenform mit Deckel und Antwort „Am Deckel oder darüber“)
+              :Backen ohne Deckel, mit Dampf;
+            case (Kastenform mit Deckel)
+              :Backen mit Deckel;
+            """))
+        // Preheating runs while the proof ends.
+        #expect(diagram.contains("""
+            case (Kastenform)
+              :Ofen vorheizen\\n//noch während der Ruhe davor//;
+            """))
+    }
+
+    @Test func everyConditionOfTheDefinitionIsInTheDiagram() {
+        let diagram = BakeProcess.plantUML()
+        var used: [BakeProcess.Condition] = []
+        for step in BakeProcess.steps {
+            for rule in step.variants.rules {
+                used += rule.condition.atoms
+                #expect(diagram.contains("case (\(rule.condition.label))"), "\(rule.condition.label) fehlt.")
+            }
+        }
+        // Worked out from the rules of shaping, the proof check, preheating,
+        // baking and kneading.
+        #expect(Set(used.map(\.label)) == ["Roggen ab 50 %", "Kastenform", "längliches Gärkörbchen",
+                                           "rundes Gärkörbchen", "Kastenform mit Deckel", "Bräter mit Deckel",
+                                           "Bräter ohne Deckel", "Antwort „Am Deckel oder darüber“"])
+        for answer in BakeProcess.Answer.allCases {
+            #expect(diagram.contains("(\(answer.label))"), "\(answer) fehlt.")
+        }
+    }
+
+    @Test func everyNodeOfTheProcessCanBeReached() {
+        let edges = BakeProcess.edges()
+        var reached: Set<String> = ["start"]
+        var queue = ["start"]
+        while let node = queue.popLast() {
+            for edge in edges where edge.from == node && reached.insert(edge.to).inserted {
+                queue.append(edge.to)
+            }
+        }
+        let nodes = Set(BakeProcess.Text.allCases.map(\.rawValue) + ["rest.sourdough", "rest.bulk", "rest.proof",
+                                                                     "stop"])
+        #expect(reached == nodes.union(["start"]))
+        // Each answer that goes on leaves its decision; "not yet" loops back.
+        #expect(edges.contains(.init(from: "checkProofRim", to: "preheatPan", label: "Unter dem Rand, Kastenform")))
+        #expect(edges.contains(.init(from: "checkProofRim", to: "preheatPan",
+                                     label: "Am Deckel oder darüber, Kastenform")))
+        #expect(edges.contains(.init(from: "checkSourdough", to: "waitSourdough", label: "Noch nicht")))
+        #expect(edges.contains(.init(from: "waitSourdough", to: "checkSourdough", label: nil)))
+        #expect(edges.contains(.init(from: "checkSourdough", to: "kneadRye", label: "Ja, Roggen ab 50 %")))
+        #expect(edges.contains(.init(from: "mixSourdough", to: "rest.sourdough", label: nil)))
+        #expect(edges.contains(.init(from: "cool", to: "stop", label: nil)))
+        #expect(!edges.contains { $0.from == "checkProofRim" && $0.label?.hasPrefix("Noch nicht") == true })
     }
 
     @Test func theDiagramInTheDocsIsUpToDate() throws {
-        // docs/ablauf.md holds the diagram; regenerate it from `mermaid()`
-        // when the process changes.
+        // docs/ablauf.puml holds the diagram. tools/diagrams.sh runs this
+        // test with UPDATE_DIAGRAMS=1, which writes it from `plantUML()`,
+        // and then draws the SVG.
         let docs = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
-            .deletingLastPathComponent().appendingPathComponent("docs/ablauf.md")
-        let content = try String(contentsOf: docs, encoding: .utf8)
-        #expect(content.contains("```mermaid\n" + BakeProcess.mermaid() + "```"))
+            .deletingLastPathComponent().appendingPathComponent("docs")
+        if ProcessInfo.processInfo.environment["UPDATE_DIAGRAMS"] == "1" {
+            try BakeProcess.plantUML().write(to: docs.appendingPathComponent("ablauf.puml"), atomically: true,
+                                             encoding: .utf8)
+        }
+        let source = try String(contentsOf: docs.appendingPathComponent("ablauf.puml"), encoding: .utf8)
+        #expect(source == BakeProcess.plantUML())
+        let prose = try String(contentsOf: docs.appendingPathComponent("ablauf.md"), encoding: .utf8)
+        #expect(prose.contains("ablauf.puml") && prose.contains("ablauf.svg"))
+        #expect(!prose.contains("mermaid"))
     }
 }
 
@@ -247,7 +401,7 @@ struct BakeRunTests {
     @Test func theLastStepFinishesTheBake() {
         var bake = run(potAndBasket)
         for step in BakeProcess.StepID.allCases {
-            if BakeProcess.answers(step, setup: potAndBasket).isEmpty {
+            if BakeProcess.answers(step, in: .init(setup: potAndBasket)).isEmpty {
                 bake.complete(at: nov(15, 12))
             } else {
                 bake.answer(.yes, at: nov(15, 12))
@@ -310,7 +464,7 @@ struct BakeRunTests {
     @Test func undoReopensAFinishedBakeButNotACancelledOne() {
         var bake = run(potAndBasket)
         for step in BakeProcess.StepID.allCases {
-            if BakeProcess.answers(step, setup: potAndBasket).isEmpty {
+            if BakeProcess.answers(step, in: .init(setup: potAndBasket)).isEmpty {
                 bake.complete(at: nov(15, 12))
             } else {
                 bake.answer(.yes, at: nov(15, 12))
@@ -336,6 +490,21 @@ struct BakeRunTests {
         bake.answer(.yes, at: nov(14, 8))
         let data = try JSONEncoder().encode(bake)
         #expect(try JSONDecoder().decode(BakeRun.self, from: data) == bake)
+    }
+
+    @Test func aSavedBakeNamesItsStepsAndAnswersByTheirRawValues() throws {
+        // As files of version 1.1 hold them: done steps and answers as
+        // alternating keys and values, the keys by raw value.
+        var bake = run()
+        bake.answer(.yes, at: nov(14, 8))
+        let object = try #require(try JSONSerialization.jsonObject(with: JSONEncoder().encode(bake)) as? [String: Any])
+        #expect((object["done"] as? [Any])?.first as? String == "checkStarter")
+        #expect((object["answers"] as? [Any])?.compactMap { $0 as? String } == ["checkStarter", "yes"])
+        var edited = object
+        edited["answers"] = ["checkProof", "overRim"]
+        let old = try JSONDecoder().decode(BakeRun.self, from: JSONSerialization.data(withJSONObject: edited))
+        #expect(old.answers == [.checkProof: .overRim])
+        #expect(old.text(.bake) == .bakePanOpen)
     }
 
     @Test func theAddInsGoIntoTheRecipe() {

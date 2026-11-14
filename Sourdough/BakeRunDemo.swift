@@ -24,7 +24,7 @@ enum BakeRunDemo {
         var bake = run(now: now, starters: starters, items: items, calendar: calendar)
         while let step = bake.current {
             // A decision takes its first answer that goes on.
-            if let answer = BakeProcess.answers(step, setup: bake.setup).first(where: { !$0.waits }) {
+            if let answer = bake.possibleAnswers(step).first(where: { !$0.waits }) {
                 bake.answer(answer, at: now)
             } else {
                 bake.complete(at: now)

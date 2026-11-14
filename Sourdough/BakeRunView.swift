@@ -43,7 +43,7 @@ struct BakeRunView: View {
                 }
             }
             Section("Ablauf") {
-                ForEach(Array(BakeProcess.StepID.allCases.enumerated()), id: \.offset) { index, step in
+                ForEach(Array(run.steps.enumerated()), id: \.offset) { index, step in
                     stepRow(run, step)
                         .accessibilityElement(children: .combine)
                         .accessibilityIdentifier("run-step-\(index)")
@@ -74,7 +74,7 @@ struct BakeRunView: View {
 
     @ViewBuilder
     private func currentSection(_ run: BakeRun, _ step: BakeProcess.StepID) -> some View {
-        let answers = BakeProcess.answers(step, setup: run.setup)
+        let answers = run.possibleAnswers(step)
         Section {
             Text("Geplant: \(ScheduleText.time(BakeProcess.plannedTime(step, in: run.schedule), calendar: run.calendar))")
                 .foregroundStyle(.secondary)

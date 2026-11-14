@@ -72,7 +72,7 @@ struct BakeLogDetailView: View {
                 row("Zusätze", BakeLogText.addIns(recipe), id: "log-addins")
             }
             Section("Ablauf") {
-                ForEach(Array(BakeProcess.StepID.allCases.enumerated()), id: \.offset) { index, step in
+                ForEach(Array(run.steps.enumerated()), id: \.offset) { index, step in
                     row(BakeRunText.title(run, step), BakeLogText.times(run, step), id: "log-step-\(index)")
                 }
             }
