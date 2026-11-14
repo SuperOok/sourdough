@@ -109,6 +109,24 @@ enum BakeText {
         "\(Int(value.rounded())) g"
     }
 
+    /// "1,9 kg", "2 kg": to a tenth of a kilogram.
+    static func kilograms(_ grams: Double) -> String {
+        StarterText.number((grams / 100).rounded() / 10) + " kg"
+    }
+
+    /// The hint when the dough is too large for the kneading machine: with
+    /// the maker's limit in grams, else with the bowl it was estimated from.
+    static func kneaderOverload(_ overload: KneaderOverload) -> String {
+        let advice = "Teile ihn oder knete von Hand."
+        if overload.isMakersLimit {
+            return "Für „\(overload.kneader.name)“ nennt der Hersteller höchstens \(grams(overload.maxGrams)) "
+                + "Brotteig, dein Teig hat \(grams(overload.doughGrams)). \(advice)"
+        }
+        let liters = StarterText.number(overload.kneader.bowlLiters ?? 0)
+        return "Für deine \(liters)-l-Schüssel ist der Teig mit \(kilograms(overload.doughGrams)) "
+            + "wahrscheinlich zu groß. \(advice)"
+    }
+
     /// "0–40 %"
     static func range(_ range: ClosedRange<Double>) -> String {
         "\(StarterText.number(range.lowerBound))–\(StarterText.number(range.upperBound)) %"

@@ -23,6 +23,9 @@ public enum EquipmentKind: String, Codable, CaseIterable, Sendable {
     /// A banneton is round, oval or long (rectangular); the shape decides how
     /// the dough is shaped.
     public var hasShape: Bool { self == .basket }
+    /// A kneading machine kneads with a hook or a blade and has a bowl of
+    /// some size.
+    public var hasKneadingTool: Bool { self == .kneader }
 }
 
 /// The inner size of a pot or pan, in centimetres, and the volume it gives.
@@ -70,6 +73,14 @@ public struct EquipmentItem: Codable, Equatable, Identifiable, Sendable {
         case castIron
     }
 
+    /// What a kneading machine kneads with: a hook (stand mixers like Bosch,
+    /// Kenwood, KitchenAid) or a blade in dough mode (Thermomix, Monsieur
+    /// Cuisine). The two need very different times.
+    public enum KneadingTool: String, Codable, CaseIterable, Sendable {
+        case hook
+        case blade
+    }
+
     public var id: UUID
     public var kind: EquipmentKind
     public var name: String
@@ -80,11 +91,19 @@ public struct EquipmentItem: Codable, Equatable, Identifiable, Sendable {
     public var dimensions: Dimensions?
     /// The shape of a banneton; round for everything else.
     public var shape: Dimensions.Shape
+    /// What a kneading machine kneads with; a hook for everything else.
+    public var kneadingTool: KneadingTool
+    /// The bowl of a kneading machine in litres, if the user gave it.
+    public var bowlLiters: Double?
+    /// The most bread dough a kneading machine takes in grams, as its maker
+    /// says, if the user gave it. It overrides the estimate from the bowl.
+    public var maxDoughGrams: Double?
 
     public init(id: UUID = UUID(), kind: EquipmentKind, name: String,
                 material: Material = .sheetMetal, hasLid: Bool = false,
                 hasSiliconeLiner: Bool = false, dimensions: Dimensions? = nil,
-                shape: Dimensions.Shape = .round) {
+                shape: Dimensions.Shape = .round, kneadingTool: KneadingTool = .hook,
+                bowlLiters: Double? = nil, maxDoughGrams: Double? = nil) {
         self.id = id
         self.kind = kind
         self.name = name
@@ -93,6 +112,9 @@ public struct EquipmentItem: Codable, Equatable, Identifiable, Sendable {
         self.hasSiliconeLiner = hasSiliconeLiner
         self.dimensions = dimensions
         self.shape = shape
+        self.kneadingTool = kneadingTool
+        self.bowlLiters = bowlLiters
+        self.maxDoughGrams = maxDoughGrams
     }
 
     /// Whether a loaf from it is long rather than round: an oval or
@@ -101,13 +123,15 @@ public struct EquipmentItem: Codable, Equatable, Identifiable, Sendable {
 
     private enum CodingKeys: String, CodingKey {
         case id, kind, name, material, hasLid, hasSiliconeLiner, dimensions, shape
+        case kneadingTool, bowlLiters, maxDoughGrams
         /// The lid of a pot. Pots saved before they could be lidless are stored
         /// with `hasLid` false for every pot, so a pot has its own key.
         case potLid
     }
 
-    /// Pieces saved before bannetons had a shape are round, and pots saved
-    /// before they had a lid setting have one.
+    /// Pieces saved before bannetons had a shape are round, pots saved
+    /// before they had a lid setting have one, and kneading machines saved
+    /// before they had a tool knead with a hook, the more common kind.
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decode(UUID.self, forKey: .id)
@@ -120,6 +144,9 @@ public struct EquipmentItem: Codable, Equatable, Identifiable, Sendable {
         hasSiliconeLiner = try container.decode(Bool.self, forKey: .hasSiliconeLiner)
         dimensions = try container.decodeIfPresent(Dimensions.self, forKey: .dimensions)
         shape = try container.decodeIfPresent(Dimensions.Shape.self, forKey: .shape) ?? .round
+        kneadingTool = try container.decodeIfPresent(KneadingTool.self, forKey: .kneadingTool) ?? .hook
+        bowlLiters = try container.decodeIfPresent(Double.self, forKey: .bowlLiters)
+        maxDoughGrams = try container.decodeIfPresent(Double.self, forKey: .maxDoughGrams)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -133,6 +160,9 @@ public struct EquipmentItem: Codable, Equatable, Identifiable, Sendable {
         try container.encode(hasSiliconeLiner, forKey: .hasSiliconeLiner)
         try container.encodeIfPresent(dimensions, forKey: .dimensions)
         try container.encode(shape, forKey: .shape)
+        try container.encode(kneadingTool, forKey: .kneadingTool)
+        try container.encodeIfPresent(bowlLiters, forKey: .bowlLiters)
+        try container.encodeIfPresent(maxDoughGrams, forKey: .maxDoughGrams)
     }
 }
 

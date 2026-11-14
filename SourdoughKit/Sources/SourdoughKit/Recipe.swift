@@ -91,6 +91,14 @@ public struct Recipe: Equatable, Sendable {
         2 * sourdoughWater + starterGrams
     }
 
+    /// The whole dough that goes into the bowl: the sourdough stage, the
+    /// flour, water and salt of the main dough, and the add-ins with all
+    /// their water.
+    public var doughGrams: Double {
+        sourdoughGrams + mainFlour.reduce(0) { $0 + $1.grams } + mainWater + salt
+            + addIns.reduce(0) { $0 + $1.grams } + soaked.reduce(0) { $0 + $1.waterGrams }
+    }
+
     private static func darkestFirst(_ flours: [Flour]) -> [Flour] {
         flours.sorted { $0.waterUptake > $1.waterUptake }
     }

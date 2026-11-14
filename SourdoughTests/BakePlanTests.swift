@@ -261,6 +261,28 @@ struct BakeSetupTextTests {
         #expect(BakeText.issue(.missingEquipment(.pan), bread: .ryeMixedBread70)
                 == "Für diesen Backweg fehlt ein Utensil: Kastenform.")
     }
+
+    @Test func kilogramsHaveOneDecimal() {
+        // 2300 g = 2,3 kg; 1920 g = 1,92 kg ≈ 1,9 kg; 2000 g = 2 kg; 880 g ≈ 0,9 kg.
+        #expect(BakeText.kilograms(2300) == "2,3 kg")
+        #expect(BakeText.kilograms(1920) == "1,9 kg")
+        #expect(BakeText.kilograms(2000) == "2 kg")
+        #expect(BakeText.kilograms(880) == "0,9 kg")
+    }
+
+    @Test func theKneaderHintNamesTheBowlOrTheMakersLimit() {
+        // 4.8 l × 0.4 kg/l = 1.92 kg, the dough has 2.3 kg.
+        let mixer = EquipmentItem(kind: .kneader, name: "KitchenAid", bowlLiters: 4.8)
+        let byBowl = BakeSetup(vessel: .tray, kneader: mixer).kneaderOverload(doughGrams: 2300)!
+        #expect(BakeText.kneaderOverload(byBowl)
+                == "Für deine 4,8-l-Schüssel ist der Teig mit 2,3 kg wahrscheinlich zu groß. "
+                + "Teile ihn oder knete von Hand.")
+        let kMix = EquipmentItem(kind: .kneader, name: "kMix", bowlLiters: 5, maxDoughGrams: 1350)
+        let byMaker = BakeSetup(vessel: .tray, kneader: kMix).kneaderOverload(doughGrams: 1400)!
+        #expect(BakeText.kneaderOverload(byMaker)
+                == "Für „kMix“ nennt der Hersteller höchstens 1350 g Brotteig, dein Teig hat 1400 g. "
+                + "Teile ihn oder knete von Hand.")
+    }
 }
 
 struct BakePlanSetupTests {
@@ -294,6 +316,27 @@ struct BakePlanSetupTests {
         // The recipe and the bake get them too: 15 % of 545 g = 81.75 g.
         model.addIns.add(.nuts)
         #expect(model.recipe(starters: [])?.addIns.map(\.addIn) == [.nuts])
+    }
+
+    @Test func aDoughTooLargeForTheBowlIsAHintNotAnIssue() {
+        // Roggenmischbrot 50 in the 27 cm pot: 545 g flour (see above). Rye
+        // 50 %: 35 % of 272.5 g rye is soured, 95.375 g, with 19.075 g
+        // starter. Dough 545 × (1 + 0.816 + 0.02) = 1000.62 g, with the
+        // starter 1019.695 g. A 2.5 l bowl takes 2.5 × 400 = 1000 g: too
+        // much; a 2.6 l bowl takes 1040 g: fits.
+        let model = BakePlanModel()
+        #expect(model.kneaderOverload(starters: []) == nil)
+        let small = EquipmentItem(kind: .kneader, name: "Klein", bowlLiters: 2.5)
+        model.proposeSetup(from: [small, pot, basket])
+        let overload = model.kneaderOverload(starters: [])
+        #expect(close(overload?.doughGrams, 1019.695))
+        #expect(close(overload?.maxGrams, 1000))
+        #expect(model.issues(starters: []).isEmpty)
+        model.changeSetup { $0.kneader = EquipmentItem(kind: .kneader, name: "Groß", bowlLiters: 2.6) }
+        #expect(model.kneaderOverload(starters: []) == nil)
+        model.changeSetup { $0.kneader = small }
+        model.totalText = "x"
+        #expect(model.kneaderOverload(starters: []) == nil)
     }
 
     @Test func aProposalDoesNotOverrideAChoice() {

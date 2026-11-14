@@ -33,6 +33,15 @@ extension EquipmentItem.Material {
     }
 }
 
+extension EquipmentItem.KneadingTool {
+    var germanName: String {
+        switch self {
+        case .hook: "Knethaken"
+        case .blade: "Messer"
+        }
+    }
+}
+
 extension Dimensions.Shape {
     var germanName: String {
         switch self {
@@ -68,7 +77,10 @@ extension EquipmentItem {
     var detailText: String {
         var parts: [String] = []
         switch kind {
-        case .kneader: parts.append("Küchenmaschine mit Knetfunktion")
+        case .kneader:
+            parts.append("Küchenmaschine mit \(kneadingTool.germanName)")
+            if let bowlLiters { parts.append("Schüssel \(StarterText.number(bowlLiters)) l") }
+            if let maxDoughGrams { parts.append("bis \(BakeText.grams(maxDoughGrams)) Brotteig") }
         case .pot:
             parts.append("Bräter/Römertopf, \(Self.withOrWithout(hasLid)) Deckel, "
                          + "\(Self.withOrWithout(hasSiliconeLiner)) Silikoneinlage")

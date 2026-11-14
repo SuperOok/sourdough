@@ -2,7 +2,8 @@ import Foundation
 import SourdoughKit
 
 /// Five pieces for the UI tests (`-seedEquipment all`): one of each kind in
-/// the non-default variants, and a second, plain loaf pan, to have more than
+/// the non-default variants (the Thermomix kneads with a blade and has a
+/// 2.2 l bowl), and a second, plain loaf pan, to have more than
 /// one of a kind.
 enum EquipmentDemo {
     static let kneaderName = "Thermomix"
@@ -13,7 +14,7 @@ enum EquipmentDemo {
 
     static func items() -> [EquipmentItem] {
         [
-            EquipmentItem(kind: .kneader, name: kneaderName),
+            EquipmentItem(kind: .kneader, name: kneaderName, kneadingTool: .blade, bowlLiters: 2.2),
             EquipmentItem(kind: .pot, name: potName, hasLid: true, hasSiliconeLiner: true,
                           dimensions: Dimensions(shape: .oval, lengthCm: 30, widthCm: 20, heightCm: 12)),
             EquipmentItem(kind: .pan, name: ironPanName, material: .castIron, hasLid: true,

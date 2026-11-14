@@ -104,9 +104,16 @@ struct BakeEquipmentView: View {
         } header: {
             Text("Backweg")
         } footer: {
-            Text(TipsText.attributed(setup.vessel.isFreeStanding
-                 ? "[Freigeschoben](tip:freeStanding) hält ein Brot bis etwa \(BakeText.percent(BakeRules.freeStandingRyeMax)) Roggen seine Form."
-                 : "In der Kastenform gärt und backt der Teig."))
+            VStack(alignment: .leading, spacing: 4) {
+                // A hint, not an issue: it does not stop the bake.
+                if let overload = model.kneaderOverload(starters: starterStore.starters) {
+                    Text(BakeText.kneaderOverload(overload))
+                        .accessibilityIdentifier("setup-kneader-hint")
+                }
+                Text(TipsText.attributed(setup.vessel.isFreeStanding
+                     ? "[Freigeschoben](tip:freeStanding) hält ein Brot bis etwa \(BakeText.percent(BakeRules.freeStandingRyeMax)) Roggen seine Form."
+                     : "In der Kastenform gärt und backt der Teig."))
+            }
         }
     }
 

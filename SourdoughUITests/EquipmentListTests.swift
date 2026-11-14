@@ -2,7 +2,7 @@ import XCTest
 
 /// The equipment list: adding, changing and removing pieces, their form, the
 /// kinds that are still missing. Five pieces come from `-seedEquipment all`:
-/// the kneader "Thermomix", the oval pot "Römertopf" (with liner, 5,7 l), the
+/// the kneader "Thermomix" (blade, 2,2 l bowl), the oval pot "Römertopf" (with liner, 5,7 l), the
 /// cast iron pan "Gusseisenform" (lid, liner, 2,4 l), a plain pan "Kastenform"
 /// and the basket "Gärkörbchen".
 @MainActor
@@ -108,7 +108,8 @@ final class EquipmentListTests: SourdoughUITestCase {
         start()
         add("kneader")
         tapButton("item-save")
-        XCTAssertTrue(row("Küchenmaschine").label.contains("Küchenmaschine mit Knetfunktion"))
+        // A new kneader kneads with a hook.
+        XCTAssertTrue(row("Küchenmaschine").label.contains("Küchenmaschine mit Knethaken"))
     }
 
     func testKindsWithoutAPieceAreListedAsMissingWithTheirTips() {
@@ -130,7 +131,8 @@ final class EquipmentListTests: SourdoughUITestCase {
 
     func testSeveralPiecesOfOneKindAreListed() {
         start(seed: true)
-        XCTAssertTrue(row("Thermomix").label.contains("Küchenmaschine mit Knetfunktion"))
+        XCTAssertTrue(row("Thermomix").label.contains("Küchenmaschine mit Messer · Schüssel 2,2 l"),
+                      row("Thermomix").label)
         XCTAssertTrue(row("Römertopf").label.contains(
             "Bräter/Römertopf, mit Deckel, mit Silikoneinlage · oval 30 × 20 × 12 cm · 5,7 l"), row("Römertopf").label)
         XCTAssertTrue(row("Gusseisenform").label.contains(
@@ -216,6 +218,9 @@ final class EquipmentListTests: SourdoughUITestCase {
             XCTAssertFalse(app.switches["item-liner"].exists)
             XCTAssertFalse(app.segmentedControls["item-shape"].exists)
             XCTAssertFalse(app.textFields["item-length"].exists)
+            // Tool and bowl belong to the kneader only.
+            XCTAssertEqual(app.segmentedControls["item-tool"].exists, kind == "kneader")
+            XCTAssertEqual(app.textFields["item-bowl"].exists, kind == "kneader")
             // A new piece cannot be deleted.
             XCTAssertFalse(app.buttons["item-delete"].exists)
             tapButton("item-cancel")
@@ -238,6 +243,39 @@ final class EquipmentListTests: SourdoughUITestCase {
         element(app.switches, "item-lid")
         element(app.switches, "item-liner")
         element(app.textFields, "item-width")
+    }
+
+    /// A kneader with a blade, its bowl and the maker's limit, kept over a restart.
+    func testAKneaderKeepsToolBowlAndLimitAndSurvivesRestartingTheApp() {
+        start()
+        add("kneader")
+        // A new kneader kneads with a hook.
+        XCTAssertTrue(element(app.segmentedControls, "item-tool").buttons["Knethaken"].isSelected)
+        element(app.segmentedControls, "item-tool").buttons["Messer"].tap()
+        XCTAssertFalse(app.descendants(matching: .any)["item-dough-limit"].exists)
+        // Not a number: an error, and nothing can be saved.
+        replaceText("item-bowl", with: "x")
+        assertText("item-error", "Bitte gib nur Zahlen ein.")
+        XCTAssertFalse(element(app.buttons, "item-save").isEnabled)
+        // 4.8 l × 0.4 kg/l = 1.92 kg ≈ 1,9 kg.
+        replaceText("item-bowl", with: "4,8")
+        XCTAssertTrue(app.staticTexts["item-error"].waitForNonExistence(timeout: 5))
+        assertLabel("item-dough-limit", contains: "1,9 kg")
+        // The maker's 2000 g win over the bowl: 2 kg.
+        replaceText("item-max-dough", with: "2000")
+        assertLabel("item-dough-limit", contains: "2 kg")
+        typeName("Kenwood")
+        tapButton("item-save")
+        let label = row("Kenwood").label
+        XCTAssertTrue(label.contains("Küchenmaschine mit Messer · Schüssel 4,8 l · bis 2000 g Brotteig"), label)
+
+        relaunch()
+        openEquipment()
+        XCTAssertTrue(row("Kenwood").label.contains("Schüssel 4,8 l"))
+        tapButton("equipment-row-Kenwood")
+        XCTAssertTrue(element(app.segmentedControls, "item-tool").buttons["Messer"].isSelected)
+        XCTAssertEqual(element(app.textFields, "item-bowl").value as? String, "4,8")
+        XCTAssertEqual(element(app.textFields, "item-max-dough").value as? String, "2000")
     }
 
     func testASizeThatIsNoNumberShowsAnError() {

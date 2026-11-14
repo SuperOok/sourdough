@@ -11,7 +11,7 @@ enum BakeRunText {
         let calendar = run.calendar
         var values: [BakeProcess.Placeholder: String] = [
             .starter: run.starter.map { "„\($0.name)“" } ?? "deinen Starter",
-            .kneading: run.setup.kneader.map { "mit „\($0.name)“" } ?? "von Hand",
+            .kneading: kneading(Kneading(kneader: run.setup.kneader, mix: run.mix), kneader: run.setup.kneader),
             .vessel: run.setup.vesselItem.map { "„\($0.name)“" } ?? "das Blech",
             .proofVessel: run.setup.basket.map { "das Gärkörbchen „\($0.name)“" } ?? "eine Schüssel",
             .sourdoughFlour: portions(recipe.sourdoughFlour, separator: " und "),
@@ -52,6 +52,30 @@ enum BakeRunText {
     /// "Zurück zu „Sauerteigstufe ansetzen“": the button that opens `step` again.
     static func undoLabel(_ run: BakeRun, _ step: BakeProcess.StepID) -> String {
         "Zurück zu „\(title(run, step))“"
+    }
+
+    /// How to knead, to stand after "Knete den Teig" or "Mische den Teig":
+    /// "mit „Bosch“ etwa 8 bis 12 Minuten auf niedriger Stufe", "mit
+    /// „Thermomix“ im Teigmodus etwa 2 bis 3 Minuten", "von Hand". A dough
+    /// that is only mixed gets no minutes: its text says "nur kurz".
+    static func kneading(_ kneading: Kneading, kneader: EquipmentItem?) -> String {
+        var parts = [kneader.map { "mit „\($0.name)“" } ?? "von Hand"]
+        if kneading.way == .blade { parts.append("im Teigmodus") }
+        if let minutes = kneading.minutes {
+            parts.append((kneading.isDelicate ? "nur etwa " : "etwa ") + self.minutes(minutes))
+        }
+        if kneading.way == .hook { parts.append("auf niedriger Stufe") }
+        if kneading.isDelicate { parts.append("(Dinkel verträgt das Messer schlecht, lieber zu kurz)") }
+        return parts.joined(separator: " ")
+    }
+
+    /// "8 bis 12 Minuten", "8 Minuten", "1 Minute"
+    static func minutes(_ range: ClosedRange<Double>) -> String {
+        let low = StarterText.number(range.lowerBound)
+        if range.lowerBound == range.upperBound {
+            return range.lowerBound == 1 ? "1 Minute" : "\(low) Minuten"
+        }
+        return "\(low) bis \(StarterText.number(range.upperBound)) Minuten"
     }
 
     static func answer(_ answer: BakeProcess.Answer) -> String {

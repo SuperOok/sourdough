@@ -40,6 +40,31 @@ struct EquipmentItemTests {
         #expect(EquipmentKind.allCases.filter(\.hasMaterial) == [.pan])
         #expect(EquipmentKind.allCases.filter(\.hasLid) == [.pot, .pan])
         #expect(EquipmentKind.allCases.filter(\.hasShape) == [.basket])
+        #expect(EquipmentKind.allCases.filter(\.hasKneadingTool) == [.kneader])
+    }
+
+    @Test func kneadersSavedWithoutAToolKneadWithAHook() throws {
+        let json = #"[{"id":"5D4E1C36-0F7E-4C1B-8D2A-0E8A3B6C9F11","kind":"kneader","name":"Alt","#
+            + #""material":"sheetMetal","hasLid":false,"hasSiliconeLiner":false,"shape":"round"}]"#
+        let items = try JSONDecoder().decode([EquipmentItem].self, from: Data(json.utf8))
+        #expect(items.first?.kneadingTool == .hook)
+        #expect(items.first?.bowlLiters == nil)
+        #expect(items.first?.maxDoughGrams == nil)
+    }
+
+    @Test func aKneaderSurvivesAJSONRoundTripWithToolBowlAndLimit() throws {
+        let blade = EquipmentItem(kind: .kneader, name: "Thermomix", kneadingTool: .blade, bowlLiters: 2.2)
+        let mixer = EquipmentItem(kind: .kneader, name: "kMix", bowlLiters: 5, maxDoughGrams: 1350)
+        let data = try JSONEncoder().encode([blade, mixer])
+        #expect(try JSONDecoder().decode([EquipmentItem].self, from: data) == [blade, mixer])
+        // Without a bowl or a limit the keys stay out.
+        let plain = String(decoding: try JSONEncoder().encode(EquipmentItem(kind: .kneader, name: "x")), as: UTF8.self)
+        #expect(plain.contains("\"kneadingTool\":\"hook\""))
+        #expect(!plain.contains("bowlLiters") && !plain.contains("maxDoughGrams"))
+    }
+
+    @Test func bothToolsAreListed() {
+        #expect(EquipmentItem.KneadingTool.allCases == [.hook, .blade])
     }
 
     @Test func aBannetonIsRoundOrLong() {
@@ -68,6 +93,8 @@ struct EquipmentItemTests {
         #expect(!item.hasSiliconeLiner)
         #expect(item.dimensions == nil)
         #expect(item.shape == .round)
+        #expect(item.kneadingTool == .hook)
+        #expect(item.bowlLiters == nil && item.maxDoughGrams == nil)
     }
 
     @Test func eachItemGetsItsOwnId() {

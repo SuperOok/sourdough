@@ -140,6 +140,67 @@ struct EquipmentFormTests {
         kneader.hasLid = true
         kneader.hasLiner = true
         #expect(kneader.makeItem() == EquipmentItem(id: kneader.id, kind: .kneader, name: "Küchenmaschine"))
+
+        // Tool, bowl and limit belong to a kneader only.
+        let pan = EquipmentFormModel(kind: .pan)
+        pan.kneadingTool = .blade
+        pan.bowlText = "4,8"
+        pan.maxDoughText = "2000"
+        #expect(pan.makeItem() == EquipmentItem(id: pan.id, kind: .pan, name: "Kastenform"))
+        #expect(pan.numberFields == pan.sizeFields)
+        #expect(pan.doughLimitText == nil)
+    }
+
+    @Test func aNewKneaderKneadsWithAHookAndHasNoBowl() {
+        let kneader = EquipmentFormModel(kind: .kneader)
+        #expect(kneader.kneadingTool == .hook)
+        #expect(kneader.bowlText == "" && kneader.maxDoughText == "")
+        #expect(kneader.numberFields == ["item-bowl", "item-max-dough"])
+        #expect(kneader.doughLimitText == nil)
+        #expect(kneader.makeItem()?.bowlLiters == nil)
+    }
+
+    @Test func aKneaderKeepsItsToolBowlAndLimit() {
+        let kneader = EquipmentFormModel(kind: .kneader)
+        kneader.name = "Thermomix"
+        kneader.kneadingTool = .blade
+        kneader.bowlText = "2,2"
+        #expect(kneader.makeItem() == EquipmentItem(id: kneader.id, kind: .kneader, name: "Thermomix",
+                                                    kneadingTool: .blade, bowlLiters: 2.2))
+        // 2.2 l × 0.4 kg/l = 0.88 kg, shown as 0,9 kg.
+        #expect(kneader.doughLimitText == "0,9 kg")
+        // The maker's 1350 g wins: 1,35 kg is shown as 1,4 kg.
+        kneader.maxDoughText = "1350"
+        #expect(kneader.makeItem()?.maxDoughGrams == 1350)
+        #expect(kneader.doughLimitText == "1,4 kg")
+        // 0 is not given, like an empty field.
+        kneader.bowlText = "0"
+        kneader.maxDoughText = ""
+        #expect(kneader.makeItem()?.bowlLiters == nil && kneader.makeItem()?.maxDoughGrams == nil)
+    }
+
+    @Test func aBowlThatIsNotANumberIsRejected() {
+        let kneader = EquipmentFormModel(kind: .kneader)
+        kneader.bowlText = "groß"
+        #expect(kneader.errorText == StarterFormModel.numbersOnly)
+        #expect(!kneader.isValid)
+        #expect(kneader.makeItem() == nil)
+        #expect(kneader.doughLimitText == nil)
+        kneader.bowlText = "4,8"
+        kneader.maxDoughText = "-1"
+        #expect(kneader.errorText == StarterFormModel.numbersOnly)
+    }
+
+    @Test func editingAKneaderStartsWithItsValues() {
+        let item = EquipmentItem(kind: .kneader, name: "kMix", kneadingTool: .blade, bowlLiters: 4.8,
+                                 maxDoughGrams: 1350)
+        let model = EquipmentFormModel(editing: item)
+        #expect(model.kneadingTool == .blade)
+        #expect(model.bowlText == "4,8")
+        #expect(model.maxDoughText == "1350")
+        #expect(model.makeItem() == item)
+        let plain = EquipmentFormModel(editing: EquipmentItem(kind: .kneader, name: "Bosch"))
+        #expect(plain.bowlText == "" && plain.maxDoughText == "")
     }
 
     @Test func aNewPotHasALidAndCanLoseIt() {

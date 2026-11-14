@@ -37,11 +37,19 @@ struct EquipmentTextTests {
     }
 
     @Test func kneadingMachineAndBasketHaveFixedDescriptions() {
-        #expect(EquipmentItem(kind: .kneader, name: "x").detailText == "Küchenmaschine mit Knetfunktion")
+        #expect(EquipmentItem(kind: .kneader, name: "x").detailText == "Küchenmaschine mit Knethaken")
         #expect(EquipmentItem(kind: .basket, name: "x").detailText == "Gärkörbchen, rund")
         #expect(EquipmentItem(kind: .basket, name: "x", shape: .oval).detailText == "Gärkörbchen, oval")
         #expect(EquipmentItem(kind: .basket, name: "x", shape: .rectangular).detailText
                 == "Gärkörbchen, rechteckig")
+    }
+
+    @Test func aKneaderNamesItsToolBowlAndLimit() {
+        #expect(EquipmentItem.KneadingTool.allCases.map(\.germanName) == ["Knethaken", "Messer"])
+        #expect(EquipmentItem(kind: .kneader, name: "x", kneadingTool: .blade, bowlLiters: 2.2).detailText
+                == "Küchenmaschine mit Messer · Schüssel 2,2 l")
+        #expect(EquipmentItem(kind: .kneader, name: "x", bowlLiters: 5, maxDoughGrams: 1350).detailText
+                == "Küchenmaschine mit Knethaken · Schüssel 5 l · bis 1350 g Brotteig")
     }
 
     @Test func potWithAndWithoutLidAndLiner() {

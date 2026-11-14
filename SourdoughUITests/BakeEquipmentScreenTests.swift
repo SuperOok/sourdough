@@ -2,7 +2,8 @@ import XCTest
 
 /// Planning a bake, step two: equipment, amount of dough, recipe.
 /// The demo equipment: Thermomix, Römertopf (oval 30 × 20 × 12 cm),
-/// Gusseisenform (30 × 10 × 8 cm), Kastenform (no size), Gärkörbchen.
+/// Gusseisenform (30 × 10 × 8 cm), Kastenform (no size), Gärkörbchen. The
+/// Thermomix has a 2.2 l bowl: 2.2 × 0.4 kg/l = 880 g of dough.
 @MainActor
 final class BakeEquipmentScreenTests: SourdoughUITestCase {
     private func openEquipmentStep(bread: String? = nil) {
@@ -65,6 +66,24 @@ final class BakeEquipmentScreenTests: SourdoughUITestCase {
         assertTitle("Utensilien und Menge")
         tapButton("tips-topic-close")
         _ = element(app.segmentedControls, "setup-vessel")
+    }
+
+    /// The hint when the dough is too much for the kneader; it does not stop the plan.
+    func testADoughTooLargeForTheKneaderShowsAHint() {
+        openEquipmentStep()
+        // In the Römertopf: 448 g flour × 1.836 = 822.5 g, with 15.7 g starter
+        // 838.2 g; under 880 g, no hint.
+        assertText("setup-dough", "Teig, 823 g")
+        XCTAssertFalse(app.staticTexts["setup-kneader-hint"].exists)
+        // In the Gusseisenform: 654 g flour × 1.836 = 1200.7 g; rye 327 g, 35 %
+        // soured = 114.45 g, starter 22.9 g; 1223.6 g ≈ 1,2 kg, over 880 g.
+        vessel("Kastenform")
+        assertText("setup-kneader-hint", "Für deine 2,2-l-Schüssel ist der Teig mit 1,2 kg wahrscheinlich zu groß. "
+                   + "Teile ihn oder knete von Hand.")
+        XCTAssertFalse(app.staticTexts["setup-issue-0"].exists)
+        // By hand there is no limit.
+        choose("setup-kneader", "von Hand")
+        XCTAssertTrue(app.staticTexts["setup-kneader-hint"].waitForNonExistence(timeout: 5))
     }
 
     func testTheTrayProofsInABowlAndKneadingCanBeByHand() {

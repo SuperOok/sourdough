@@ -35,7 +35,7 @@ struct EquipmentFormView: View {
 
     var body: some View {
         NavigationStack {
-            NumberForm(fields: model.sizeFields) { focus in
+            NumberForm(fields: model.numberFields) { focus in
                 Section("Name") {
                     HStack(spacing: 12) {
                         CustomIcon(name: model.iconName)
@@ -65,6 +65,10 @@ struct EquipmentFormView: View {
                                 .accessibilityIdentifier("item-liner")
                         }
                     }
+                }
+                if model.kind.hasKneadingTool {
+                    toolSection
+                    bowlSection(focus)
                 }
                 if model.kind.hasDimensions { sizeSection(focus) }
                 if model.kind.hasShape {
@@ -116,6 +120,50 @@ struct EquipmentFormView: View {
                     .disabled(!model.isValid)
                     .accessibilityIdentifier("item-save")
                 }
+            }
+        }
+    }
+
+    private var toolSection: some View {
+        Section {
+            Picker("Knetet mit", selection: $model.kneadingTool) {
+                ForEach(EquipmentItem.KneadingTool.allCases, id: \.self) { tool in
+                    Text(tool.germanName).tag(tool)
+                }
+            }
+            .pickerStyle(.segmented)
+            .accessibilityIdentifier("item-tool")
+        } header: {
+            Text("Knetet mit")
+        } footer: {
+            Text("Ein Messer im Teigmodus haben Geräte wie Thermomix oder Monsieur Cuisine; "
+                 + "es knetet in wenigen Minuten. Rührmaschinen kneten mit einem Haken.")
+        }
+    }
+
+    private func bowlSection(_ focus: FocusState<String?>.Binding) -> some View {
+        Section {
+            NumberField(title: "Schüssel (l)", text: $model.bowlText, id: "item-bowl", focus: focus)
+            NumberField(title: "Höchstens Brotteig (g)", text: $model.maxDoughText, id: "item-max-dough",
+                        focus: focus)
+            if let limit = model.doughLimitText {
+                LabeledContent("Teig bis etwa") {
+                    Text(limit).foregroundStyle(.secondary)
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityIdentifier("item-dough-limit")
+            }
+        } header: {
+            Text("Fassungsvermögen (optional)")
+        } footer: {
+            VStack(alignment: .leading, spacing: 4) {
+                if let error = model.errorText {
+                    Text(error).foregroundStyle(.red)
+                        .accessibilityIdentifier("item-error")
+                }
+                Text("Das Volumen steht meist auf der Schüssel, die Höchstmenge Brotteig in der Anleitung. "
+                     + "Ohne Höchstmenge rechnet die App mit etwa \(BakeText.kilograms(KneaderCapacity.gramsPerBowlLiter)) "
+                     + "Teig je Liter Schüssel.")
             }
         }
     }

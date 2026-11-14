@@ -279,7 +279,16 @@ Deckel backt der Bräter offen mit Dampf vom Blech darunter (`preheatPotOpen`,
 (`EquipmentItem.shape`: rund, oval, rechteckig, ohne Maße); ein rundes
 nimmt einen rund, ein ovales oder rechteckiges einen lang geformten Laib
 (`shapeBasketRound`/`shapeBasketLong` in der Anleitung). Früher gespeicherte
-Körbchen ohne Form gelten als rund. Bräter und Kastenform haben
+Körbchen ohne Form gelten als rund. Eine **Küchenmaschine** knetet mit
+Knethaken oder Messer (`EquipmentItem.kneadingTool`: `hook`, `blade` für
+Thermomix und ähnliche Geräte im Teigmodus; früher gespeicherte Maschinen
+ohne die Angabe kneten mit dem Haken) und hat optional das **Volumen ihrer
+Schüssel** in Litern (`bowlLiters`) und die **Herstellerangabe „höchstens
+Brotteig“** in Gramm (`maxDoughGrams`); leer oder 0 heißt „nicht angegeben“.
+Daraus folgt die Grenze `KneaderCapacity.maxDoughGrams`: die Herstellerangabe,
+sonst Schüssel × 0,4 kg je Liter (`gramsPerBowlLiter`, Richtwert, Recherche in
+`verbesserungen/VB-005.md`); das Formular zeigt sie als „Teig bis etwa“.
+Bräter und Kastenform haben
 außerdem **optionale Innenmaße** in Zentimetern (`Dimensions`): Form
 rechteckig (Länge × Breite × Höhe), oval (π/4 × Länge × Breite × Höhe) oder
 rund (π/4 × Durchmesser² × Höhe), daraus das Volumen in Litern, auf eine
@@ -333,7 +342,8 @@ Bezeichner: `equipment-add` (das „+“-Menü) und `equipment-add-<art>`,
 `missing-add-<art>`, `equipment-empty`; im Formular `item-name`,
 `item-material`, `item-lid`, `item-liner`, `item-shape`, `item-length`,
 `item-width`, `item-height`, `item-volume`, `item-error`, `item-save`,
-`item-cancel`, `item-delete`, `item-tips`, `item-basket-shape`. `<art>` ist der Rohwert von
+`item-cancel`, `item-delete`, `item-tips`, `item-basket-shape`, `item-tool`
+(Knethaken/Messer), `item-bowl`, `item-max-dough`, `item-dough-limit`. `<art>` ist der Rohwert von
 `EquipmentKind` (`kneader`, `pot`, `pan`, `basket`).
 
 Gespeichert wird unter `equipment.v2`. Der frühere Eintrag `equipment.v1`
@@ -403,7 +413,12 @@ Rechnungen liegen im Package, jede Konstante als Richtwert an einer Stelle:
    Kneten mit Maschine oder von Hand. Teig aus der Kastenform: Volumen ×
    0,5 g/ml; aus dem Bräter: 1 kg je Bodenfläche eines runden 27-cm-Bräters;
    ohne Maße 1 kg. Mehl = Teig / (1 + Wasser + 2 % Salz + Zusätze samt
-   ihrem Wasser). `Recipe` teilt in
+   ihrem Wasser). Ist der ganze Teig (`Recipe.doughGrams`: Sauerteigstufe,
+   Hauptteig, Zusätze samt Wasser) größer als die Grenze der Küchenmaschine
+   (`BakeSetup.kneaderOverload`), steht unter dem Backweg ein **Hinweis**
+   (`setup-kneader-hint`, „Für deine 2,2-l-Schüssel ist der Teig mit 1,2 kg
+   wahrscheinlich zu groß. Teile ihn oder knete von Hand.“); er ist kein
+   `BakeRules.Issue` und sperrt „Durchgang starten“ nicht. `Recipe` teilt in
    Sauerteigstufe (35 % des Roggens, sonst 20 % des Mehls, dunkelste Mehle
    zuerst, 100 % Wasser, 20 % Anstellgut obendrauf) und Hauptteig.
 3. **Zeitplan** (`BakeScheduleView`): rückwärts von „anschnittfertig“;
@@ -497,7 +512,7 @@ Bezeichner: `start-bake`; Schritt 1 `plan-bread`, `plan-bread-character`,
 `flour-slider`, `flour-range`, `flour-limit`, `flour-remove`, `flour-tips`,
 `flour-done`.
 Schritt 2 `setup-vessel`, `setup-pan`, `setup-pot`, `setup-basket`,
-`setup-kneader`, `setup-dough`, `setup-flour`, `setup-dough-source`,
+`setup-kneader`, `setup-kneader-hint`, `setup-dough`, `setup-flour`, `setup-dough-source`,
 `setup-issue-<n>`, `setup-issue-tip-<n>`, `recipe-sour-<mehl>`, `recipe-sour-water`,
 `recipe-starter`, `recipe-sourdough`, `recipe-main-<mehl>`,
 `recipe-main-water`, `recipe-salt`, `recipe-soak-<zusatz>`,
@@ -552,7 +567,12 @@ Er vergisst Zeit und Antwort, ein fertiger Durchgang läuft wieder. Welcher Text
 hängt von Utensilien, Roggenanteil und Antworten ab (`text`); die Texte sind
 Markdown-Dateien unter `SourdoughKit/Sources/SourdoughKit/Steps/` mit
 Platzhaltern wie `{starter}` oder `{mainFlour}` (`Placeholder`), die
-`BakeRunText` auf Deutsch füllt. **Anleitung ändern:** die Datei bearbeiten.
+`BakeRunText` auf Deutsch füllt. `{kneading}` nennt Werkzeug, Zeit und Stufe
+aus `Kneading` (Package, `Kneading.swift`): Hand, Knethaken (niedrige Stufe)
+oder Messer (Teigmodus), Weizen oder Dinkel (Dinkel, wenn mehr Dinkel als
+Weizen), Minuten als Richtwerte (Hand 10–15/5–8, Haken 8–12/4–6, Messer 2–3/1–2,
+Messer-Werte abgeleitet), ab 30 % Roggen das kurze Ende, ab 50 % nur Mischen
+ohne Minuten; Dinkel mit Messer mit „lieber zu kurz“. **Anleitung ändern:** die Datei bearbeiten.
 **Schritt oder Zweig ergänzen:** `StepID`, `answers` oder `text` erweitern,
 dann den Mermaid-Block in `docs/ablauf.md` aus `BakeProcess.mermaid()` neu
 erzeugen; `BakeProcessTests` prüft, dass jede Datei einen Titel hat, jeder
@@ -749,12 +769,13 @@ Jeder UI-Test startet die App in einem definierten Zustand:
   (Roggen im Kühlschrank, vor einer Stunde gefüttert: „Reift“; Weizen bei
   Raumtemperatur, vor drei Tagen gefüttert: „Lange nicht gefüttert“).
 - `-seedEquipment all` speichert fünf Utensilien (`EquipmentDemo`):
-  Küchenmaschine „Thermomix“, ovaler Römertopf mit Deckel und Einlage (30 × 20 × 12 cm,
+  Küchenmaschine „Thermomix“ (Messer, Schüssel 2,2 l), ovaler Römertopf mit Deckel und Einlage (30 × 20 × 12 cm,
   5,7 l), „Gusseisenform“ mit Deckel und Einlage (30 × 10 × 8 cm, 2,4 l),
   eine schlichte „Kastenform“ ohne Maße und ein „Gärkörbchen“, damit ein
-  Test nicht erst alles anlegen muss. Nur ein Test legt ein Stück über das
-  Formular an und startet danach neu
-  (`EquipmentListTests.testAddingAPanShowsItWithItsVolumeAndSurvivesRestartingTheApp`).
+  Test nicht erst alles anlegen muss. Nur zwei Tests legen ein Stück über das
+  Formular an und starten danach neu
+  (`EquipmentListTests.testAddingAPanShowsItWithItsVolumeAndSurvivesRestartingTheApp`,
+  `testAKneaderKeepsToolBowlAndLimitAndSurvivesRestartingTheApp`).
 - `-now 2026-11-13T09:00` legt „jetzt“ für die Backplanung fest (Ortszeit),
   damit der vorgeschlagene Zeitplan in Tests feststeht.
 - `-seedRun active` speichert einen laufenden Demo-Durchgang

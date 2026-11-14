@@ -79,7 +79,8 @@ struct BakeRunTextTests {
         #expect(values[.mainFlour] == "112 g Roggen 1150, 34 g Roggenvollkorn, 134 g Dinkel 1050, 90 g Dinkelvollkorn")
         #expect(values[.mainWater] == "287 g")
         #expect(values[.salt] == "9 g")
-        #expect(values[.kneading] == "mit „Thermomix“")
+        // 50 % rye is only mixed: no minutes; the Thermomix has a blade.
+        #expect(values[.kneading] == "mit „Thermomix“ im Teigmodus")
         #expect(values[.waterCelsius] == "32 °C")
         #expect(values[.restTemperature] == "bei etwa 27 °C")
         #expect(values[.restDuration] == "1 Std. 1 Min.")
@@ -101,7 +102,8 @@ struct BakeRunTextTests {
                            choices: [.bulk: RestChoice(place: .room, hours: 3)], timeZone: utc.timeZone)
         let values = BakeRunText.values(for: bake, step: .knead)
         #expect(values[.starter] == "deinen Starter")
-        #expect(values[.kneading] == "von Hand")
+        // Spelt bread, no rye, by hand: 5 to 8 minutes (page "Kneten").
+        #expect(values[.kneading] == "von Hand etwa 5 bis 8 Minuten")
         #expect(values[.vessel] == "das Blech")
         #expect(values[.proofVessel] == "eine Schüssel")
         // A bulk rest at room temperature: water 2 × 26 − 22 = 30 °C.
@@ -131,6 +133,55 @@ struct BakeRunTextTests {
         #expect(BakeRunText.portions([], separator: ", ") == "")
         #expect([BakeRun.Status.active, .finished, .cancelled].map(BakeRunText.status)
                 == ["läuft", "fertig", "abgebrochen"])
+    }
+}
+
+struct BakeRunKneadingTextTests {
+    private let hook = EquipmentItem(kind: .kneader, name: "Bosch")
+    private let blade = EquipmentItem(kind: .kneader, name: "Thermomix", kneadingTool: .blade)
+    private let wheat = BreadType.wheatBread.preset
+    private let spelt = BreadType.speltBread.preset
+
+    private func text(_ kneader: EquipmentItem?, _ mix: FlourMix) -> String {
+        BakeRunText.kneading(Kneading(kneader: kneader, mix: mix), kneader: kneader)
+    }
+
+    @Test func aHookKneadsOnALowSpeed() {
+        // Wheat with a hook: 8 to 12 minutes (page "Kneten").
+        #expect(text(hook, wheat) == "mit „Bosch“ etwa 8 bis 12 Minuten auf niedriger Stufe")
+        // Wheat mixed bread, 30 % rye: the short end, 8 minutes.
+        #expect(text(hook, BreadType.wheatMixedBread.preset) == "mit „Bosch“ etwa 8 Minuten auf niedriger Stufe")
+        // Rye mixed bread 50: only mixed.
+        #expect(text(hook, BreadType.ryeMixedBread50.preset) == "mit „Bosch“ auf niedriger Stufe")
+    }
+
+    @Test func aBladeKneadsBrieflyInDoughMode() {
+        #expect(text(blade, wheat) == "mit „Thermomix“ im Teigmodus etwa 2 bis 3 Minuten")
+        #expect(text(blade, spelt) == "mit „Thermomix“ im Teigmodus nur etwa 1 bis 2 Minuten "
+                + "(Dinkel verträgt das Messer schlecht, lieber zu kurz)")
+        // Spelt mixed bread, 30 % rye: the short end of 1 to 2 minutes.
+        #expect(text(blade, BreadType.speltMixedBread.preset) == "mit „Thermomix“ im Teigmodus nur etwa 1 Minute "
+                + "(Dinkel verträgt das Messer schlecht, lieber zu kurz)")
+    }
+
+    @Test func byHand() {
+        #expect(text(nil, wheat) == "von Hand etwa 10 bis 15 Minuten")
+        #expect(text(nil, BreadType.ryeBread80.preset) == "von Hand")
+    }
+
+    @Test func minutes() {
+        #expect(BakeRunText.minutes(4...6) == "4 bis 6 Minuten")
+        #expect(BakeRunText.minutes(8...8) == "8 Minuten")
+        #expect(BakeRunText.minutes(1...1) == "1 Minute")
+    }
+
+    @Test func theKneadingStepReadsAsASentence() {
+        let bake = BakeRun(startedAt: nov(13, 9), bread: .wheatBread, mix: wheat, totalGrams: 500, limits: [:],
+                           starter: nil, setup: BakeSetup(vessel: .tray, kneader: hook),
+                           temperatures: Temperatures(), window: InteractionWindow(), time: nov(15, 12),
+                           choices: [.bulk: RestChoice(place: .room, hours: 3)], timeZone: utc.timeZone)
+        #expect(BakeRunText.markdown(bake, .knead).contains(
+            "Knete den Teig mit „Bosch“ etwa 8 bis 12 Minuten auf niedriger Stufe, bis er sich vom Schüsselrand löst."))
     }
 }
 

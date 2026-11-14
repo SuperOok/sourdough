@@ -315,6 +315,13 @@ final class BakePlanModel {
     }
 
     /// The amounts in grams; `nil` without a flour total.
+    /// The dough of the recipe against what the kneading machine takes: a
+    /// hint, not one of the `issues`.
+    func kneaderOverload(starters: [Starter]) -> KneaderOverload? {
+        guard let setup, let recipe = recipe(starters: starters) else { return nil }
+        return setup.kneaderOverload(doughGrams: recipe.doughGrams)
+    }
+
     func recipe(starters: [Starter]) -> Recipe? {
         totalGrams.map {
             Recipe(mix: effectiveMix, totalGrams: $0, starterFlour: starter(in: starters)?.flour, addIns: addIns)

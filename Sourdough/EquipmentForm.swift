@@ -26,6 +26,12 @@ final class EquipmentFormModel {
     var lengthText: String
     var widthText: String
     var heightText: String
+    /// What a kneading machine kneads with.
+    var kneadingTool: EquipmentItem.KneadingTool
+    /// The bowl of a kneading machine in litres; empty or 0 is not given.
+    var bowlText: String
+    /// The maker's most bread dough in grams; empty or 0 is not given.
+    var maxDoughText: String
 
     /// A form for a new piece of that kind. A pot starts round and with a
     /// lid, a pan rectangular and without.
@@ -41,6 +47,9 @@ final class EquipmentFormModel {
         lengthText = ""
         widthText = ""
         heightText = ""
+        kneadingTool = .hook
+        bowlText = ""
+        maxDoughText = ""
     }
 
     /// A form with the values of an existing piece.
@@ -56,6 +65,9 @@ final class EquipmentFormModel {
         lengthText = item.dimensions.map { StarterText.number($0.lengthCm) } ?? ""
         widthText = item.dimensions.flatMap { $0.shape == .round ? nil : StarterText.number($0.widthCm) } ?? ""
         heightText = item.dimensions.map { StarterText.number($0.heightCm) } ?? ""
+        kneadingTool = item.kneadingTool
+        bowlText = item.bowlLiters.map(StarterText.number) ?? ""
+        maxDoughText = item.maxDoughGrams.map(StarterText.number) ?? ""
     }
 
     /// The icon for what the form describes now: it follows the lid and the
@@ -88,6 +100,28 @@ final class EquipmentFormModel {
         return shape == .round ? ["item-length", "item-height"] : ["item-length", "item-width", "item-height"]
     }
 
+    /// The identifiers of all number fields on screen, top to bottom: the
+    /// size of a pot or pan, the bowl and limit of a kneading machine.
+    var numberFields: [String] {
+        sizeFields + (kind.hasKneadingTool ? ["item-bowl", "item-max-dough"] : [])
+    }
+
+    /// The bowl in litres and the maker's limit in grams; `nil` for a field
+    /// that is empty or 0. `nil` as a whole if one is not a number.
+    var bowl: (liters: Double?, maxGrams: Double?)? {
+        guard kind.hasKneadingTool else { return (nil, nil) }
+        guard let liters = NumberInput.parse(bowlText), let grams = NumberInput.parse(maxDoughText) else { return nil }
+        return (liters > 0 ? liters : nil, grams > 0 ? grams : nil)
+    }
+
+    /// "1,9 kg": what the machine takes, by the maker or estimated from the
+    /// bowl; `nil` without either.
+    var doughLimitText: String? {
+        guard let bowl else { return nil }
+        let item = EquipmentItem(kind: kind, name: "", bowlLiters: bowl.liters, maxDoughGrams: bowl.maxGrams)
+        return KneaderCapacity.maxDoughGrams(item).map(BakeText.kilograms)
+    }
+
     /// The width is not asked for a round shape and is ignored there.
     var size: Size {
         guard kind.hasDimensions else { return .none }
@@ -109,6 +143,7 @@ final class EquipmentFormModel {
     /// A wrong entry, shown in red.
     var errorText: String? {
         if case .invalid(let message) = size { return message }
+        if bowl == nil { return StarterFormModel.numbersOnly }
         return nil
     }
 
@@ -129,7 +164,7 @@ final class EquipmentFormModel {
     /// The piece, or `nil` if the form is not valid. Details that do not
     /// belong to the kind stay at their defaults.
     func makeItem() -> EquipmentItem? {
-        guard isValid else { return nil }
+        guard isValid, let bowl else { return nil }
         var dimensions: Dimensions?
         if case .given(let given) = size { dimensions = given }
         return EquipmentItem(
@@ -138,6 +173,8 @@ final class EquipmentFormModel {
             hasLid: kind.hasLid && hasLid,
             hasSiliconeLiner: kind.hasLiner && hasLiner,
             dimensions: dimensions,
-            shape: kind.hasShape ? basketShape : .round)
+            shape: kind.hasShape ? basketShape : .round,
+            kneadingTool: kind.hasKneadingTool ? kneadingTool : .hook,
+            bowlLiters: bowl.liters, maxDoughGrams: bowl.maxGrams)
     }
 }

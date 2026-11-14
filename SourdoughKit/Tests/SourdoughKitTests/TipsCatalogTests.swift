@@ -158,6 +158,24 @@ struct TipsCatalogTests {
         }
     }
 
+    @Test func theMachinePageNamesTheKneadingTimesAndTheBowlRuleOfTheApp() {
+        // The page states the rules of `Kneading` and `KneaderCapacity` in
+        // words; they must not drift apart.
+        let text = plainText(.kneader)
+        func span(_ way: Kneading.Way, _ gluten: Kneading.Gluten) -> String {
+            let range = Kneading.minutes(way, gluten)
+            return "\(Int(range.lowerBound)) bis \(Int(range.upperBound)) Minuten"
+        }
+        for (way, gluten) in [(Kneading.Way.hook, Kneading.Gluten.wheat), (.blade, .wheat), (.hook, .spelt), (.blade, .spelt)] {
+            #expect(text.contains(span(way, gluten)), "\(way) \(gluten) fehlt auf der Seite.")
+        }
+        // 400 g per litre, written as 0,4 kg; 4.8 l × 0.4 = 1.92 ≈ 1,9 kg.
+        #expect(KneaderCapacity.gramsPerBowlLiter == 400)
+        #expect(text.contains("0,4 kg Teig je Liter") && text.contains("4,8-l-Schüssel nimmt also etwa 1,9 kg"))
+        #expect(!text.contains("Platzhalter"))
+        #expect(links(in: .kneading).contains("kneader"))
+    }
+
     @Test func topicIdsAreIdentifiableByTheirFileName() {
         #expect(TipsTopic.ID.kneading.id == "kneading")
     }
