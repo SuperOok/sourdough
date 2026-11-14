@@ -296,6 +296,17 @@ struct BakeRulesTests {
                                  starterFlour: .rye, totalGrams: 1000, limits: [.rye1150: 500]) == [.overLimit(.rye1150)])
     }
 
+    @Test func aStarterInItsEstablishingPhaseIsAnIssue() {
+        // The rye preset with a rye starter has no issue (above); a young one has.
+        #expect(BakeRules.issues(mix: BreadType.ryeMixedBread50.preset, bread: .ryeMixedBread50,
+                                 starterFlour: .rye, starterEstablishing: true,
+                                 totalGrams: 1000, limits: [:]) == [.starterEstablishing])
+        // It comes after the starter's flour.
+        #expect(BakeRules.issues(mix: BreadType.ryeMixedBread50.preset, bread: .ryeMixedBread50,
+                                 starterFlour: .wheat, starterEstablishing: true,
+                                 totalGrams: 1000, limits: [:]) == [.needsRyeStarter, .starterEstablishing])
+    }
+
     @Test func buckwheatAboveThirtyPercentIsAnIssue() {
         let mix = FlourMix([.buckwheat: 31, .spelt1050: 69])
         #expect(BakeRules.issues(mix: mix, bread: .buckwheatSpeltBread, starterFlour: nil,

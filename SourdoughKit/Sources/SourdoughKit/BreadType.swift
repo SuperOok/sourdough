@@ -86,17 +86,23 @@ public enum BakeRules {
         case tooMuchRyeToStandFree
         /// The chosen way of baking needs a piece of this kind, and none is chosen.
         case missingEquipment(EquipmentKind)
+        /// The chosen starter is still in its establishing phase: it cannot
+        /// raise a dough reliably yet.
+        case starterEstablishing
     }
 
     /// Everything that does not fit about `mix` for `bread`, made with a
     /// starter of `starterFlour` (`nil`: none chosen yet), for `totalGrams` of
-    /// flour with limits in grams per flour.
+    /// flour with limits in grams per flour. `starterEstablishing`: the chosen
+    /// starter is still in its establishing phase.
     public static func issues(mix: FlourMix, bread: BreadType, starterFlour: FlourType?,
+                              starterEstablishing: Bool = false,
                               totalGrams: Double, limits: [Flour: Double]) -> [Issue] {
         var issues = ryeIssues(mix: mix, bread: bread) + buckwheatIssues(mix: mix)
         if let starterFlour, !suits(starterFlour, mix: mix) {
             issues.append(.needsRyeStarter)
         }
+        if starterEstablishing { issues.append(.starterEstablishing) }
         issues += mix.floursOverLimit(totalGrams: totalGrams, limits: limits).map(Issue.overLimit)
         return issues
     }

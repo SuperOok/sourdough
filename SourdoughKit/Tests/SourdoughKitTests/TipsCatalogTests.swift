@@ -28,7 +28,7 @@ struct TipsCatalogTests {
 
     @Test func topicsAreGroupedIntoCategories() {
         #expect(TipsCatalog.topics(in: .utensils).map(\.id) == [.kneader, .pot, .pan, .basket])
-        #expect(TipsCatalog.topics(in: .starters).map(\.id) == [.starter])
+        #expect(TipsCatalog.topics(in: .starters).map(\.id) == [.starter, .starterFromScratch])
         #expect(TipsCatalog.topics(in: .ingredients).map(\.id)
                 == [.flours, .wheat, .rye, .spelt, .buckwheat, .seeds, .nuts, .driedFruit, .roastedOnions, .herbs])
         #expect(TipsCatalog.topics(in: .baking).map(\.id) == [.kneading, .proofing, .freeStanding, .temperature, .schedule])
@@ -39,11 +39,11 @@ struct TipsCatalogTests {
     }
 
     @Test func everyTopicBelongsToExactlyOneCategory() {
-        // 4 utensils + 1 starter + 10 ingredients + 5 baking + 10 app pages, counted by hand.
-        #expect(TipsTopic.ID.allCases.count == 30)
+        // 4 utensils + 2 starter + 10 ingredients + 5 baking + 10 app pages, counted by hand.
+        #expect(TipsTopic.ID.allCases.count == 31)
         let grouped = TipsTopic.Category.allCases.flatMap { TipsCatalog.topics(in: $0).map(\.id) }
-        #expect(grouped.count == 30)
-        #expect(Set(grouped).count == 30)
+        #expect(grouped.count == 31)
+        #expect(Set(grouped).count == 31)
     }
 
     @Test func titlesOfTheAppTopics() {
@@ -75,6 +75,24 @@ struct TipsCatalogTests {
 
     @Test func titlesOfTheStarterTopics() {
         #expect(TipsCatalog.topic(.starter).title == "Sauerteigstarter")
+        #expect(TipsCatalog.topic(.starterFromScratch).title == "Starter selbst ansetzen")
+    }
+
+    @Test func theStartingFromScratchPageIsLinkedFromTheOtherStarterPages() {
+        for id in [TipsTopic.ID.starter, .starterNew, .starterFeed] {
+            #expect(links(in: id).contains("starterFromScratch"), "\(id)")
+        }
+        // The page names the phases with the days of `StarterEstablishing` at 22 °C
+        // and the slower start at 12 °C (factor 3: 2 × 3 = 6 days).
+        let text = plainText(.starterFromScratch)
+        for part in ["Nach etwa 2 Tagen", "Nach etwa 3 Tagen", "Nach etwa 5 Tagen", "zehnten Tag",
+                     "zweimal hintereinander", "Bei 12 °C beginnt die Scheinblüte also erst nach etwa 6 Tagen"] {
+            #expect(text.contains(part), "\(part)")
+        }
+        #expect(StarterEstablishing.falseRiseDays == 2 && StarterEstablishing.quietDays == 3
+                && StarterEstablishing.stabilizingDays == 5 && StarterEstablishing.usuallyReadyDays == 10)
+        // The page for a new starter no longer reads "Angesetzt am" as any earlier date.
+        #expect(!plainText(.starterNew).contains("auch ein früherer"))
     }
 
     @Test func titlesOfTheBakingTopics() {
@@ -88,7 +106,8 @@ struct TipsCatalogTests {
         let headings = TipsCatalog.topic(.starter).blocks.compactMap { block -> String? in
             if case .heading(let text) = block { text } else { nil }
         }
-        #expect(headings == ["Gut zu wissen", "Was in die Rechnung eingeht", "Die Zustände", "Das Datum"])
+        #expect(headings == ["Gut zu wissen", "Was in die Rechnung eingeht", "Die Zustände", "Die Ansetzphase",
+                             "Übernommene Starter", "Das Datum"])
         #expect(TipsTopic.ID(rawValue: "starterStates") == nil)
     }
 

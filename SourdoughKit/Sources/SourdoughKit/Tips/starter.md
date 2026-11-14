@@ -27,6 +27,16 @@ Die App schätzt den Zustand deines Starters aus der letzten Fütterung. Das sin
 - Hungrig: Jetzt füttern oder verwenden.
 - Lange nicht gefüttert: Erst ein bis zwei Mal auffrischen, dann verwenden.
 
+## Die Ansetzphase
+
+Ein spontan angesetzter Starter, nur aus Mehl und Wasser, hat diese Zustände noch nicht. Bis er bereit ist, zeigt die App „Ansetzphase“ mit dem Tag seit dem Ansetzen, die Phase, die nach Tagen und Temperatur zu erwarten ist (frisch angesetzt, Scheinblüte, Ruhephase, wird stabil), und wie oft er sich zuletzt hintereinander verdoppelt hat. Gefüttert wird einmal am Tag.
+
+Bereit ist er nach zwei Mal „Verdoppelt“ hintereinander; das fragt die App beim Füttern. Ab dann gelten die Zustände oben. Solange er in der Ansetzphase ist, lässt sich mit ihm kein Durchgang starten. Wie die Ansetzphase verläuft und was dabei schiefgehen kann, steht unter [Starter selbst ansetzen](tip:starterFromScratch).
+
+## Übernommene Starter
+
+Hast du einen Starter bekommen, weiß die App nicht, wie er zuletzt gefüttert wurde. Sie rechnet dann so, als wäre er im Verhältnis 1 : 1 : 1 gefüttert worden, ab dem Zeitpunkt, den du angegeben hast. Nach deiner ersten eigenen Fütterung ist die Schätzung so genau wie bei jedem anderen Starter.
+
 ## Das Datum
 
 Das angezeigte Datum ist der Zeitpunkt, bis zu dem du den Starter spätestens füttern oder verwenden solltest. Probiere im Zweifel aus: Ein Löffel Starter schwimmt im Wasser, wenn er reif ist.

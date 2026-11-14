@@ -45,8 +45,10 @@ public enum StarterModel {
     public static let referenceCelsius = 22.0
     public static let referenceDoublingHours = 3.0
     public static let q10 = 3.0
-    /// Dilution assumed for the first mix, which has no starter to dilute.
-    public static let freshBatchDilution = 3.0
+    /// Dilution assumed for a feeding whose amounts say nothing about it: the
+    /// first mix, which has no starter to dilute, and the estimated last
+    /// feeding of a received starter (as if fed 1 : 1 : 1).
+    public static let assumedDilution = 3.0
 
     public static let peakStart = 0.75
     public static let peakEnd = 1.5
@@ -58,9 +60,9 @@ public enum StarterModel {
     }
 
     public static func dilution(of feeding: Feeding) -> Double {
-        feeding.starterGrams > 0
+        feeding.starterGrams > 0 && !feeding.isEstimate
             ? (feeding.starterGrams + feeding.flourGrams + feeding.waterGrams) / feeding.starterGrams
-            : freshBatchDilution
+            : assumedDilution
     }
 
     public static func peakHours(of feeding: Feeding, celsius: Double, flour: FlourType) -> Double {
@@ -69,9 +71,10 @@ public enum StarterModel {
 }
 
 extension Starter {
-    /// The state at `now`, based on the last feeding; `nil` if never fed.
+    /// The state at `now`, based on the last feeding; `nil` if never fed or
+    /// still in the establishing phase.
     public func status(at now: Date) -> StarterStatus? {
-        guard let last = lastFeeding else { return nil }
+        guard !isEstablishing, let last = lastFeeding else { return nil }
         let peak = StarterModel.peakHours(of: last, celsius: celsius, flour: flour)
         let hours = max(0, now.timeIntervalSince(last.date) / 3600)
         let state: StarterState =
@@ -85,5 +88,127 @@ extension Starter {
                              bestFrom: date(StarterModel.peakStart),
                              bestUntil: date(StarterModel.peakEnd),
                              feedBy: date(StarterModel.hungryAt))
+    }
+}
+
+/// The phase a spontaneous starter is expected to be in, by days since it was
+/// mixed (`StarterEstablishing`).
+public enum EstablishingPhase: CaseIterable, Equatable, Sendable {
+    /// Freshly mixed: little happens yet.
+    case fresh
+    /// The false rise: other bacteria bubble first; it cannot raise a dough yet.
+    case falseRise
+    /// The quiet phase: sour and nearly still while the pH falls.
+    case quiet
+    /// Lactic acid bacteria and yeasts take over; it begins to rise again.
+    case stabilizing
+    /// Longer than usual: time to look at the pitfalls.
+    case overdue
+}
+
+/// Where a spontaneous starter stands in its establishing phase.
+public struct EstablishingStatus: Equatable, Sendable {
+    /// Day 1 is the day it was mixed.
+    public let day: Int
+    /// The phase expected at this age and temperature; only an expectation:
+    /// ready is what the observations say.
+    public let phase: EstablishingPhase
+    /// Feedings in a row, up to the last, after which it had doubled.
+    public let doublingsInARow: Int
+    /// Feed it by then: once a day in this phase.
+    public let feedBy: Date
+    /// By then most starters are ready at this temperature.
+    public let usuallyReadyBy: Date
+}
+
+/// Rules of thumb for the establishing phase of a spontaneous starter, all in
+/// one place. They are not measured on real starters.
+///
+/// - At 22 °C the false rise is expected from day 2 after mixing, the quiet
+///   phase from day 3, stabilizing from day 5; most starters are ready by
+///   day 10, and from day 14 it takes longer than usual. These are days since
+///   mixing, not day numbers (day 1 is the day of mixing).
+/// - Colder, it all takes longer, as everywhere in the app: 3 times as long
+///   every 10 °C colder (`StarterModel.q10`).
+/// - It is fed once a day.
+/// - It is ready after it doubled after two feedings in a row.
+public enum StarterEstablishing {
+    public static let falseRiseDays = 2.0
+    public static let quietDays = 3.0
+    public static let stabilizingDays = 5.0
+    public static let usuallyReadyDays = 10.0
+    public static let overdueDays = 14.0
+    public static let feedingHours = 24.0
+    public static let doublingsToBeReady = 2
+
+    /// How much longer every phase takes at `celsius` than at 22 °C.
+    public static func factor(celsius: Double) -> Double {
+        pow(StarterModel.q10, (StarterModel.referenceCelsius - celsius) / 10)
+    }
+
+    /// The phase expected after `days` since mixing at `celsius`.
+    public static func phase(days: Double, celsius: Double) -> EstablishingPhase {
+        let reference = days / factor(celsius: celsius)
+        return reference >= overdueDays ? .overdue
+            : reference >= stabilizingDays ? .stabilizing
+            : reference >= quietDays ? .quiet
+            : reference >= falseRiseDays ? .falseRise
+            : .fresh
+    }
+}
+
+/// What can be said about a starter at one moment.
+public enum StarterCondition: Equatable, Sendable {
+    /// No feeding yet: nothing to estimate from.
+    case notFed
+    /// A spontaneous starter that is not ready yet.
+    case establishing(EstablishingStatus)
+    /// The estimate between two feedings.
+    case fed(StarterStatus)
+}
+
+extension Starter {
+    /// The feedings in the order they happened.
+    private var feedingsByDate: [Feeding] {
+        feedings.sorted { $0.date < $1.date }
+    }
+
+    /// The date of the second feeding in a row after which a spontaneous
+    /// starter had doubled; `nil` until then and for other starters.
+    public var readySince: Date? {
+        guard origin == .spontaneous else { return nil }
+        var inARow = 0
+        for feeding in feedingsByDate {
+            inARow = feeding.rise == .doubled ? inARow + 1 : 0
+            if inARow == StarterEstablishing.doublingsToBeReady { return feeding.date }
+        }
+        return nil
+    }
+
+    /// A spontaneous starter that is not ready yet.
+    public var isEstablishing: Bool {
+        origin == .spontaneous && readySince == nil
+    }
+
+    /// The establishing phase at `now`; `nil` unless `isEstablishing`.
+    public func establishing(at now: Date) -> EstablishingStatus? {
+        guard isEstablishing else { return nil }
+        let days = age(at: now) / 86_400
+        let lastDate = lastFeeding?.date ?? createdAt
+        let inARow = feedingsByDate.reversed().prefix { $0.rise == .doubled }.count
+        let factor = StarterEstablishing.factor(celsius: celsius)
+        return EstablishingStatus(
+            day: Int(days) + 1,
+            phase: StarterEstablishing.phase(days: days, celsius: celsius),
+            doublingsInARow: inARow,
+            feedBy: lastDate.addingTimeInterval(StarterEstablishing.feedingHours * 3600),
+            usuallyReadyBy: createdAt.addingTimeInterval(StarterEstablishing.usuallyReadyDays * factor * 86_400))
+    }
+
+    /// What can be said about the starter at `now`.
+    public func condition(at now: Date) -> StarterCondition {
+        if let establishing = establishing(at: now) { return .establishing(establishing) }
+        if let status = status(at: now) { return .fed(status) }
+        return .notFed
     }
 }
