@@ -96,3 +96,10 @@ Reihenfolge der Merges: 007, 006, 001/002, 003, 004/005.
   `BakeRunScreenTests.testDecisionsWaitOrGoOnAndStepsNameTheAmounts` scheiterte
   zweimal („run-answer-yes fehlt“) und bestand beim dritten Einzellauf; im vollen
   Lauf beobachten.
+- 14:15: VB-006 in `release/1.2` (Merge 6b420cf). Der Layout-Test
+  `testTheLightbulbSitsBeforeTheRoomBoxAndTheBoxesLineUp` scheiterte seit der
+  grauen Eingabekapsel (9d69ef7): Das Feld mit Glühbirne ist ein eigenes Element,
+  der Text in der Kapsel, je 12 pt eingerückt. Test angepasst (e46fe00), besteht.
+- 14:10–14:20: Nutzungslimit; VB-005 (Commit 5db44b3) und VB-001/002
+  (unkommittiert im Worktree) hielten an und sind fortgesetzt; VB-005 führt
+  danach `release/1.2` zusammen und setzt VB-004 um.
