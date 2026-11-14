@@ -161,6 +161,7 @@ struct FoldingRestTests {
     }
 
     @Test func onlyTheFoldedRestHasFoldHours() {
+        #expect(Schedule.foldingRest == .bulk)
         #expect(Schedule.foldHours(.bulk, folding: threeRounds) == 1.5)
         #expect(Schedule.foldHours(.sourdough, folding: threeRounds) == 0)
         #expect(Schedule.foldHours(.proof, folding: threeRounds) == 0)
