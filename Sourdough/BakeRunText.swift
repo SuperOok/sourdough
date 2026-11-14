@@ -41,7 +41,7 @@ enum BakeRunText {
 
     /// What to do while `step` waits; `nil` unless it is a decision.
     static func waitMarkdown(_ run: BakeRun, _ step: BakeProcess.StepID) -> String? {
-        BakeProcess.waitText(step).map { BakeProcess.fill(BakeProcess.markdown($0), values(for: run, step: step)) }
+        BakeProcess.waitText(step, in: run.context).map { BakeProcess.fill(BakeProcess.markdown($0), values(for: run, step: step)) }
     }
 
     /// The `#` title of the step's text.
@@ -78,13 +78,9 @@ enum BakeRunText {
         return "\(low) bis \(StarterText.number(range.upperBound)) Minuten"
     }
 
+    /// The label of `answer`, the same as on the branches of the diagram.
     static func answer(_ answer: BakeProcess.Answer) -> String {
-        switch answer {
-        case .yes: "Ja"
-        case .notYet: "Noch nicht"
-        case .belowRim: "Unter dem Rand"
-        case .overRim: "Am Deckel oder darüber"
-        }
+        answer.label
     }
 
     /// "bei etwa 19 °C": the target temperature of a rest, in whole degrees.

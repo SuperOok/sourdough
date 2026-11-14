@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 @testable import SourdoughKit
 
@@ -28,7 +29,7 @@ struct TipsCatalogTests {
 
     @Test func topicsAreGroupedIntoCategories() {
         #expect(TipsCatalog.topics(in: .utensils).map(\.id) == [.kneader, .pot, .pan, .basket])
-        #expect(TipsCatalog.topics(in: .starters).map(\.id) == [.starter])
+        #expect(TipsCatalog.topics(in: .starters).map(\.id) == [.starter, .starterCare])
         #expect(TipsCatalog.topics(in: .ingredients).map(\.id)
                 == [.flours, .wheat, .rye, .spelt, .buckwheat, .seeds, .nuts, .driedFruit, .roastedOnions, .herbs])
         #expect(TipsCatalog.topics(in: .baking).map(\.id) == [.kneading, .proofing, .freeStanding, .temperature, .schedule])
@@ -39,11 +40,11 @@ struct TipsCatalogTests {
     }
 
     @Test func everyTopicBelongsToExactlyOneCategory() {
-        // 4 utensils + 1 starter + 10 ingredients + 5 baking + 10 app pages, counted by hand.
-        #expect(TipsTopic.ID.allCases.count == 30)
+        // 4 utensils + 2 starter + 10 ingredients + 5 baking + 10 app pages, counted by hand.
+        #expect(TipsTopic.ID.allCases.count == 31)
         let grouped = TipsTopic.Category.allCases.flatMap { TipsCatalog.topics(in: $0).map(\.id) }
-        #expect(grouped.count == 30)
-        #expect(Set(grouped).count == 30)
+        #expect(grouped.count == 31)
+        #expect(Set(grouped).count == 31)
     }
 
     @Test func titlesOfTheAppTopics() {
@@ -90,6 +91,26 @@ struct TipsCatalogTests {
         }
         #expect(headings == ["Gut zu wissen", "Was in die Rechnung eingeht", "Die Zustände", "Das Datum"])
         #expect(TipsTopic.ID(rawValue: "starterStates") == nil)
+    }
+
+    @Test func theStarterCarePageHasItsFiveSectionsAndIsLinkedFromTheInstructionsAndTheStarterPages() {
+        let topic = TipsCatalog.topic(.starterCare)
+        #expect(topic.title == "Starter erhalten und pflegen")
+        #expect(topic.category == .starters)
+        let headings = topic.blocks.compactMap { block -> String? in
+            if case .heading(let text) = block { text } else { nil }
+        }
+        #expect(headings == ["Ein Teelöffel genügt", "Zwei Wege", "Selbes Glas oder frisches Glas",
+                             "Woran du merkst, dass etwas nicht stimmt", "Und in der App"])
+        #expect(links(in: .starterCare).isSuperset(of: ["starter", "starterFeed"]))
+        for id in [TipsTopic.ID.starter, .starterFeed, .run] {
+            #expect(links(in: id).contains("starterCare"), "\(id)")
+        }
+        for step in ["mixSourdough", "kneadFold", "kneadRye", "checkStarter", "waitStarter"] {
+            let url = Bundle.module.url(forResource: step, withExtension: "md", subdirectory: "Steps")!
+            let text = String(decoding: try! Data(contentsOf: url), as: UTF8.self)
+            #expect(text.contains("(tip:starterCare)"), "\(step)")
+        }
     }
 
     @Test func theTemperaturePageLinksTheScheduleAndProofingAndIsLinkedFromTheSchedule() {

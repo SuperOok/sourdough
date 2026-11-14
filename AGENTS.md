@@ -94,7 +94,10 @@ SourdoughTests/        App-Tests (im Simulator, mit der App als Host):
                        Speicherung, View-Modelle, Formatierung
 SourdoughUITests/      Oberflächentests: jeder Bildschirm, jede Bedienung
 tools/                 Prüfskripte (tests.sh, apptests.sh, uitests.sh,
-                       coverage.sh) und simulator.sh (Bezugsgerät)
+                       coverage.sh), simulator.sh (Bezugsgerät) und
+                       diagrams.sh (PlantUML-Diagramme unter docs/)
+docs/                  Pläne und Diagramme: ablauf.puml (erzeugt) und
+                       ortswahl.puml (von Hand), je mit SVG
 ```
 
 **Logik gehört ins Package.** Alles, was rechnet, liegt in `SourdoughKit/`
@@ -245,6 +248,18 @@ Fehlercode, sobald eine Datei in `SourdoughKit/Sources/` oder `Sourdough/`
 unter 100 % Zeilenabdeckung liegt. Ausgenommen sind nur `#Preview`-Blöcke;
 jede weitere Ausnahme steht mit Begründung im Skript, nicht im Code
 verstreut.
+
+```bash
+tools/diagrams.sh
+```
+
+Die Diagramme unter `docs/`: schreibt `docs/ablauf.puml` aus der
+Ablaufdefinition neu (über den Test `theDiagramInTheDocsIsUpToDate` mit
+`UPDATE_DIAGRAMS=1`) und zeichnet jede `docs/*.puml` als SVG daneben; die SVGs
+werden eingecheckt, weil GitHub PlantUML nicht anzeigt. Braucht Java und die
+PlantUML-Jar (MIT-Ausgabe), die außerhalb des Repos liegt; der Pfad kommt nur
+aus der Umgebungsvariablen `PLANTUML_JAR`, fehlt sie, bricht das Skript mit
+einer Meldung ab. Aktivitätsdiagramme brauchen kein Graphviz.
 
 **Bezugsgeräte:** Das echte iPhone ist „Zackebuh“ (iPhone 15 Pro Max,
 UDID `00008130-000045A93C30001C`), der Simulator ein **iPhone 15** (ohne
@@ -559,24 +574,73 @@ Werte gelten als rückwärts geplant mit der Temperatur des Ortes. Die Anleitung
 nennt bei jeder Ruhe nur die Temperatur, keinen Ort (`{restTemperature}`,
 „bei etwa 19 °C“, ganze Grad).
 
-**Der Ablauf ist Daten** (`BakeProcess`): neun Schritte (`StepID`), davon drei
-Entscheidungen mit Antworten (`answers`); „Noch nicht“ hält den Schritt offen
-und zeigt, was in der Zwischenzeit zu tun ist. „Zurück zu …“ (`BakeRun.undo`)
-öffnet den zuletzt erledigten Schritt wieder, für einen Tipp aus Versehen:
-Er vergisst Zeit und Antwort, ein fertiger Durchgang läuft wieder. Welcher Text ein Schritt zeigt,
-hängt von Utensilien, Roggenanteil und Antworten ab (`text`); die Texte sind
-Markdown-Dateien unter `SourdoughKit/Sources/SourdoughKit/Steps/` mit
-Platzhaltern wie `{starter}` oder `{mainFlour}` (`Placeholder`), die
+**Der Ablauf ist Daten** (`BakeProcess`): **eine** Definition für Durchgang
+und Zeitplan, `BakeProcess.nodes`, die Knoten in ihrer Reihenfolge: neun
+Schritte (`Step`, Id `StepID`) und dazwischen die drei Ruhen (`.rest`, mit
+`RestKind` und deutschem Namen). Jeder Schritt hat ein `timing`: ein Handgriff
+des Zeitplans (`.action(ActionKind)`, Vorheizen mit `overlapsRest`, weil es
+schon während der Stückgare läuft), eine Entscheidung, die mit dem nächsten
+Handgriff fällig ist (`.beforeNextAction`), oder das Auskühlen (`.cooling`).
+Daraus folgen geplante Zeit (`plannedTime`, `plannedAction`), die Ruhe nach
+einem Schritt (`followingRest`) und die Folge von Handgriffen und Ruhen, die
+`Schedule` plant (`BakeProcess.timeline`, in `Schedule.Layout` als Blöcke von
+Handgriffen zwischen den Ruhen); eigene Zuordnungen gibt es nicht mehr.
+
+**Bedingungen sind Daten** (`BakeProcess.Condition`): Roggenanteil ab, Gefäß,
+Kastenform mit Deckel, Bräter mit/ohne Deckel, längliches/rundes
+Gärkörbchen, Antwort einer Entscheidung, und `all` für mehrere. Jede hat eine
+deutsche Bezeichnung (`label`) und wird gegen `BakeProcess.Context` (Setup,
+Roggenanteil, Antworten; im Durchgang `BakeRun.context`) ausgewertet
+(`holds`). Wo ein Schritt sich unterscheidet, hat er Regeln (`Choice`):
+Bedingung → `Variant` (Text, Antworten, Text für „Noch nicht“), die erste
+zutreffende gilt, sonst `otherwise`. Dieselbe Bedingung wird im Durchgang
+ausgewertet und im Diagramm an den Zweig geschrieben. Entscheidungen haben
+Antworten (`Answer`, deutsche Bezeichnung `label`); „Noch nicht“ hält den
+Schritt offen und zeigt, was in der Zwischenzeit zu tun ist. Spätere Schritte
+lesen eine Antwort über eine Bedingung (Backen nach „Am Deckel oder
+darüber“). „Zurück zu …“ (`BakeRun.undo`) öffnet den zuletzt erledigten
+Schritt wieder, für einen Tipp aus Versehen: Er vergisst Zeit und Antwort, ein
+fertiger Durchgang läuft wieder. Gespeicherte Durchgänge enthalten die
+Rohwerte von `StepID` und `Answer`; sie bleiben, wie sie sind
+(`theStoredNamesOfStepsAndAnswersStay`).
+
+Die Texte sind Markdown-Dateien unter `SourdoughKit/Sources/SourdoughKit/Steps/`
+mit Platzhaltern wie `{starter}` oder `{mainFlour}` (`Placeholder`), die
 `BakeRunText` auf Deutsch füllt. `{kneading}` nennt Werkzeug, Zeit und Stufe
 aus `Kneading` (Package, `Kneading.swift`): Hand, Knethaken (niedrige Stufe)
 oder Messer (Teigmodus), Weizen oder Dinkel (Dinkel, wenn mehr Dinkel als
 Weizen), Minuten als Richtwerte (Hand 10–15/5–8, Haken 8–12/4–6, Messer 2–3/1–2,
 Messer-Werte abgeleitet), ab 30 % Roggen das kurze Ende, ab 50 % nur Mischen
-ohne Minuten; Dinkel mit Messer mit „lieber zu kurz“. **Anleitung ändern:** die Datei bearbeiten.
-**Schritt oder Zweig ergänzen:** `StepID`, `answers` oder `text` erweitern,
-dann den Mermaid-Block in `docs/ablauf.md` aus `BakeProcess.mermaid()` neu
-erzeugen; `BakeProcessTests` prüft, dass jede Datei einen Titel hat, jeder
-Platzhalter bekannt ist und `docs/ablauf.md` zur Definition passt.
+ohne Minuten; Dinkel mit Messer mit „lieber zu kurz“.
+
+- **Anleitung ändern:** die Datei bearbeiten.
+- **Zweig ergänzen:** eine Regel in der `Choice` des Schritts in `nodes`
+  (Bedingung → `Variant`), bei Bedarf ein neuer `Text` mit Datei.
+- **Bedingung ergänzen:** einen Fall in `Condition` mit `holds` und `label`;
+  das Diagramm zeigt sie, sobald eine Regel sie nutzt.
+- **Schritt ergänzen:** einen Fall in `StepID` (an seiner Stelle; die
+  Reihenfolge der Fälle ist die der Schritte) und einen Knoten in `nodes`;
+  ein Handgriff braucht dazu `ActionKind` und `ScheduleRules.minutes`, der
+  Zeitplan übernimmt ihn von selbst.
+- Danach `tools/diagrams.sh`. `BakeProcessTests` prüft, dass jede Datei einen
+  Titel hat, jeder Platzhalter bekannt ist, `docs/ablauf.puml` der Ausgabe von
+  `BakeProcess.plantUML()` gleicht, jeder Knoten erreichbar ist
+  (`BakeProcess.edges()`) und jede Bedingung im Diagramm steht.
+
+**Diagramme** (nur PlantUML, Aktivitätsdiagramme): `docs/ablauf.puml` wird aus
+der Definition erzeugt, nicht aus Beispiel-Ausstattungen; jeder Zweig trägt
+seine Bedingung, „sonst“ den Rest, Antworten stehen an der Entscheidung selbst,
+Ruhen sind grau. `docs/ortswahl.puml` ist von Hand gepflegt und zeigt die
+Ortswahl des Zeitplans (rückwärts und vorwärts, Zeitfenster 8–21 Uhr,
+Konflikt, feste Ruhen aus `choices`); wer `Schedule.place` oder die Richtungen
+ändert, zieht es nach. `docs/ablauf.md` erklärt beide; die SVGs zeichnet
+`tools/diagrams.sh`.
+
+**Erweiterungen auf diesem Modell** (Vorbereitung für VB-004/005): Ein
+Knetwerkzeug wird ein weiterer `Condition`-Fall (und ein Feld in `Context`,
+falls es nicht im Setup steht); Falt-Runden werden ein eigener Schritt mit
+eigenem `timing` innerhalb der Stockgare, Zeitplan und Diagramm lesen ihn aus
+`nodes`.
 
 **Backprotokoll** (`BakeLogView`, `BakeLogDetailView`): alle Durchgänge,
 neueste zuerst, mit Brotart, Status, Starter, Utensilien, Temperaturen,
@@ -584,10 +648,20 @@ Mehlen in Gramm, Hydration, Sauerteigstufe, Salz und je Schritt geplanter
 und erledigter Zeit samt Antwort, bei Schritten vor einer Ruhe deren
 Zieltemperatur („Ruhe bei etwa 16 °C“); ein Durchgang lässt sich löschen.
 
+**Fütterung eintragen:** Im Schritt „Sauerteigstufe ansetzen“ (`mixSourdough`)
+steht ein Knopf `run-feed-starter`, der das Füttern-Blatt (`FeedView`) des
+Starters öffnet; Speichern hängt die Fütterung an den Starter im
+`StarterStore` (der Durchgang behält nur seine Kopie, die Id ist dieselbe:
+`StarterStore.starter(for:)`). Gibt es den Starter dort nicht mehr (gelöscht)
+oder wurde ohne Starter geplant, entfällt der Knopf. Die Menge, die für das
+nächste Mal bleibt (ein Teelöffel), geht nicht ins Rezept. Die Anleitung
+verzweigt dazu nicht: `mixSourdough`, `kneadFold`, `kneadRye`, `checkStarter`
+und `waitStarter` verlinken die Tipps-Seite `starterCare`.
+
 Bezeichner der Durchführung: `run-target`, `run-status`, `run-planned`,
 `run-text`, `run-hint`, `run-done`, `run-answer-<antwort>` (`yes`, `notYet`,
 `belowRim`, `overRim`), `run-undo`, `run-step-<n>`, `run-cancel`, `run-finished`,
-`run-close`; Protokoll: `start-log`, `log-empty`, `log-row-<n>`,
+`run-close`, `run-feed-starter`; Protokoll: `start-log`, `log-empty`, `log-row-<n>`,
 `log-bread`, `log-status`, `log-started`, `log-target`, `log-starter`,
 `log-equipment`, `log-temperatures`, `log-flour-<mehl>`, `log-hydration`,
 `log-sourdough`, `log-salt`, `log-addins`, `log-step-<n>`, `log-delete`.
@@ -695,7 +769,10 @@ Zeitplans und der kühle Ort. `TipsCatalogTests` hält Stunden und Spannen gegen
 `ScheduleRules`. Verlinkt von „So wird der Zeitplan berechnet“; eine
 Glühbirne im Zeitplan sitzt hinter der Raumtemperatur
 (`schedule-tip-temperature`). Die Seiten zum Starter
-sind eine: die Zustandsrechnung steht als Abschnitte in `starter.md`.
+sind zwei: die Zustandsrechnung steht als Abschnitte in `starter.md`;
+`starterCare` („Starter erhalten und pflegen“, Icon `StarterJarIcon`) erklärt,
+wie der Starter nach dem Backen erhalten bleibt (ein Teelöffel, die zwei Wege,
+Glas und Reinigung ohne Spülmittel, Kahmhefe und Schimmel).
 
 **Ein neues Thema** braucht drei Schritte: einen Fall in
 `TipsTopic.ID` (der Rohwert ist der Dateiname), die Datei `Tips/<id>.md` und

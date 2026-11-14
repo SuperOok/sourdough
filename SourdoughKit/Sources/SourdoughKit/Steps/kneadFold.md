@@ -1,5 +1,7 @@
 # Hauptteig kneten
 
+Hast du noch keinen Starter für das nächste Mal behalten, nimm jetzt einen Teelöffel vom reifen Sauerteig ab und stell ihn in einem sauberen Glas in den Kühlschrank. Mehr dazu unter [Starter erhalten](tip:starterCare).
+
 Gib den reifen Sauerteig mit diesen Zutaten in die Schüssel:
 
 - {mainFlour}

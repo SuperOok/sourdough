@@ -75,7 +75,7 @@ struct StartView: View {
                         path = [.run(run.id)]
                     }
                 case .run(let id):
-                    BakeRunView(store: runStore, id: id) { path = [] }
+                    BakeRunView(store: runStore, starterStore: starterStore, id: id) { path = [] }
                 case .log:
                     BakeLogView(store: runStore)
                 case .equipment: EquipmentOverviewView(store: store)

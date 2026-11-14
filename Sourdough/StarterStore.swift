@@ -25,6 +25,12 @@ final class StarterStore {
         save()
     }
 
+    /// The starter a bake was made with, if it still exists: the bake keeps a
+    /// copy, which has the id of the saved starter.
+    func starter(for run: BakeRun) -> Starter? {
+        run.starter.flatMap { starter($0.id) }
+    }
+
     /// Adds a feeding to the starter with that id; unknown ids are ignored.
     func feed(_ id: Starter.ID, with feeding: Feeding) {
         change(id) { $0.feedings.append(feeding) }

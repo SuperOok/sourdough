@@ -5,12 +5,15 @@ import SourdoughKit
 /// whole sequence with planned and actual times.
 struct BakeRunView: View {
     let store: BakeRunStore
+    let starterStore: StarterStore
     let id: BakeRun.ID
     /// Back to the start screen.
     let onClose: () -> Void
     @State private var confirmCancel = false
     /// The page of a `tip:` link in the instructions, shown as a sheet.
     @State private var linkedTip: TipsTopic.ID?
+    /// The feeding sheet of the bake's starter, opened from the step that takes the starter.
+    @State private var showFeed = false
 
     var body: some View {
         if let run = store.run(id) {
@@ -43,7 +46,7 @@ struct BakeRunView: View {
                 }
             }
             Section("Ablauf") {
-                ForEach(Array(BakeProcess.StepID.allCases.enumerated()), id: \.offset) { index, step in
+                ForEach(Array(run.steps.enumerated()), id: \.offset) { index, step in
                     stepRow(run, step)
                         .accessibilityElement(children: .combine)
                         .accessibilityIdentifier("run-step-\(index)")
@@ -61,6 +64,13 @@ struct BakeRunView: View {
         .toolbar { TipsButton(topic: .run) }
         .environment(\.openURL, OpenURLAction { TipsText.open($0) { linkedTip = $0 } })
         .sheet(item: $linkedTip) { TipsView(initial: $0) }
+        .sheet(isPresented: $showFeed) {
+            if let starter = starterStore.starter(for: run) {
+                FeedView(starterName: starter.name, previous: starter.lastFeeding) {
+                    starterStore.feed(starter.id, with: $0)
+                }
+            }
+        }
         .alert("Durchgang abbrechen?", isPresented: $confirmCancel) {
             Button("Abbrechen", role: .destructive) {
                 store.cancel(id, at: Date())
@@ -74,7 +84,7 @@ struct BakeRunView: View {
 
     @ViewBuilder
     private func currentSection(_ run: BakeRun, _ step: BakeProcess.StepID) -> some View {
-        let answers = BakeProcess.answers(step, setup: run.setup)
+        let answers = run.possibleAnswers(step)
         Section {
             Text("Geplant: \(ScheduleText.time(BakeProcess.plannedTime(step, in: run.schedule), calendar: run.calendar))")
                 .foregroundStyle(.secondary)
@@ -93,6 +103,15 @@ struct BakeRunView: View {
                     Button(BakeRunText.answer(answer)) { store.answer(id, answer, at: Date()) }
                         .accessibilityIdentifier("run-answer-\(answer.rawValue)")
                 }
+            }
+            if step == .mixSourdough, starterStore.starter(for: run) != nil {
+                Button {
+                    showFeed = true
+                } label: {
+                    Label("Fütterung eintragen", systemImage: "drop")
+                        .font(.subheadline)
+                }
+                .accessibilityIdentifier("run-feed-starter")
             }
             undoButton(run)
         } header: {

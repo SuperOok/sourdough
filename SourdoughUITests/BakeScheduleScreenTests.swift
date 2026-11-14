@@ -181,14 +181,19 @@ final class BakeScheduleScreenTests: SourdoughUITestCase {
         let room = any("schedule-room").frame
         let bulb = any("schedule-tip-temperature").frame
         // The other rows are one element each, label and box; the box is its
-        // right 96 points (the width of every number box).
+        // right 96 points (the width of every number box). The room field is
+        // an element of its own because of the lightbulb, and that element is
+        // the text inside the grey capsule (`inputBox`), which is inset by
+        // 12 points on each side: so it ends 12 points before the row and is
+        // 96 − 2 × 12 = 72 points wide, while its capsule lines up.
+        let inset = 12.0
         let fridge = any("schedule-fridge").frame
         let cool = any("schedule-cool").frame
-        XCTAssertEqual(room.maxX, fridge.maxX, accuracy: 1, "Die Raumtemperatur sitzt nicht bündig.")
-        XCTAssertEqual(room.maxX, cool.maxX, accuracy: 1)
-        XCTAssertEqual(room.width, 96, accuracy: 1)
+        XCTAssertEqual(room.maxX + inset, fridge.maxX, accuracy: 1, "Die Raumtemperatur sitzt nicht bündig.")
+        XCTAssertEqual(room.maxX + inset, cool.maxX, accuracy: 1)
+        XCTAssertEqual(room.width, 96 - 2 * inset, accuracy: 1)
         // The lightbulb is between the label and the box, inside the row.
-        XCTAssertLessThanOrEqual(bulb.maxX, room.minX)
+        XCTAssertLessThanOrEqual(bulb.maxX, room.minX - inset)
         XCTAssertGreaterThan(bulb.minX, fridge.minX)
         XCTAssertEqual(bulb.midY, room.midY, accuracy: 3)
     }
